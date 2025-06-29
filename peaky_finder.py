@@ -149,11 +149,13 @@ class PeakyFinder():
         interp = interp1d(x[filtered_bg_anchors], y[filtered_bg_anchors], bounds_error=False, fill_value=0)
         full_filtered_bg = np.clip(interp(x), 0, np.inf)
 
-        if plot:    
-            plt.figure(figsize=(35,5))
-            plt.plot(x, full_bg, color='k')
-            plt.plot(x, full_filtered_bg, color='r')
-            plt.show
+        if plot:
+            self.plot(
+                "background",
+                x=x,
+                full_bg=full_bg,
+                full_filtered_bg=full_filtered_bg,
+            )
 
         return full_filtered_bg
     
@@ -213,8 +215,12 @@ class PeakyFinder():
         pcov = np.linalg.inv(popt.jac.T.dot(popt.jac))
 
         if plot:
-            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, *popt))
-            plt.plot(x_autokernel, y_autokernel_norm)
+            self.plot(
+                "fourier",
+                x=x_autokernel,
+                fit=self.multi_voigt(x_autokernel, *popt),
+                y=y_autokernel_norm,
+            )
 
         return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, popt, pcov
     
@@ -513,51 +519,111 @@ class PeakyFinder():
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
 
         if plot:
-            plt.rcParams.update({'font.size': 14})
-            fig, axs = plt.subplots(3, 2, figsize=(30, 10), gridspec_kw={'width_ratios': [4, 1], 'height_ratios': [4, 1, 1]})
+            self.plot(
+                "spectrum",
+                x=x,
+                y=y,
+                y_bgsub=y_bgsub,
+                peak_indices=peak_indices,
+                profile=profile,
+                yj_data=yj_data,
+                residual_data=residual_data,
+                new_peak_indices=new_peak_indices,
+                bg=bg,
+            )
+
+        # return fig
+
+    def plot(self, kind, **kwargs):
+        """Central plotting utility for :class:`PeakyFinder`.
+
+        Parameters
+        ----------
+        kind : {"background", "fourier", "spectrum"}
+            Type of figure to produce.
+        **kwargs : dict
+            Data required for the selected plot.
+        """
+
+        if kind == "background":
+            x = kwargs.get("x")
+            full_bg = kwargs.get("full_bg")
+            full_filtered_bg = kwargs.get("full_filtered_bg")
+
+            plt.figure(figsize=(35, 5))
+            plt.plot(x, full_bg, color="k")
+            plt.plot(x, full_filtered_bg, color="r")
+            plt.show()
+
+        elif kind == "fourier":
+            x = kwargs.get("x")
+            fit = kwargs.get("fit")
+            y = kwargs.get("y")
+
+            plt.figure(figsize=(8, 5))
+            plt.plot(x, fit)
+            plt.plot(x, y)
+            plt.show()
+
+        elif kind == "spectrum":
+            x = kwargs.get("x")
+            y = kwargs.get("y")
+            y_bgsub = kwargs.get("y_bgsub")
+            peak_indices = kwargs.get("peak_indices")
+            profile = kwargs.get("profile")
+            yj_data = kwargs.get("yj_data")
+            residual_data = kwargs.get("residual_data")
+            new_peak_indices = kwargs.get("new_peak_indices")
+            bg = kwargs.get("bg")
+
+            plt.rcParams.update({"font.size": 14})
+            fig, axs = plt.subplots(
+                3,
+                2,
+                figsize=(30, 10),
+                gridspec_kw={"width_ratios": [4, 1], "height_ratios": [4, 1, 1]},
+            )
             axs1, axs2, axs3 = axs
             ax11, ax12 = axs1
             ax21, ax22 = axs2
             ax31, ax32 = axs3
 
             # ROW 1 - Background subtracted data
-            ax11.plot(x, y_bgsub, color='k', alpha=0.9)
-            ax11.scatter(x[peak_indices], y_bgsub[peak_indices], color='r', alpha=0.7)
-            ax11.plot(x, profile, color='r', lw=0.5)
-            ax11.fill_between(x, profile, np.zeros_like(x), color='r', alpha=0.5)
-            # ax11.set_xlim([300, 400])
-            # ax11.set_ylim([0, np.max(y_bgsub)])
-            ax11.tick_params(axis='x', which='minor', bottom=True)
-            ax11.set_xlabel('wavelength [nm]')
-            ax11.set_ylabel('intensity [counts]')
+            ax11.plot(x, y_bgsub, color="k", alpha=0.9)
+            ax11.scatter(x[peak_indices], y_bgsub[peak_indices], color="r", alpha=0.7)
+            ax11.plot(x, profile, color="r", lw=0.5)
+            ax11.fill_between(x, profile, np.zeros_like(x), color="r", alpha=0.5)
+            ax11.tick_params(axis="x", which="minor", bottom=True)
+            ax11.set_xlabel("wavelength [nm]")
+            ax11.set_ylabel("intensity [counts]")
 
-            ax12.hist(yj_data, bins = int(np.sqrt(len(y))), density=True, color='r', alpha=0.5)
-            ax12.set_xlabel(rf'(intensity + 1)$^{{{float(self.power_lambda):.2g}}}$ / {float(self.power_lambda):.2g}')
-            ax12.set_ylabel('prob. density')
-
+            ax12.hist(yj_data, bins=int(np.sqrt(len(y))), density=True, color="r", alpha=0.5)
+            ax12.set_xlabel(
+                rf"(intensity + 1)$^{{{float(self.power_lambda):.2g}}}$ / {float(self.power_lambda):.2g}"
+            )
+            ax12.set_ylabel("prob. density")
 
             # ROW 2 - Residual
             ax21.plot(x, residual_data, alpha=0.5)
-            ax21.scatter(x[new_peak_indices], residual_data[new_peak_indices], color='k', alpha=0.5)
-            ax21.set_xlabel('wavelength [nm]')
-            ax21.set_ylabel('residual [counts]')
-            # ax21.set_xlim([300, 400])
+            ax21.scatter(x[new_peak_indices], residual_data[new_peak_indices], color="k", alpha=0.5)
+            ax21.set_xlabel("wavelength [nm]")
+            ax21.set_ylabel("residual [counts]")
 
-            ax22.hist(residual_data, bins = int(np.sqrt(len(residual_data))), density=True, alpha=0.5)
-            ax22.set_xlabel('residual [counts]')
-            ax22.set_ylabel('prob. density')
-            
-            
+            ax22.hist(residual_data, bins=int(np.sqrt(len(residual_data))), density=True, alpha=0.5)
+            ax22.set_xlabel("residual [counts]")
+            ax22.set_ylabel("prob. density")
+
             # ROW 3 - Background
-            ax31.plot(x, bg, color='k', alpha=0.5)
-            ax31.set_xlabel('wavelength [nm]')
-            ax31.set_ylabel('background [counts]')
-            
-            ax32.hist(bg, bins = int(np.sqrt(len(bg))), density=True, color='k', alpha=0.5)
-            ax32.set_xlabel('background [counts]')
-            ax32.set_ylabel('prob. density')
+            ax31.plot(x, bg, color="k", alpha=0.5)
+            ax31.set_xlabel("wavelength [nm]")
+            ax31.set_ylabel("background [counts]")
+
+            ax32.hist(bg, bins=int(np.sqrt(len(bg))), density=True, color="k", alpha=0.5)
+            ax32.set_xlabel("background [counts]")
+            ax32.set_ylabel("prob. density")
 
             plt.tight_layout()
             plt.show()
 
-        # return fig
+        else:
+            raise ValueError(f"Unknown plot kind: {kind}")
