@@ -61,54 +61,49 @@ class PeakyFinder():
 
 # Find peaks and peak properties -----------------------------------------------------------------------------------------------------------------
     
-    def find_peaks(self, y, range=5):
-        """" calculate natural window size and peak indices for experimental spectrum """
-        # assumes `data` is a 1D array (no wavelength column)
-        dlen = len(y)
-        if dlen < range:
-            range = dlen # ensure range doesn't extend beyond data
-        
-        # search for local maxima
-        pad = range // 2
-        range_array = np.arange(-pad, pad + 1, 1)
-        y_pad = np.pad(y, (pad, pad))
-        data_roll = np.hstack([np.roll(y_pad[:, None], i, axis=0) for i in range_array])  # shift data 'pad' indices forward and backward
-        data_diff = y_pad[:, None] - data_roll[:, :]  # find differences with shifted data
-        data_lmax = data_diff[pad:-pad] > 0
-        data_lsum = np.sum(data_lmax, axis=1)
+    def find_peaks(self, y, window: int = 5):
+        """Return indices of local maxima and minima in ``y``.
 
-        # identify local maxima and minima by summing bools
-        lmax_ind = data_lsum == 4
-        lmin_ind = data_lsum == 0
-        
-        # find local max and minima
-        p_peaks  = np.flatnonzero(lmax_ind)
-        p_minima = np.flatnonzero(lmin_ind)
+        Parameters
+        ----------
+        y : array_like
+            1-D data array.
+        window : int, optional
+            Size of the comparison window. ``window`` is clipped to the length of
+            ``y``.
 
-        # remove false maxima
-        for i, p in enumerate(p_peaks):
-            while True:
-                start = max(p - pad, 0)
-                end = min(p + pad + 1, dlen)
-                d = y[start:end]
+        Returns
+        -------
+        tuple of ndarray
+            ``(peaks, minima)`` indices of peaks and minima respectively.
+        """
 
-                max_idx = np.argmax(d)
-                st = start + max_idx
+        y = np.asarray(y)
+        n = len(y)
+        window = int(max(1, min(window, n)))
+        half = window // 2
 
-                if st == p or y[st] <= y[p]:
-                    break 
+        offsets = np.arange(-half, half + 1)
+        padded = np.pad(y, half)
+        rolled = np.vstack([np.roll(padded, i) for i in offsets]).T[half:-half]
+        cmp = (y[:, None] > rolled)
 
-                p = st
-                p_peaks[i] = st
+        lsum = cmp.sum(axis=1)
+        peaks = np.flatnonzero(lsum == window - 1)
+        minima = np.flatnonzero(lsum == 0)
 
-        return p_peaks, p_minima
+        for i, p in enumerate(peaks):
+            s = slice(max(p - half, 0), min(p + half + 1, n))
+            peaks[i] = s.start + np.argmax(y[s])
+
+        return np.unique(peaks), minima
     
 
     def find_background(self, x, y, range=5, n_sigma=1, plot=False):
         """
         """
         # peak and minima indices
-        p_peaks, p_minima = self.find_peaks(y, range=range)
+        p_peaks, p_minima = self.find_peaks(y, window=range)
 
         # isolate peak and minima indices
         mindata, peakdata = np.zeros_like(y), np.zeros_like(y)
