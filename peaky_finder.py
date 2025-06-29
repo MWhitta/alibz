@@ -156,34 +156,27 @@ class PeakyFinder():
 
         # ------------------------------------------------------------------
         # Step 5: remove high outliers and re-interpolate
-        #         Iterate until no background points overshoot
         # ------------------------------------------------------------------
-        filtered_bg = rough_bg
-        overshoot = (y - filtered_bg) < 0
-        while np.any(overshoot):
-            nodes = (y - filtered_bg) == 0
-            overnodes = np.cumsum(overshoot.astype(int) + 2 * nodes.astype(int))
-            diffnodes = np.diff(overnodes) > 1
-            diffnodes = np.pad(diffnodes, (1, 0), mode='constant', constant_values=1)
-            diffnodes = diffnodes.astype(bool)
+        overshoot = (y - rough_bg) < 0
+        nodes = (y - rough_bg) == 0
+        overnodes = np.cumsum(overshoot.astype(int) + 2 * nodes.astype(int))
+        diffnodes = np.diff(overnodes) > 1
+        diffnodes = np.pad(diffnodes, (1, 0), mode='constant', constant_values=1)
+        diffnodes = diffnodes.astype(bool)
 
-            y_nodes = y[diffnodes]
-            keep_nodes = np.argmax(
-                np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1
-            ).astype(bool)
-            filtered_bg_anchors = np.arange(len(y))[nodes][keep_nodes]
+        y_nodes = y[diffnodes]
+        keep_nodes = np.argmax(
+            np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1
+        ).astype(bool)
+        filtered_bg_anchors = np.arange(len(y))[nodes][keep_nodes]
 
-            if len(filtered_bg_anchors) == 0:
-                break
-
-            interp = interp1d(
-                x[filtered_bg_anchors],
-                y[filtered_bg_anchors],
-                bounds_error=False,
-                fill_value=0,
-            )
-            filtered_bg = np.clip(interp(x), 0, np.inf)
-            overshoot = (y - filtered_bg) < 0
+        interp = interp1d(
+            x[filtered_bg_anchors],
+            y[filtered_bg_anchors],
+            bounds_error=False,
+            fill_value=0,
+        )
+        filtered_bg = np.clip(interp(x), 0, np.inf)
 
         if plot:
             plt.figure(figsize=(35, 5))
