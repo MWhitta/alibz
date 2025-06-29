@@ -228,10 +228,37 @@ class PeakyFinder():
         return peak_indices, minima, transformer
 
 
-    def fourier_peaks(self, y, n_sigma=0, plot=False, *kwargs):
-        """ """
+    def fourier_peaks(self, y, n_sigma: float = 0, plot: bool = False, *kwargs):
+        """Estimate Fourier-based peak parameters.
+
+        Parameters
+        ----------
+        y : array_like
+            Intensity values of the spectrum.
+        n_sigma : float, optional
+            Standard deviation multiplier used for initial peak filtering.
+        plot : bool, optional
+            If ``True`` plot diagnostic Fourier information.
+
+        Returns
+        -------
+        tuple
+            ``(peak_indices, transformer, minima, peak_limit, cep_maxs,
+            cep_mins, popt, pcov)``
+        """
+
+        # obtain peak candidates if they haven't been calculated
         if not hasattr(self, 'peak_indices'):
-            peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma, *kwargs)
+            peak_indices, p_minima, transformer = self.filter_peaks(
+                y, n_sigma=n_sigma, *kwargs
+            )
+            self.peak_indices = peak_indices
+            self.p_minima = p_minima
+            self.transformer = transformer
+        else:
+            peak_indices = self.peak_indices
+            p_minima = getattr(self, 'p_minima', np.array([]))
+            transformer = getattr(self, 'transformer', None)
 
         # cepstral analysis for peak filtering parameters
         y_fft = np.fft.fft(y)
@@ -254,14 +281,28 @@ class PeakyFinder():
         upper_bounds = [np.inf]*4
         bounds = ([0]*4, upper_bounds)
 
-        popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_autokernel, y_autokernel_norm, self.multi_voigt))
-        pcov = np.linalg.inv(popt.jac.T.dot(popt.jac))
+        result = least_squares(
+            self.residual,
+            x0=x0,
+            bounds=bounds,
+            args=(x_autokernel, y_autokernel_norm, self.multi_voigt),
+        )
+        pcov = np.linalg.inv(result.jac.T.dot(result.jac))
 
         if plot:
-            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, *popt))
+            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, result.x))
             plt.plot(x_autokernel, y_autokernel_norm)
 
-        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, popt, pcov
+        return (
+            peak_indices,
+            transformer,
+            p_minima,
+            peak_limit,
+            cep_maxs,
+            cep_mins,
+            result.x,
+            pcov,
+        )
     
 
     def peak_parameter_guess(self, data, idx):
