@@ -1,0 +1,13 @@
+#database files
+db/
+
+# macOS metadata
+.DS_Store
+
+# Python bytecode
+__pycache__/
+utils/__pycache__/
+
+# Jupyter notebooks (if you don’t want them tracked)
+peaky_analyzer.ipynb
+peaky_tester.ipynb
