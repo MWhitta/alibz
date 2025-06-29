@@ -187,29 +187,45 @@ class PeakyFinder():
         return filtered_bg
     
 
-    def filter_peaks(self, y, n_sigma=2):
-        """  """
-        p_peaks, p_minima = self.find_peaks(y)
+    def filter_peaks(self, y, n_sigma: float = 2):
+        """Detect and rank significant peaks.
 
-        # power transform data
+        Parameters
+        ----------
+        y : array_like
+            Intensity values of a spectrum.
+        n_sigma : float, optional
+            Number of standard deviations above the mean required for a peak to
+            be kept.
+
+        Returns
+        -------
+        tuple
+            ``(peak_indices, minima_indices, transformer)`` where ``peak_indices``
+            are sorted from highest to lowest intensity.
+        """
+
+        peaks, minima = self.find_peaks(y)
+
         transformer = PowerTransformer()
-        transformed_data = transformer.fit_transform(y.reshape(-1,1))[:,0]
-        transformed_data = np.clip(transformed_data, transformed_data[0], np.inf) # remove values very close to 0
-        
+        transformed = transformer.fit_transform(np.asarray(y).reshape(-1, 1))[:, 0]
+        transformed = np.clip(transformed, transformed[0], np.inf)
+
         self.power_lambda = transformer.lambdas_
-        self.transformed_data = transformed_data
+        self.transformed_data = transformed
 
-        # keep only the most prominent maxima
-        i_peaks = transformed_data[p_peaks]
-        i_peaks_mean = np.mean(i_peaks) # assumes exponential distribution of peak intensities
-        i_peaks_std = np.std(i_peaks)
-        v_peaks = i_peaks > (i_peaks_mean + n_sigma * i_peaks_std)
-        p_peaks = p_peaks[v_peaks]
+        if len(peaks) == 0:
+            return peaks, minima, transformer
 
-        p_sort = np.argsort(y[p_peaks])[::-1]    # sort by decreasing peak intensity
-        peak_indices = np.take_along_axis(p_peaks, p_sort, axis=0)
+        peak_intensities = transformed[peaks]
+        threshold = np.mean(peak_intensities) + n_sigma * np.std(peak_intensities)
+        valid = peak_intensities > threshold
+        filtered_peaks = peaks[valid]
 
-        return peak_indices, p_minima, transformer
+        order = np.argsort(y[filtered_peaks])[::-1]
+        peak_indices = np.take_along_axis(filtered_peaks, order, axis=0)
+
+        return peak_indices, minima, transformer
 
 
     def fourier_peaks(self, y, n_sigma=0, plot=False, *kwargs):
