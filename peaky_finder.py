@@ -100,57 +100,91 @@ class PeakyFinder():
     
 
     def find_background(self, x, y, range=5, n_sigma=1, plot=False):
+        """Estimate the background of a spectrum.
+
+        Parameters
+        ----------
+        x : array_like
+            X values of the spectrum.
+        y : array_like
+            Intensity values.
+        range : int, optional
+            Window size for peak searching.
+        n_sigma : float, optional
+            Sigma multiplier for filtering background anchors.
+        plot : bool, optional
+            If ``True`` plot the intermediate and final background.
+
+        Returns
+        -------
+        ndarray
+            Estimated background values.
         """
-        """
-        # peak and minima indices
+
+        # ------------------------------------------------------------------
+        # Step 1: locate peaks and minima
+        # ------------------------------------------------------------------
         p_peaks, p_minima = self.find_peaks(y, window=range)
 
-        # isolate peak and minima indices
-        mindata, peakdata = np.zeros_like(y), np.zeros_like(y)
-        mindata[p_minima] = y[p_minima]
-        peakdata[p_peaks] = y[p_peaks]
+        peak_values = np.zeros_like(y)
+        minima_values = np.zeros_like(y)
+        minima_values[p_minima] = y[p_minima]
+        peak_values[p_peaks] = y[p_peaks]
 
-        # Fourier transform
-        mindata_fft = np.fft.fft(mindata)
-        peakdata_fft = np.fft.fft(peakdata)
+        # ------------------------------------------------------------------
+        # Step 2: create a rough set of background anchors in frequency space
+        # ------------------------------------------------------------------
+        diff_extrema = np.fft.fft(peak_values) - np.fft.fft(minima_values)
+        extrema = np.abs(np.fft.ifft(diff_extrema))
+        anchors = np.nonzero(extrema > 1)[0]
+        anchors = anchors[~np.in1d(anchors, p_peaks)]
 
-        # Inverse Fourier transform the difference between peaks and minima
-        extrema = np.abs(np.fft.ifft(peakdata_fft - mindata_fft))
-        extrema_bool = extrema > 1
-        bgema   = np.nonzero(extrema_bool)[0]
-        bg_anchors = bgema[~np.in1d(bgema, p_peaks)]
-
-        # filter split peaks
-        cumint = cumulative_trapezoid(x[bg_anchors], y[bg_anchors], initial=0) # x and y reversed. works better
+        # ------------------------------------------------------------------
+        # Step 3: remove spurious anchors associated with split peaks
+        # ------------------------------------------------------------------
+        cumint = cumulative_trapezoid(x[anchors], y[anchors], initial=0)
         intdiff = np.diff(np.insert(cumint, 0, 0))
         intmean, intstd = np.mean(intdiff), np.std(intdiff)
-        intlier = np.abs(intdiff) > intmean + 2*n_sigma * intstd
-        bg_anchors = bg_anchors[~intlier]
+        valid = np.abs(intdiff) <= intmean + 2 * n_sigma * intstd
+        anchors = anchors[valid]
 
-        # 1d linear interpolation on background anchor points
-        interp = interp1d(x[bg_anchors], y[bg_anchors], bounds_error=False, fill_value=0)
-        full_bg = interp(x)
+        # ------------------------------------------------------------------
+        # Step 4: interpolate to obtain a first pass background
+        # ------------------------------------------------------------------
+        interp = interp1d(x[anchors], y[anchors], bounds_error=False, fill_value=0)
+        rough_bg = interp(x)
 
-        # filter highliers
-        overshoot = (y - full_bg) < 0
-        nodes = (y - full_bg) == 0
+        # ------------------------------------------------------------------
+        # Step 5: remove high outliers and re-interpolate
+        # ------------------------------------------------------------------
+        overshoot = (y - rough_bg) < 0
+        nodes = (y - rough_bg) == 0
         overnodes = np.cumsum(overshoot.astype(int) + 2 * nodes.astype(int))
         diffnodes = np.diff(overnodes) > 1
-        diffnodes = np.pad(diffnodes, (1,0), mode='constant', constant_values=1).astype(bool)
+        diffnodes = np.pad(diffnodes, (1, 0), mode='constant', constant_values=1)
+        diffnodes = diffnodes.astype(bool)
+
         y_nodes = y[diffnodes]
-        keep_nodes = np.argmax(np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1).astype(bool)
+        keep_nodes = np.argmax(
+            np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1
+        ).astype(bool)
         filtered_bg_anchors = np.arange(len(y))[nodes][keep_nodes]
-        
-        interp = interp1d(x[filtered_bg_anchors], y[filtered_bg_anchors], bounds_error=False, fill_value=0)
-        full_filtered_bg = np.clip(interp(x), 0, np.inf)
 
-        if plot:    
-            plt.figure(figsize=(35,5))
-            plt.plot(x, full_bg, color='k')
-            plt.plot(x, full_filtered_bg, color='r')
-            plt.show
+        interp = interp1d(
+            x[filtered_bg_anchors],
+            y[filtered_bg_anchors],
+            bounds_error=False,
+            fill_value=0,
+        )
+        filtered_bg = np.clip(interp(x), 0, np.inf)
 
-        return full_filtered_bg
+        if plot:
+            plt.figure(figsize=(35, 5))
+            plt.plot(x, rough_bg, color="k")
+            plt.plot(x, filtered_bg, color="r")
+            plt.show()
+
+        return filtered_bg
     
 
     def filter_peaks(self, y, n_sigma=2):
