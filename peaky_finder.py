@@ -228,40 +228,89 @@ class PeakyFinder():
         return peak_indices, minima, transformer
 
 
-    def fourier_peaks(self, y, n_sigma=0, plot=False, *kwargs):
-        """ """
-        if not hasattr(self, 'peak_indices'):
-            peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma, *kwargs)
+    def fourier_peaks(self, y, n_sigma=0, plot=False):
+        """Return peak information using Fourier and cepstral analysis.
 
-        # cepstral analysis for peak filtering parameters
-        y_fft = np.fft.fft(y)
-        y_fft_logamp = np.log(np.abs(y_fft))
-        y_cepstrum = np.abs(np.fft.ifft(y_fft_logamp))
-        y_logcepstrum = np.nan_to_num(np.log(y_cepstrum))
+        Parameters
+        ----------
+        y : array_like
+            Intensity values of a spectrum.
+        n_sigma : float, optional
+            Threshold used when calling :meth:`filter_peaks` if peak indices are
+            not already available.
+        plot : bool, optional
+            When ``True`` plot the autocorrelation fit used for determining
+            Fourier parameters.
 
-        peak_limit = np.argmax(y_logcepstrum < np.mean(y_logcepstrum), axis=0)
-        cep_maxs, cep_mins = self.find_peaks(y_logcepstrum[:peak_limit])
+        Returns
+        -------
+        tuple
+            ``(peak_indices, transformer, minima_indices, peak_limit, cep_maxs,``
+            ``cep_mins, popt, pcov)``. ``popt`` contains the optimal parameters
+            for the autocorrelation fit and ``pcov`` the associated covariance
+            matrix.
+        """
+
+        if not hasattr(self, "peak_indices"):
+            peak_indices, p_minima, transformer = self.filter_peaks(
+                y, n_sigma=n_sigma
+            )
+            self.peak_indices = peak_indices
+            self.p_minima = p_minima
+            self.transformer = transformer
+        else:
+            peak_indices = self.peak_indices
+            p_minima = getattr(self, "p_minima", np.array([], dtype=int))
+            transformer = getattr(self, "transformer", None)
+
+        # ------------------------------------------------------------------
+        # Cepstral analysis to determine relevant Fourier domain region
+        # ------------------------------------------------------------------
+        fft = np.fft.fft(y)
+        log_amp = np.log(np.abs(fft))
+        cepstrum = np.abs(np.fft.ifft(log_amp))
+        log_cepstrum = np.nan_to_num(np.log(cepstrum))
+
+        peak_limit = np.argmax(log_cepstrum < np.mean(log_cepstrum))
+        cep_maxs, cep_mins = self.find_peaks(log_cepstrum[:peak_limit])
 
         self.peak_limit = peak_limit
         self.cep_maxs = cep_maxs
         self.cep_mins = cep_mins
 
-        # power spectrum autocorrelation fitting
-        y_autokernel = np.log(np.real(np.fft.ifft(np.abs(y_fft)**2)))
-        y_autokernel_norm = y_autokernel[:peak_limit] - np.min(y_autokernel[peak_limit])
-        x_autokernel = np.arange(len(y_autokernel_norm))
-        x0 = (1, 0, cep_mins[0], cep_mins[0])
-        upper_bounds = [np.inf]*4
-        bounds = ([0]*4, upper_bounds)
+        # ------------------------------------------------------------------
+        # Autocorrelation fitting in Fourier space
+        # ------------------------------------------------------------------
+        autokernel = np.log(np.real(np.fft.ifft(np.abs(fft) ** 2)))
+        autokernel_norm = autokernel[:peak_limit] - np.min(autokernel[peak_limit])
+        x_autokernel = np.arange(len(autokernel_norm))
 
-        popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_autokernel, y_autokernel_norm, self.multi_voigt))
-        pcov = np.linalg.inv(popt.jac.T.dot(popt.jac))
+        x0 = (1, 0, cep_mins[0], cep_mins[0])
+        bounds = ([0] * 4, [np.inf] * 4)
+
+        result = least_squares(
+            self.residual,
+            x0=x0,
+            bounds=bounds,
+            args=(x_autokernel, autokernel_norm, self.multi_voigt),
+        )
+        params = result.x
+        pcov = np.linalg.inv(result.jac.T.dot(result.jac))
 
         if plot:
-            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, *popt))
-            plt.plot(x_autokernel, y_autokernel_norm)
+            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
+            plt.plot(x_autokernel, autokernel_norm)
 
-        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, popt, pcov
+        return (
+            peak_indices,
+            transformer,
+            p_minima,
+            peak_limit,
+            cep_maxs,
+            cep_mins,
+            params,
+            pcov,
+        )
     
 
     def peak_parameter_guess(self, data, idx):
