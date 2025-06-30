@@ -1,6 +1,3 @@
-import time
-from itertools import groupby
-from collections import defaultdict
 
 import numpy as np
 
@@ -301,7 +298,7 @@ class PeakyFinder():
             plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
             plt.plot(x_autokernel, autokernel_norm)
 
-        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, popt, pcov
+        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, params, pcov
     
 
     def peak_parameter_guess(self, data, idx):
@@ -541,13 +538,14 @@ class PeakyFinder():
             bg = self.find_background(x, y, *kwargs)
             y_bgsub = y - bg
         else:
-            y = y_bgsub
+            bg = np.zeros_like(y)
+            y_bgsub = y
 
         # find peaks and profile parameters
         peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
-        print(f'fourier peaks done')
+        print('fourier peaks done')
         peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot)
-        print(f'fit peaks done')
+        print('fit peaks done')
         
         # filter and sort fit parameters
         parameters = np.array(list(peak_dictionary.values()))
@@ -558,9 +556,9 @@ class PeakyFinder():
         residual_data = y_bgsub - profile
 
         peak_dictionary, new_peak_indices = self.fit_shoulders(x, y_bgsub, peak_indices, residual_data, peak_dictionary)
-        print(f'fit shoulders done')
+        print('fit shoulders done')
         peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
-        print(f'fit all done')
+        print('fit all done')
         
         spectrum_dictionary = dict({})
         inc = np.median(np.diff(x))
@@ -592,7 +590,7 @@ class PeakyFinder():
         self.spectrum_dictionary = spectrum_dictionary
         self.profile = profile
         self.residual_data = residual_data
-        self.backgound = bg
+        self.background = bg
         self.sorted_parameter_array = sorted_parameter_array
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
