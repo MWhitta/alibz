@@ -220,30 +220,54 @@ class PeakyFinder():
     
 
     def peak_parameter_guess(self, data, idx):
+        """Estimate basic peak parameters.
+
+        Parameters
+        ----------
+        data : ``array_like``
+            1-D array containing the spectrum intensities.
+        idx : ``int`` or ``array_like``
+            Index or indices of the peak positions within ``data``.
+
+        Returns
+        -------
+        tuple
+            ``(amplitude, fwhm, hwhm, right_edge, left_edge)``.  When ``idx`` is
+            an array each entry is returned as an array with matching shape.
         """
-        """
+
+        idx = np.atleast_1d(idx)
         full_max = data[idx]
         half_max = full_max / 2
-        d1 = data[idx:]
-        d2 = data[:idx]
-        
-        if np.any(d1 < half_max):
-            half_max_right = np.argmax(d1 < half_max, keepdims=True)[0]
-            nr = idx + np.argmax(d1 <= 0)
-        else:
-            half_max_right = 0
-            nr = 0
-        
-        if np.any(d2 < half_max):
-            half_max_left = np.argmax(d2 < half_max, keepdims=True)[0]
-            nl = idx - np.argmax(d2[::-1] <= 0)
-        else:
-            half_max_left = 0
-            nl = 0
 
-        fwhm = half_max_right + half_max_left
-        hwhm = fwhm / 2
-        
+        fwhm = np.zeros_like(full_max, dtype=float)
+        hwhm = np.zeros_like(full_max, dtype=float)
+        nr = np.zeros_like(full_max, dtype=int)
+        nl = np.zeros_like(full_max, dtype=int)
+
+        for i, p in enumerate(idx):
+            d1 = data[p:]
+            d2 = data[:p]
+
+            if np.any(d1 < half_max[i]):
+                half_max_right = np.argmax(d1 < half_max[i])
+                nr[i] = p + np.argmax(d1 <= 0)
+            else:
+                half_max_right = 0
+                nr[i] = 0
+
+            if np.any(d2 < half_max[i]):
+                half_max_left = np.argmax(d2 < half_max[i])
+                nl[i] = p - np.argmax(d2[::-1] <= 0)
+            else:
+                half_max_left = 0
+                nl[i] = 0
+
+            fwhm[i] = half_max_right + half_max_left
+            hwhm[i] = fwhm[i] / 2
+
+        if len(idx) == 1:
+            return full_max[0], fwhm[0], hwhm[0], nr[0], nl[0]
         return full_max, fwhm, hwhm, nr, nl
 
     
@@ -252,10 +276,7 @@ class PeakyFinder():
         # step size
         inc = np.median(np.diff(x))
 
-        fwhm_array = np.zeros_like(peak_indices)
-        for i, p in enumerate(peak_indices):
-            _, fwhm, *rest = self.peak_parameter_guess(y, p)
-            fwhm_array[i] = fwhm
+        _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
         median_fwhm = np.median(fwhm_array) * inc
         fwhm_limit =  5 * median_fwhm
 
@@ -352,8 +373,12 @@ class PeakyFinder():
         near_peak_indices = (peak_indices[:, None] + offsets).ravel()
         new_peak_indices = residual_peaks[~np.in1d(residual_peaks, near_peak_indices)]
 
-        for i, p in enumerate(new_peak_indices):
-            full_max, fwhm, hwhm, node_right, node_left = self.peak_parameter_guess(residuals, p)
+        if len(new_peak_indices) == 0:
+            return peak_dictionary, new_peak_indices
+
+        fm, fwhm_arr, hwhm_arr, nr_arr, nl_arr = self.peak_parameter_guess(residuals, new_peak_indices)
+
+        for p, full_max, fwhm, hwhm, node_right, node_left in zip(new_peak_indices, fm, fwhm_arr, hwhm_arr, nr_arr, nl_arr):
             x_window = x[node_left:node_right]
             y_window = y[node_left:node_right]
             
@@ -371,9 +396,10 @@ class PeakyFinder():
             
             # define initial parameter guesses
             x0 = np.zeros((window_shoulders_num, 4))
-            for i, pp in enumerate(window_shoulders):
-                full_max, fwhm, hwhm, *rest = self.peak_parameter_guess(y_window, pp)
-                x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
+            if window_shoulders_num:
+                fm_ws, fwhm_ws, hwhm_ws, _, _ = self.peak_parameter_guess(y_window, window_shoulders)
+                for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
+                    x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
                     
             x0 = np.ravel(x0) # flatten to pass to least squares fit
             upper_bounds[::4] = 5 * x0[::4]
@@ -406,10 +432,13 @@ class PeakyFinder():
         """
         inc = np.median(np.diff(x))
         idxs = np.sort(np.array(list(peak_dictionary.keys())))
-        
-        for idx in idxs:
+        if len(idxs) == 0:
+            return peak_dictionary
+
+        _, _, _, node_right_arr, node_left_arr = self.peak_parameter_guess(y, idxs)
+
+        for idx, node_right, node_left in zip(idxs, node_right_arr, node_left_arr):
             if idx > 0:
-                _, _, _, node_right, node_left = self.peak_parameter_guess(y, idx)
                 idx_left_range, idx_right_range = idx - node_left, node_right - idx
                 if idx_left_range > 50:
                     node_left = idx - 50
