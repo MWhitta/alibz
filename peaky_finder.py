@@ -1,6 +1,3 @@
-import time
-from itertools import groupby
-from collections import defaultdict
 
 import numpy as np
 
@@ -61,168 +58,247 @@ class PeakyFinder():
 
 # Find peaks and peak properties -----------------------------------------------------------------------------------------------------------------
     
-    def find_peaks(self, y, range=5):
-        """" calculate natural window size and peak indices for experimental spectrum """
-        # assumes `data` is a 1D array (no wavelength column)
-        dlen = len(y)
-        if dlen < range:
-            range = dlen # ensure range doesn't extend beyond data
-        
-        # search for local maxima
-        pad = range // 2
-        range_array = np.arange(-pad, pad + 1, 1)
-        y_pad = np.pad(y, (pad, pad))
-        data_roll = np.hstack([np.roll(y_pad[:, None], i, axis=0) for i in range_array])  # shift data 'pad' indices forward and backward
-        data_diff = y_pad[:, None] - data_roll[:, :]  # find differences with shifted data
-        data_lmax = data_diff[pad:-pad] > 0
-        data_lsum = np.sum(data_lmax, axis=1)
+    def find_peaks(self, y, window: int = 5):
+        """Return indices of local maxima and minima in ``y``.
 
-        # identify local maxima and minima by summing bools
-        lmax_ind = data_lsum == 4
-        lmin_ind = data_lsum == 0
-        
-        # find local max and minima
-        p_peaks  = np.flatnonzero(lmax_ind)
-        p_minima = np.flatnonzero(lmin_ind)
+        Parameters
+        ----------
+        y : array_like
+            1-D data array.
+        window : int, optional
+            Size of the comparison window. ``window`` is clipped to the length of
+            ``y``.
 
-        # remove false maxima
-        for i, p in enumerate(p_peaks):
-            while True:
-                start = max(p - pad, 0)
-                end = min(p + pad + 1, dlen)
-                d = y[start:end]
+        Returns
+        -------
+        tuple of ndarray
+            ``(peaks, minima)`` indices of peaks and minima respectively.
+        """
 
-                max_idx = np.argmax(d)
-                st = start + max_idx
+        y = np.asarray(y)
+        n = len(y)
+        window = int(max(1, min(window, n)))
+        half = window // 2
 
-                if st == p or y[st] <= y[p]:
-                    break 
+        offsets = np.arange(-half, half + 1)
+        padded = np.pad(y, half)
+        rolled = np.vstack([np.roll(padded, i) for i in offsets]).T[half:-half]
+        cmp = (y[:, None] > rolled)
 
-                p = st
-                p_peaks[i] = st
+        lsum = cmp.sum(axis=1)
+        peaks = np.flatnonzero(lsum == window - 1)
+        minima = np.flatnonzero(lsum == 0)
 
-        return p_peaks, p_minima
+        for i, p in enumerate(peaks):
+            s = slice(max(p - half, 0), min(p + half + 1, n))
+            peaks[i] = s.start + np.argmax(y[s])
+
+        return np.unique(peaks), minima
     
 
     def find_background(self, x, y, range=5, n_sigma=1, plot=False):
+        """Estimate the background of a spectrum.
+
+        Parameters
+        ----------
+        x : array_like
+            X values of the spectrum.
+        y : array_like
+            Intensity values.
+        range : int, optional
+            Window size for peak searching.
+        n_sigma : float, optional
+            Sigma multiplier for filtering background anchors.
+        plot : bool, optional
+            If ``True`` plot the intermediate and final background.
+
+        Returns
+        -------
+        ndarray
+            Estimated background values.
         """
-        """
-        # peak and minima indices
-        p_peaks, p_minima = self.find_peaks(y, range=range)
 
-        # isolate peak and minima indices
-        mindata, peakdata = np.zeros_like(y), np.zeros_like(y)
-        mindata[p_minima] = y[p_minima]
-        peakdata[p_peaks] = y[p_peaks]
+        # ------------------------------------------------------------------
+        # Step 1: locate peaks and minima
+        # ------------------------------------------------------------------
+        p_peaks, p_minima = self.find_peaks(y, window=range)
 
-        # Fourier transform
-        mindata_fft = np.fft.fft(mindata)
-        peakdata_fft = np.fft.fft(peakdata)
+        peak_values = np.zeros_like(y)
+        minima_values = np.zeros_like(y)
+        minima_values[p_minima] = y[p_minima]
+        peak_values[p_peaks] = y[p_peaks]
 
-        # Inverse Fourier transform the difference between peaks and minima
-        extrema = np.abs(np.fft.ifft(peakdata_fft - mindata_fft))
-        extrema_bool = extrema > 1
-        bgema   = np.nonzero(extrema_bool)[0]
-        bg_anchors = bgema[~np.in1d(bgema, p_peaks)]
+        # ------------------------------------------------------------------
+        # Step 2: create a rough set of background anchors in frequency space
+        # ------------------------------------------------------------------
+        diff_extrema = np.fft.fft(peak_values) - np.fft.fft(minima_values)
+        extrema = np.abs(np.fft.ifft(diff_extrema))
+        anchors = np.nonzero(extrema > 1)[0]
+        anchors = anchors[~np.in1d(anchors, p_peaks)]
 
-        # filter split peaks
-        cumint = cumulative_trapezoid(x[bg_anchors], y[bg_anchors], initial=0) # x and y reversed. works better
+        # ------------------------------------------------------------------
+        # Step 3: remove spurious anchors associated with split peaks
+        # ------------------------------------------------------------------
+        cumint = cumulative_trapezoid(x[anchors], y[anchors], initial=0)
         intdiff = np.diff(np.insert(cumint, 0, 0))
         intmean, intstd = np.mean(intdiff), np.std(intdiff)
-        intlier = np.abs(intdiff) > intmean + 2*n_sigma * intstd
-        bg_anchors = bg_anchors[~intlier]
+        valid = np.abs(intdiff) <= intmean + 2 * n_sigma * intstd
+        anchors = anchors[valid]
 
-        # 1d linear interpolation on background anchor points
-        interp = interp1d(x[bg_anchors], y[bg_anchors], bounds_error=False, fill_value=0)
-        full_bg = interp(x)
+        # ------------------------------------------------------------------
+        # Step 4: interpolate to obtain a first pass background
+        # ------------------------------------------------------------------
+        interp = interp1d(x[anchors], y[anchors], bounds_error=False, fill_value=0)
+        rough_bg = interp(x)
 
-        # filter highliers
-        overshoot = (y - full_bg) < 0
-        nodes = (y - full_bg) == 0
+        # ------------------------------------------------------------------
+        # Step 5: remove high outliers and re-interpolate
+        # ------------------------------------------------------------------
+        overshoot = (y - rough_bg) < 0
+        nodes = (y - rough_bg) == 0
         overnodes = np.cumsum(overshoot.astype(int) + 2 * nodes.astype(int))
         diffnodes = np.diff(overnodes) > 1
-        diffnodes = np.pad(diffnodes, (1,0), mode='constant', constant_values=1).astype(bool)
+        diffnodes = np.pad(diffnodes, (1, 0), mode='constant', constant_values=1)
+        diffnodes = diffnodes.astype(bool)
+
         y_nodes = y[diffnodes]
-        keep_nodes = np.argmax(np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1).astype(bool)
+        keep_nodes = np.argmax(
+            np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1
+        ).astype(bool)
         filtered_bg_anchors = np.arange(len(y))[nodes][keep_nodes]
-        
-        interp = interp1d(x[filtered_bg_anchors], y[filtered_bg_anchors], bounds_error=False, fill_value=0)
-        full_filtered_bg = np.clip(interp(x), 0, np.inf)
+
+        interp = interp1d(
+            x[filtered_bg_anchors],
+            y[filtered_bg_anchors],
+            bounds_error=False,
+            fill_value=0,
+        )
+        filtered_bg = np.clip(interp(x), 0, np.inf)
 
         if plot:
-            self.plot(
-                "background",
-                x=x,
-                full_bg=full_bg,
-                full_filtered_bg=full_filtered_bg,
-            )
+            plt.figure(figsize=(35, 5))
+            plt.plot(x, rough_bg, color="k")
+            plt.plot(x, filtered_bg, color="r")
+            plt.show()
 
-        return full_filtered_bg
+        return filtered_bg
     
 
-    def filter_peaks(self, y, n_sigma=2):
-        """  """
-        p_peaks, p_minima = self.find_peaks(y)
+    def filter_peaks(self, y, n_sigma: float = 2):
+        """Detect and rank significant peaks.
 
-        # power transform data
+        Parameters
+        ----------
+        y : array_like
+            Intensity values of a spectrum.
+        n_sigma : float, optional
+            Number of standard deviations above the mean required for a peak to
+            be kept.
+
+        Returns
+        -------
+        tuple
+            ``(peak_indices, minima_indices, transformer)`` where ``peak_indices``
+            are sorted from highest to lowest intensity.
+        """
+
+        peaks, minima = self.find_peaks(y)
+
         transformer = PowerTransformer()
-        transformed_data = transformer.fit_transform(y.reshape(-1,1))[:,0]
-        transformed_data = np.clip(transformed_data, transformed_data[0], np.inf) # remove values very close to 0
-        
+        transformed = transformer.fit_transform(np.asarray(y).reshape(-1, 1))[:, 0]
+        transformed = np.clip(transformed, transformed[0], np.inf)
+
         self.power_lambda = transformer.lambdas_
-        self.transformed_data = transformed_data
+        self.transformed_data = transformed
 
-        # keep only the most prominent maxima
-        i_peaks = transformed_data[p_peaks]
-        i_peaks_mean = np.mean(i_peaks) # assumes exponential distribution of peak intensities
-        i_peaks_std = np.std(i_peaks)
-        v_peaks = i_peaks > (i_peaks_mean + n_sigma * i_peaks_std)
-        p_peaks = p_peaks[v_peaks]
+        if len(peaks) == 0:
+            return peaks, minima, transformer
 
-        p_sort = np.argsort(y[p_peaks])[::-1]    # sort by decreasing peak intensity
-        peak_indices = np.take_along_axis(p_peaks, p_sort, axis=0)
+        peak_intensities = transformed[peaks]
+        threshold = np.mean(peak_intensities) + n_sigma * np.std(peak_intensities)
+        valid = peak_intensities > threshold
+        filtered_peaks = peaks[valid]
 
-        return peak_indices, p_minima, transformer
+        order = np.argsort(y[filtered_peaks])[::-1]
+        peak_indices = np.take_along_axis(filtered_peaks, order, axis=0)
+
+        return peak_indices, minima, transformer
 
 
-    def fourier_peaks(self, y, n_sigma=0, plot=False, *kwargs):
-        """ """
-        if not hasattr(self, 'peak_indices'):
-            peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma, *kwargs)
+    def fourier_peaks(self, y, n_sigma=0, plot=False):
+        """Return peak information using Fourier and cepstral analysis.
 
-        # cepstral analysis for peak filtering parameters
-        y_fft = np.fft.fft(y)
-        y_fft_logamp = np.log(np.abs(y_fft))
-        y_cepstrum = np.abs(np.fft.ifft(y_fft_logamp))
-        y_logcepstrum = np.nan_to_num(np.log(y_cepstrum))
+        Parameters
+        ----------
+        y : array_like
+            Intensity values of a spectrum.
+        n_sigma : float, optional
+            Threshold used when calling :meth:`filter_peaks` if peak indices are
+            not already available.
+        plot : bool, optional
+            When ``True`` plot the autocorrelation fit used for determining
+            Fourier parameters.
 
-        peak_limit = np.argmax(y_logcepstrum < np.mean(y_logcepstrum), axis=0)
-        cep_maxs, cep_mins = self.find_peaks(y_logcepstrum[:peak_limit])
+        Returns
+        -------
+        tuple
+            ``(peak_indices, transformer, minima_indices, peak_limit, cep_maxs,``
+            ``cep_mins, popt, pcov)``. ``popt`` contains the optimal parameters
+            for the autocorrelation fit and ``pcov`` the associated covariance
+            matrix.
+        """
+
+        if not hasattr(self, "peak_indices"):
+            peak_indices, p_minima, transformer = self.filter_peaks(
+                y, n_sigma=n_sigma
+            )
+            self.peak_indices = peak_indices
+            self.p_minima = p_minima
+            self.transformer = transformer
+        else:
+            peak_indices = self.peak_indices
+            p_minima = getattr(self, "p_minima", np.array([], dtype=int))
+            transformer = getattr(self, "transformer", None)
+
+        # ------------------------------------------------------------------
+        # Cepstral analysis to determine relevant Fourier domain region
+        # ------------------------------------------------------------------
+        fft = np.fft.fft(y)
+        log_amp = np.log(np.abs(fft))
+        cepstrum = np.abs(np.fft.ifft(log_amp))
+        log_cepstrum = np.nan_to_num(np.log(cepstrum))
+
+        peak_limit = np.argmax(log_cepstrum < np.mean(log_cepstrum))
+        cep_maxs, cep_mins = self.find_peaks(log_cepstrum[:peak_limit])
 
         self.peak_limit = peak_limit
         self.cep_maxs = cep_maxs
         self.cep_mins = cep_mins
 
-        # power spectrum autocorrelation fitting
-        y_autokernel = np.log(np.real(np.fft.ifft(np.abs(y_fft)**2)))
-        y_autokernel_norm = y_autokernel[:peak_limit] - np.min(y_autokernel[peak_limit])
-        x_autokernel = np.arange(len(y_autokernel_norm))
-        x0 = (1, 0, cep_mins[0], cep_mins[0])
-        upper_bounds = [np.inf]*4
-        bounds = ([0]*4, upper_bounds)
+        # ------------------------------------------------------------------
+        # Autocorrelation fitting in Fourier space
+        # ------------------------------------------------------------------
+        autokernel = np.log(np.real(np.fft.ifft(np.abs(fft) ** 2)))
+        autokernel_norm = autokernel[:peak_limit] - np.min(autokernel[peak_limit])
+        x_autokernel = np.arange(len(autokernel_norm))
 
-        popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_autokernel, y_autokernel_norm, self.multi_voigt))
-        pcov = np.linalg.inv(popt.jac.T.dot(popt.jac))
+        x0 = (1, 0, cep_mins[0], cep_mins[0])
+        bounds = ([0] * 4, [np.inf] * 4)
+
+        result = least_squares(
+            self.residual,
+            x0=x0,
+            bounds=bounds,
+            args=(x_autokernel, autokernel_norm, self.multi_voigt),
+        )
+        params = result.x
+        pcov = np.linalg.inv(result.jac.T.dot(result.jac))
 
         if plot:
-            self.plot(
-                "fourier",
-                x=x_autokernel,
-                fit=self.multi_voigt(x_autokernel, *popt),
-                y=y_autokernel_norm,
-            )
+            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
+            plt.plot(x_autokernel, autokernel_norm)
 
-        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, popt, pcov
+        return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, params, pcov
     
 
     def peak_parameter_guess(self, data, idx):
@@ -491,13 +567,14 @@ class PeakyFinder():
             bg = self.find_background(x, y, *kwargs)
             y_bgsub = y - bg
         else:
-            y = y_bgsub
+            bg = np.zeros_like(y)
+            y_bgsub = y
 
         # find peaks and profile parameters
         peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
-        print(f'fourier peaks done')
+        print('fourier peaks done')
         peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot)
-        print(f'fit peaks done')
+        print('fit peaks done')
         
         # filter and sort fit parameters
         parameters = np.array(list(peak_dictionary.values()))
@@ -508,9 +585,9 @@ class PeakyFinder():
         residual_data = y_bgsub - profile
 
         peak_dictionary, new_peak_indices = self.fit_shoulders(x, y_bgsub, peak_indices, residual_data, peak_dictionary)
-        print(f'fit shoulders done')
+        print('fit shoulders done')
         peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
-        print(f'fit all done')
+        print('fit all done')
         
         spectrum_dictionary = dict({})
         inc = np.median(np.diff(x))
@@ -542,7 +619,7 @@ class PeakyFinder():
         self.spectrum_dictionary = spectrum_dictionary
         self.profile = profile
         self.residual_data = residual_data
-        self.backgound = bg
+        self.background = bg
         self.sorted_parameter_array = sorted_parameter_array
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
