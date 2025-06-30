@@ -480,6 +480,15 @@ class PeakyFinder():
             x0 = np.zeros((window_shoulders_num, 4))
             if window_shoulders_num:
                 fm_ws, fwhm_ws, hwhm_ws, _, _ = self.peak_parameter_guess(y_window, window_shoulders)
+
+                # ``peak_parameter_guess`` returns scalars when the input consists
+                # of a single index.  Convert these values to 1-D arrays so that
+                # they can be iterated over uniformly in the loop below.
+                if window_shoulders_num == 1:
+                    fm_ws = np.array([fm_ws])
+                    fwhm_ws = np.array([fwhm_ws])
+                    hwhm_ws = np.array([hwhm_ws])
+
                 for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
                     x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
                     
