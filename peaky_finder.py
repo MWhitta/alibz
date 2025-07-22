@@ -391,7 +391,7 @@ class PeakyFinder():
         return full_max, fwhm, hwhm, nr, nl
 
     
-    def fit_peaks(self, x, y, peak_indices, peak_dictionary=dict({}), plot=False):
+    def fit_peaks(self, x, y, peak_indices, plot=False):
         """Fit Voigt profiles to detected peaks.
 
         Parameters
@@ -418,6 +418,8 @@ class PeakyFinder():
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
         median_fwhm = np.median(fwhm_array) * inc
         fwhm_limit =  5 * median_fwhm
+
+        peak_dictionary = {}
 
         # loop over peaks to fit individually
         for i, p in enumerate(peak_indices):
@@ -627,13 +629,9 @@ class PeakyFinder():
                 refit_peak_num = len(known_peaks_inrange)
                 
                 x0 = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
-                # x0[2::4] = np.min([x0[2::4], (fwhm_limit/5)*np.ones_like(x0[2::4])], axis=0)
-                # x0[3::4] = np.min([x0[3::4], (fwhm_limit/5)*np.ones_like(x0[3::4])], axis=0)
                 lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
 
                 lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
-                # upper_bounds[2::4] = fwhm_limit * np.ones_like(upper_bounds[2::4])
-                # upper_bounds[3::4] = fwhm_limit * np.ones_like(upper_bounds[3::4])
                 bounds = (lower_bounds, upper_bounds)
 
                 try:
@@ -749,6 +747,53 @@ class PeakyFinder():
                 bg=bg,
                 power_lambda=power_lambda,
             )
+
+        return fit_dict
+    
+
+    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=False, *kwargs):
+        """Fit a LIBS spectrum using the :meth:`fit_spectrum` method with data loaded from a :class:`~utils.dataloader.Data` object.
+
+        Parameters
+        ----------
+        s : slice or int
+            Slice or index of the spectrum to fit from the loaded data.
+        n_sigma : float, optional
+            Number of standard deviations above the mean required for a peak to
+            be kept.
+        subtract_background : bool, optional
+            If ``True``, subtract the background from the spectrum before fitting.
+        plot : bool, optional
+            If ``True``, plot the intermediate and final results.
+        *kwargs : dict
+            Additional keyword arguments to pass to the background subtraction or
+            fitting methods.
+        """
+        if self.data.data is None:
+            data = self.data.load_data()
+        else:
+            data = self.data.data
+
+        data = data[s]
+
+        if isinstance(s, int):
+            x = data[0]
+            y = data[1]
+            fit_dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+            
+        elif isinstance(s, slice):
+            data_length = len(data)
+            if data_length == 0:
+                raise ValueError("No data available for the specified slice.")
+            else:
+                fit_dict = {}
+                for d in range(data_length):
+                    x = data[0]
+                    y = data[1]
+                    dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+                    fit_dict['spectrum_' + str(d)] = dict
+
+            self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
 
         return fit_dict
     
