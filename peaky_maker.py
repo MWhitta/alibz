@@ -52,7 +52,7 @@ class PeakyMaker():
                     time_f=100, 
                     t_step=1,
                     verbose=False):
-        """peak_maker generates multi-element LIBS spectra
+        """ peak_maker generates multi-element LIBS spectra
             args:
                 fracs (str) - element symbol for which spectrum will be generated
             kwargs:

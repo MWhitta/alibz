@@ -393,6 +393,7 @@ class PeakyFinder():
 
     
     def fit_peaks(self, x, y, peak_indices, peak_dictionary=dict({}), plot=False):
+<<<<<<< HEAD
         """Fit Voigt profiles to detected peaks.
 
         Parameters
@@ -412,6 +413,9 @@ class PeakyFinder():
         -------
         dict
             Updated dictionary of fitted peak parameters.
+=======
+        """  
+>>>>>>> 5a37388 (harmonizing documentation)
         """
         # step size
         inc = np.median(np.diff(x))
@@ -751,6 +755,7 @@ class PeakyFinder():
             )
 
         return fit_dict
+    
 
     def plot(self, kind, **kwargs):
         """Central plotting utility for :class:`PeakyFinder`.

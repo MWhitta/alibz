@@ -35,7 +35,7 @@ class PeakyIndexer():
         self.maker = PeakyMaker(dbpath)
         self.db = Database(dbpath)
 
-        # Constant Values
+        # Physical Constants
         self.k = 8.617333262 * 10 ** -5 # Boltzmann constant (eV/K)
         self.h = 4.135667696 * 10 ** -15 # Plank constant eV s
         self.c = 2.99792458 * 10**8 # Speed of light in a vacuum (m/s)
