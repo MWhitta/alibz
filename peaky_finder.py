@@ -733,6 +733,7 @@ class PeakyFinder():
                     'sorted_parameter_array': sorted_parameter_array}
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
+        power_lambda = transformer.lambdas_
 
         if plot:
             self.plot(
@@ -746,6 +747,7 @@ class PeakyFinder():
                 residual_data=residual_data,
                 new_peak_indices=new_peak_indices,
                 bg=bg,
+                power_lambda=power_lambda,
             )
 
         return fit_dict
@@ -759,7 +761,9 @@ class PeakyFinder():
         kind : {"background", "fourier", "spectrum"}
             Type of figure to produce.
         **kwargs : dict
-            Data required for the selected plot.
+            Data required for the selected plot. When ``kind`` is ``"spectrum"``
+            ``power_lambda`` should be provided to label the transformed
+            intensity histogram.
         """
 
         if kind == "background":
@@ -792,6 +796,7 @@ class PeakyFinder():
             residual_data = kwargs.get("residual_data")
             new_peak_indices = kwargs.get("new_peak_indices")
             bg = kwargs.get("bg")
+            power_lambda = kwargs.get("power_lambda")
 
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
@@ -815,9 +820,12 @@ class PeakyFinder():
             ax11.set_ylabel("intensity [counts]")
 
             ax12.hist(yj_data, bins=int(np.sqrt(len(y))), density=True, color="r", alpha=0.5)
-            ax12.set_xlabel(
-                rf"(intensity + 1)$^{{{float(power_lambda):.2g}}}$ / {float(power_lambda):.2g}"
-            )
+            if power_lambda is not None:
+                ax12.set_xlabel(
+                    rf"(intensity + 1)$^{{{float(power_lambda):.2g}}}$ / {float(power_lambda):.2g}"
+                )
+            else:
+                ax12.set_xlabel("transformed intensity")
             ax12.set_ylabel("prob. density")
 
             # ROW 2 - Residual
