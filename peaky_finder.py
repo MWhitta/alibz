@@ -14,25 +14,46 @@ from utils.dataloader import Data
 
 
 class PeakyFinder():
-    """ PeakyFinder is a python class that contains tools for indexing and classifying laser plasma spectroscopy data.
-    Args:
-        data_dir (str literal): Path to the data directory upon which the `PeakyFinder` class loads data.
-    Attributes:
-        data (object):
-    Methods:
+    """Utilities for indexing and classifying laser plasma spectra.
+
+    Parameters
+    ----------
+    data_dir : str
+        Path to the data directory used when loading data.
+
+    Attributes
+    ----------
+    data : :class:`~utils.dataloader.Data`
+        Loaded data object.
     """
 
     def __init__(self, data_dir) -> None:
+        """Initialize the finder and load data.
+
+        Parameters
+        ----------
+        data_dir : str
+            Path to the directory containing the data.
+        """
         self.data_dir = data_dir
         self.data = Data(data_dir)
 
 
     def multi_voigt(self, x, params):
-        """
-        Vectorized multi-Voigt summation.
-        :param x:      1D array of x-values.
-        :param params: 1D array of parameters of length 4*n, with [amp, mu, sigma, gamma] repeated n times.
-        :return:       1D array of the summed Voigt profiles at each x.
+        """Vectorized multi-Voigt summation.
+
+        Parameters
+        ----------
+        x : array_like
+            1-D array of x-values.
+        params : array_like
+            1-D array of parameters of length ``4*n`` with
+            ``[amp, mu, sigma, gamma]`` repeated ``n`` times.
+
+        Returns
+        -------
+        ndarray
+            Summed Voigt profile evaluated at ``x``.
         """
         param_array = params.reshape(-1, 4)
         amps   = param_array[:, 0]
@@ -46,13 +67,43 @@ class PeakyFinder():
     
 
     def voigt_width(self, sigma, gamma):
-        """ Width of a Voigt profile to within ~1%
+        """Return the approximate FWHM of a Voigt profile.
+
+        Parameters
+        ----------
+        sigma : float
+            Gaussian component width.
+        gamma : float
+            Lorentzian component width.
+
+        Returns
+        -------
+        float
+            Approximate full width at half maximum.
         """
         f = 0.5346 * 2 * gamma + np.sqrt(0.2166 * 4 * gamma + 8 * sigma**2 * np.log(2))
         return f
 
 
     def residual(self, params, x, y, func):
+        """Compute the residual between data and a model function.
+
+        Parameters
+        ----------
+        params : array_like
+            Model parameters.
+        x : array_like
+            Independent variable.
+        y : array_like
+            Observed values.
+        func : callable
+            Model function returning ``y`` for ``x`` and ``params``.
+
+        Returns
+        -------
+        ndarray
+            Difference ``y - func(x, params)``.
+        """
         return y - func(x, params)
 
 
@@ -342,7 +393,26 @@ class PeakyFinder():
 
     
     def fit_peaks(self, x, y, peak_indices, peak_dictionary=dict({}), plot=False):
-        """  """
+        """Fit Voigt profiles to detected peaks.
+
+        Parameters
+        ----------
+        x : array_like
+            Wavelength axis.
+        y : array_like
+            Intensity values.
+        peak_indices : array_like
+            Indices of peaks to fit.
+        peak_dictionary : dict, optional
+            Initial peak parameters keyed by index.
+        plot : bool, optional
+            When ``True`` plot intermediate fits.
+
+        Returns
+        -------
+        dict
+            Updated dictionary of fitted peak parameters.
+        """
         # step size
         inc = np.median(np.diff(x))
 
@@ -421,15 +491,28 @@ class PeakyFinder():
     
 
     def fit_shoulders(self, x, y, peak_indices, residuals, peak_dictionary, rng=5):
-        """ Fit peak shoulders by fitting peaks to the residuals
-        :param x: x-values of the spectrum
-        :param y: y-values of the spectrum
-        :param peak_indices: indices of the peaks
-        :param residuals: residuals of the spectrum
-        :param peak_dictionary: dictionary of peak parameters
-        :param rng: range of the window to search for new peaks
-        
-        :return: updated peak dictionary and new peak indices
+        """Fit peak shoulders by modelling the residuals.
+
+        Parameters
+        ----------
+        x : array_like
+            x-values of the spectrum.
+        y : array_like
+            y-values of the spectrum.
+        peak_indices : array_like
+            Indices of previously fitted peaks.
+        residuals : array_like
+            Residual spectrum from initial fits.
+        peak_dictionary : dict
+            Dictionary of peak parameters.
+        rng : int, optional
+            Search window used when locating new peaks.
+
+        Returns
+        -------
+        tuple
+            ``(peak_dictionary, new_peak_indices)`` with updated parameters and
+            indices of newly fitted peaks.
         """
         
         inc = np.median(np.diff(x))
@@ -507,7 +590,23 @@ class PeakyFinder():
     
 
     def fit_all(self, x, y, peak_dictionary, plot=True):
-        """
+        """Refine all peak parameters simultaneously.
+
+        Parameters
+        ----------
+        x : array_like
+            Wavelength values.
+        y : array_like
+            Intensity values.
+        peak_dictionary : dict
+            Initial peak parameters keyed by index.
+        plot : bool, optional
+            When ``True`` display diagnostic plots.
+
+        Returns
+        -------
+        dict
+            Updated peak parameters after the global fit.
         """
         inc = np.median(np.diff(x))
         idxs = np.sort(np.array(list(peak_dictionary.keys())))
