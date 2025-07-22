@@ -624,12 +624,12 @@ class PeakyFinder():
         p_sort = np.argsort(parameters[:, 0])
         sorted_parameter_array = parameters[p_sort][::-1] # descending order
 
-        self.peak_dictionary = peak_dictionary
-        self.spectrum_dictionary = spectrum_dictionary
-        self.profile = profile
-        self.residual_data = residual_data
-        self.background = bg
-        self.sorted_parameter_array = sorted_parameter_array
+        fit_dict = {'peak_dictionary': peak_dictionary,
+                    'spectrum_dictionary': spectrum_dictionary,
+                    'profile': profile,
+                    'residual_data': residual_data,
+                    'background': bg,
+                    'sorted_parameter_array': sorted_parameter_array}
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
 
@@ -647,7 +647,6 @@ class PeakyFinder():
                 bg=bg,
             )
 
-        # return fig
 
     def plot(self, kind, **kwargs):
         """Central plotting utility for :class:`PeakyFinder`.
