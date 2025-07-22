@@ -259,8 +259,7 @@ class PeakyFinder():
         transformed = transformer.fit_transform(np.asarray(y).reshape(-1, 1))[:, 0]
         transformed = np.clip(transformed, transformed[0], np.inf)
 
-        self.power_lambda = transformer.lambdas_
-        self.transformed_data = transformed
+        power_lambda = transformer.lambdas_
 
         if len(peaks) == 0:
             return peaks, minima, transformer
@@ -472,7 +471,6 @@ class PeakyFinder():
                         popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')            
 
                         if window_peak_num > 1:
-                            # print(f'guess: fit: {np.array([x0, popt.x]).T}')
                             popt = np.reshape(popt.x, (window_peak_num, 4))
                             for k, v in zip(window_peaks, popt):
                                 key = k + node_left
@@ -818,7 +816,7 @@ class PeakyFinder():
 
             ax12.hist(yj_data, bins=int(np.sqrt(len(y))), density=True, color="r", alpha=0.5)
             ax12.set_xlabel(
-                rf"(intensity + 1)$^{{{float(self.power_lambda):.2g}}}$ / {float(self.power_lambda):.2g}"
+                rf"(intensity + 1)$^{{{float(power_lambda):.2g}}}$ / {float(power_lambda):.2g}"
             )
             ax12.set_ylabel("prob. density")
 
