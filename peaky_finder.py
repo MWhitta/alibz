@@ -248,18 +248,8 @@ class PeakyFinder():
             matrix.
         """
 
-        if not hasattr(self, "peak_indices"):
-            peak_indices, p_minima, transformer = self.filter_peaks(
-                y, n_sigma=n_sigma
-            )
-            self.peak_indices = peak_indices
-            self.p_minima = p_minima
-            self.transformer = transformer
-        else:
-            peak_indices = self.peak_indices
-            p_minima = getattr(self, "p_minima", np.array([], dtype=int))
-            transformer = getattr(self, "transformer", None)
-
+        peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma)
+        
         # ------------------------------------------------------------------
         # Cepstral analysis to determine relevant Fourier domain region
         # ------------------------------------------------------------------
@@ -271,9 +261,7 @@ class PeakyFinder():
         peak_limit = np.argmax(log_cepstrum < np.mean(log_cepstrum))
         cep_maxs, cep_mins = self.find_peaks(log_cepstrum[:peak_limit])
 
-        self.peak_limit = peak_limit
-        self.cep_maxs = cep_maxs
-        self.cep_mins = cep_mins
+        peak_limit = peak_limit
 
         # ------------------------------------------------------------------
         # Autocorrelation fitting in Fourier space
@@ -570,7 +558,23 @@ class PeakyFinder():
 
 
     def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, *kwargs):
-        """
+        """ Fit a LIBS spectrum using the :meth:`fourier_peaks`, :meth:`fit_peaks`, :meth:`fit_shoulders`, and :meth:`fit_all` methods.
+        Parameters
+        ----------
+        x : array_like
+            Wavelength or x-values of the spectrum.
+        y : array_like
+            Intensity or y-values of the spectrum.
+        n_sigma : float, optional
+            Number of standard deviations above the mean required for a peak to
+            be kept.
+        subtract_background : bool, optional
+            If ``True``, subtract the background from the spectrum before fitting.
+        plot : bool, optional
+            If ``True``, plot the intermediate and final results.
+        *kwargs : dict
+            Additional keyword arguments to pass to the background subtraction or
+            fitting methods.
         """
         if subtract_background:
             bg = self.find_background(x, y, *kwargs)
@@ -647,6 +651,7 @@ class PeakyFinder():
                 bg=bg,
             )
 
+        return fit_dict
 
     def plot(self, kind, **kwargs):
         """Central plotting utility for :class:`PeakyFinder`.
