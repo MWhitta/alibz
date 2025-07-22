@@ -624,7 +624,6 @@ class PeakyFinder():
                     node_right = idx + 50
                 x_window = x[node_left:node_right]
                 y_window = y[node_left:node_right]
-                print(f'x window length: {len(x_window)}')
                 known_peaks_inrange = idxs[(idxs >= node_left) & (idxs <= node_right)]
                 refit_peak_num = len(known_peaks_inrange)
                 
@@ -751,7 +750,7 @@ class PeakyFinder():
         return fit_dict
     
 
-    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=False, *kwargs):
+    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=True, *kwargs):
         """Fit a LIBS spectrum using the :meth:`fit_spectrum` method with data loaded from a :class:`~utils.dataloader.Data` object.
 
         Parameters
@@ -786,7 +785,7 @@ class PeakyFinder():
             if data_length == 0:
                 raise ValueError("No data available for the specified slice.")
             else:
-                fit_dict = {}
+                
                 for d in range(data_length):
                     x = data[0]
                     y = data[1]
