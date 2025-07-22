@@ -7,68 +7,121 @@ from utils.database import Database
 from utils.sahaboltzmann import SahaBoltzmann
 
 class PeakyMaker():
-    """ forward model for optical emission spectra """
-    
-    #class attributes
+    """Forward model for optical emission spectra."""
+
     def __init__(self, dbpath) -> None:
-        # database
+        """Initialize the maker and load the database.
+
+        Parameters
+        ----------
+        dbpath : str
+            Path to the database used for generating spectra.
+        """
+
+        # Database interfaces
         self.db = Database(dbpath)
         self.sb = SahaBoltzmann(dbpath)
         self.max_z = len(self.db.elements)
 
-        # physical constants
-        self.plank_constant = 4.135667696 * 10 ** -15 # eV s
-        self.boltzmann_constant = 8.617333262 * 10 ** -5 # Boltzmann Constant (eV/K)
-        self.speed_c = 2.99792458 * 10**8 # Speed of Light in a Vacuum (m/s)
-        self.me = 0.51099895000 * 10**6 # eV / c^2
+        # Physical constants
+        self.plank_constant = 4.135667696 * 10 ** -15  # eV s
+        self.boltzmann_constant = 8.617333262 * 10 ** -5  # eV/K
+        self.speed_c = 2.99792458 * 10**8  # speed of light in vacuum (m/s)
+        self.me = 0.51099895000 * 10**6  # eV / c^2
 
     def K2eV(self, temperature):
-        """ convert K to eV
+        """Convert Kelvin to electronvolts.
+
+        Parameters
+        ----------
+        temperature : float
+            Temperature in Kelvin.
+
+        Returns
+        -------
+        float
+            Temperature in electronvolts.
         """
+
         TeV = temperature / self.boltzmann_constant
         return TeV
 
     def eV2K(self, temperature):
-        """ convert ev to K
+        """Convert electronvolts to Kelvin.
+
+        Parameters
+        ----------
+        temperature : float
+            Temperature in electronvolts.
+
+        Returns
+        -------
+        float
+            Temperature in Kelvin.
         """
+
         TK = temperature * self.boltzmann_constant
         return TK
 
+    def peak_maker(
+        self,
+        fracs,
+        inc=1 / 30,
+        w_lo=180,
+        w_hi=961 + (1 / 30),
+        voigt_sig=0.1,
+        voigt_gam=0.1,
+        temperature=10000,
+        ne=17,
+        decimal_precision=10,
+        gsra=False,
+        time_gated=False,
+        time_0=20,
+        time_f=100,
+        t_step=1,
+        verbose=False,
+    ):
+        """Generate a multi-element LIBS spectrum.
 
-    # Peak maker function
-    def peak_maker(self,
-                    fracs, #array with element abundance fractions
-                    inc=1/30, #spectral wavelength resolution, i.e., increment between datapoints (nm)
-                    w_lo=180, #lower limit of wavelength range (nm)
-                    w_hi=961+(1/30), #upper limit of wavelength range (nm) - need an extra `inc` here to span full range
-                    voigt_sig=0.1, #stdev of normal part of voigt convolution
-                    voigt_gam=0.1, #half-width at half max parameter of cauchy part of convolution
-                    temperature=10000, # K
-                    ne=17, # log10 ne in cm**-3 - electron density
-                    decimal_precision=10,
-                    gsra=False,
-                    time_gated=False, 
-                    time_0=20, 
-                    time_f=100, 
-                    t_step=1,
-                    verbose=False):
-        """ peak_maker generates multi-element LIBS spectra
-            args:
-                fracs (str) - element symbol for which spectrum will be generated
-            kwargs:
-                inc (float) - spectral wavelength resolution, i.e., increment between datapoints (nm)
-                w_lo (float) - lower limit of wavelength range (nm)
-                w_hi (float) - upper limit of wavelength range (nm)
-                voigt_sig (float) - stdev of normal part of voigt peak profile
-                voigt_gam (float) - half-width at half max parameter of cauchy part of convolution
-                temp (float) - temperature of plasma from which LIBS spectrum for this element is generated in (K)
-                ne (float) - number density of electrons in the plasma (cm**-3)
-                shift (bool) - whether to apply a shift to peak positions
-                shift_type (str) - 'random' applies a random shift to each peak; 'sys' applies a systematic shift
-                height (bool) - whether to jitter peak heights
-                height_type (str) - 'random' jitters peak heights randomly
-                height_mag (float) - maximum magnitude by which to vary peak heights
-                plot (bool) - whether to plot the resulting spetrum
+        Parameters
+        ----------
+        fracs : array_like
+            Element abundance fractions.
+        inc : float, optional
+            Spectral wavelength resolution in nanometers.
+        w_lo : float, optional
+            Lower bound of the wavelength range in nanometers.
+        w_hi : float, optional
+            Upper bound of the wavelength range in nanometers.
+        voigt_sig : float, optional
+            Standard deviation of the Gaussian part of the Voigt profile.
+        voigt_gam : float, optional
+            Half width at half maximum of the Lorentzian part of the Voigt
+            profile.
+        temperature : float, optional
+            Plasma temperature in Kelvin.
+        ne : float, optional
+            Base-10 logarithm of the electron density in ``cm**-3``.
+        decimal_precision : int, optional
+            Precision passed to :class:`~utils.sahaboltzmann.SahaBoltzmann`.
+        gsra : bool, optional
+            When ``True`` use the ground state recombination assumption.
+        time_gated : bool, optional
+            If ``True`` use time gated calculations.
+        time_0 : float, optional
+            Start time for gated calculations.
+        time_f : float, optional
+            End time for gated calculations.
+        t_step : float, optional
+            Time step for gated calculations.
+        verbose : bool, optional
+            When ``True`` print diagnostic information.
+
+        Returns
+        -------
+        tuple
+            ``(wave, spectrum, element_spectra)`` containing the wavelength
+            axis, the summed spectrum and the individual element spectra.
         """
 
         wave = np.arange(w_lo, w_hi, inc).astype('float32')
@@ -81,7 +134,7 @@ class PeakyMaker():
         exclude = np.logical_not([item in ['Se', 'Pm', 'Po', 'At', 'Rn', 'Th', 'Pa', 'U'] for item in self.db.elements])
         fracs = fracs * exclude
 
-        #scale fractions to sum to 1.0
+        # Scale fractions to sum to 1.0
         frac_sum = np.sum(fracs)
         if np.isclose(frac_sum,1):
             pass
@@ -108,43 +161,69 @@ class PeakyMaker():
         return wave, spec, spec_array
 
 
-    def batch_maker(self,
-                        focus_el=[], #optional list of specific elements
-                        n_elem=4, #defines the mean number of elements included
-                        n_delta=2, #defines the +/- range for number of elements to vary
-                        abundance='equal',
-                        abund_scale=0.5, #max variation factor on natural abundance (<=1)
-                        temp=10000, # K
-                        temp_vary=False,
-                        ne=10**17, # cm**-3 - electron density
-                        inc=1/30,
-                        w_lo=180,
-                        w_hi=961+(1/30), # need an extra `inc` here to span full range
-                        voigt_sig=0.5, #stdev of normal part of voigt convolution
-                        voigt_gam=0.5, #half-width at half max parameter of cauchy part of convolution
-                        voigt_vary=False,
-                        voigt_range=0.1,
-                        batch=16 #number of samples to create
-                        ): 
-        """batch_spectra generates a batch of composite LIBS spectrum with optional kwargs for sampling a range of element fractions
-            args:
-                focus_el (string list) - possible elements to include in spectra
-            kwargs (for batch_spectra):
-                n_elem (int) -  defines the mean number of elements included
-                n_delta (int) -  defines the +/- range for number of elements to vary
-                abundance (str) - how to define element abundances across batch 
-                                    'equal'
-                abund_scale=0.5, max variation factor on abundance (<=1)
-            kwargs (for peak_maker):
-                inc (float) - spectral wavelength resolution, i.e., increment between datapoints (nm)
-                w_lo (float) - lower limit of wavelength range (nm)
-                w_hi (float) - upper limit of wavelength range (nm)
-                voigt_sig (float) - stdev of normal part of voigt peak profile
-                voigt_gam (float) - half-width at half max parameter of cauchy part of convolution
-                temp (float) - temperature of plasma from which LIBS spectrum for this element is generated in (K)
-                ne (float) - number density of electrons in the plasma (cm**-3)
+    def batch_maker(
+        self,
+        focus_el=None,
+        n_elem=4,
+        n_delta=2,
+        abundance="equal",
+        abund_scale=0.5,
+        temp=10000,
+        temp_vary=False,
+        ne=10**17,
+        inc=1 / 30,
+        w_lo=180,
+        w_hi=961 + (1 / 30),
+        voigt_sig=0.5,
+        voigt_gam=0.5,
+        voigt_vary=False,
+        voigt_range=0.1,
+        batch=16,
+    ):
+        """Generate a batch of composite LIBS spectra.
+
+        Parameters
+        ----------
+        focus_el : list of str, optional
+            Specific elements to include in the spectra.
+        n_elem : int, optional
+            Mean number of elements included in each spectrum.
+        n_delta : int, optional
+            Allowed variation in the number of elements.
+        abundance : str, optional
+            Method used to assign element abundances.
+        abund_scale : float, optional
+            Maximum variation factor applied to abundances.
+        temp : float, optional
+            Plasma temperature in Kelvin.
+        temp_vary : bool, optional
+            If ``True`` vary the temperature of each spectrum.
+        ne : float, optional
+            Electron density in ``cm**-3``.
+        inc : float, optional
+            Spectral wavelength resolution in nanometers.
+        w_lo : float, optional
+            Lower bound of the wavelength range in nanometers.
+        w_hi : float, optional
+            Upper bound of the wavelength range in nanometers.
+        voigt_sig : float, optional
+            Standard deviation of the Gaussian part of the Voigt profile.
+        voigt_gam : float, optional
+            Half width at half maximum of the Lorentzian part.
+        voigt_vary : bool, optional
+            If ``True`` vary the Voigt parameters for each spectrum.
+        voigt_range : float, optional
+            Maximum variation applied when ``voigt_vary`` is ``True``.
+        batch : int, optional
+            Number of spectra to create.
+
+        Returns
+        -------
+        tuple
+            ``(elem_symb, fracs, wave, x_data, y_data)`` where ``elem_symb`` are
+            the element symbols used.
         """
-        #check element choices for consistency with database
+        # Check element choices for consistency with the database
         max_elem = self.max_z
         if len(focus_el):
             max_elem = len(focus_el)
@@ -161,21 +240,26 @@ class PeakyMaker():
         if abund_scale < 0 or abund_scale > 1:
             raise ValueError(f"abund_scale must lie on interval [0,1], {abund_scale} given")
         
-        #generate the element fractions
-        num_elem = (n_elem + np.round(2 * (n_delta+0.5) * np.random.rand(batch) - (n_delta+0.5))).astype(int) #number of elements drawn from possibilities
-        sample_el = [np.random.choice(focus_el, num_elem[i]) for i in range(batch)] #list, not array
-        samp_mask = np.array([np.in1d(self.elements, sample_el[i]) for i in range(batch)]) #fracs arrays for make_spectra - shape (batch, max_z)
+        # Generate the element fractions
+        num_elem = (
+            n_elem
+            + np.round(2 * (n_delta + 0.5) * np.random.rand(batch) - (n_delta + 0.5))
+        ).astype(int)  # Number of elements drawn from possibilities
+        sample_el = [np.random.choice(focus_el, num_elem[i]) for i in range(batch)]  # List, not array
+        samp_mask = np.array(
+            [np.in1d(self.elements, sample_el[i]) for i in range(batch)]
+        )  # Fraction arrays for ``peak_maker`` with shape ``(batch, max_z)``
         
-        if abundance == 'natural': #pull natural crustal element abundance data from .csv
-            sample_abund = self.elem_abund * samp_mask #rightmost dims = max_z for broadcasting
-        else: #randomly assign element abundance 
-            sample_abund = np.random.rand(len(self.elements)) * samp_mask # randomly assign abundance - rightmost dims = max_z for broadcasting
+        if abundance == "natural":  # Pull natural crustal element abundance data from .csv
+            sample_abund = self.elem_abund * samp_mask  # Rightmost dimension is ``max_z`` for broadcasting
+        else:  # Randomly assign element abundance
+            sample_abund = np.random.rand(len(self.elements)) * samp_mask  # Rightmost dimension is ``max_z`` for broadcasting
         
-        sample_var = 2 * abund_scale * (np.random.rand(batch, len(self.elements))-0.5) # allowed variation in sample abundance
-        sample_fracs = sample_abund * (1 + sample_var) # varied fractions
-        fracs = sample_fracs / np.sum(sample_fracs, axis=1, keepdims=True) #normalize fractions to one
-        
-        wave = np.arange(w_lo,w_hi,inc) #only needed for correct length
+        sample_var = 2 * abund_scale * (np.random.rand(batch, len(self.elements)) - 0.5)  # Allowed variation in sample abundance
+        sample_fracs = sample_abund * (1 + sample_var)  # Varied fractions
+        fracs = sample_fracs / np.sum(sample_fracs, axis=1, keepdims=True)  # Normalize fractions to one
+
+        wave = np.arange(w_lo, w_hi, inc)  # Only needed for correct length
         x_data = np.zeros((batch, len(wave)))
         y_data = np.zeros((batch, len(focus_el), len(wave)))
         elem_symb = focus_el
@@ -193,43 +277,69 @@ class PeakyMaker():
             voigt_gam = voigt_gam*np.ones(batch)
 
         for i in np.arange(batch):
-            wave, x_data[i], y_data[i] = self.peak_maker(fracs=fracs[i], 
-                                                            inc=inc, 
-                                                            temp=temp[i],
-                                                            w_lo=w_lo, 
-                                                            w_hi=w_hi,
-                                                            ne=ne,
-                                                            voigt_sig=voigt_sig[i], #stdev of normal part of voigt convolution
-                                                            voigt_gam=voigt_gam[i], #half-width at half max parameter of cauchy part of convolution
-                                                            )
+            wave, x_data[i], y_data[i] = self.peak_maker(
+                fracs=fracs[i],
+                inc=inc,
+                temp=temp[i],
+                w_lo=w_lo,
+                w_hi=w_hi,
+                ne=ne,
+                voigt_sig=voigt_sig[i],  # Standard deviation of the Gaussian part of the Voigt profile
+                voigt_gam=voigt_gam[i],  # Half width at half maximum of the Lorentzian part
+            )
 
         return elem_symb, fracs, wave, x_data, y_data
     
 
-    def export_batch(self, 
-                     batchnum, 
-                     temp=10000, 
-                     voigt_vary=True, 
-                     temp_vary=False, 
-                     els=0, 
-                     n_elem=1, 
-                     n_delta=0, 
-                     dtype='float16', 
-                     keep_y=True):
-        
-        """ export a batch of spectra as a pickle file """
+    def export_batch(
+        self,
+        batchnum,
+        temp=10000,
+        voigt_vary=True,
+        temp_vary=False,
+        els=0,
+        n_elem=1,
+        n_delta=0,
+        dtype="float16",
+        keep_y=True,
+    ):
+        """Export a batch of spectra as a pickle file.
+
+        Parameters
+        ----------
+        batchnum : int
+            Number of spectra to generate.
+        temp : float, optional
+            Plasma temperature in Kelvin.
+        voigt_vary : bool, optional
+            If ``True`` vary the Voigt parameters for each spectrum.
+        temp_vary : bool, optional
+            If ``True`` vary the temperature of each spectrum.
+        els : list of str or int, optional
+            Elements to include. If ``0`` use all available elements.
+        n_elem : int, optional
+            Mean number of elements per spectrum.
+        n_delta : int, optional
+            Allowed variation in the number of elements.
+        dtype : str, optional
+            Data type used when writing the file.
+        keep_y : bool, optional
+            When ``False`` omit the per-element spectra from the pickle file.
+        """
         if els:
             pass
         else:
-            els = ['H', 'He', #row1
-            'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', #row2
-            'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', #row3
-            'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', #row4 #Se removed bw As/Br
-            'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe', #row5
-            'Cs', 'Ba', #row6 alkali/alkaline earth
-            'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', #row6 rare earths # Pm removed bw Nd/Sm
-            'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn',    #row6 transition metals #Po,At,Rn removed bw Bi/Rn
-            'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U']# Th,Pa,U removed
+            els = [
+                'H', 'He',  # Row 1
+                'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',  # Row 2
+                'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',  # Row 3
+                'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',  # Row 4  # Se removed between As/Br
+                'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe',  # Row 5
+                'Cs', 'Ba',  # Row 6 alkali/alkaline earth
+                'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',  # Row 6 rare earths  # Pm removed between Nd/Sm
+                'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn',  # Row 6 transition metals  # Po,At,Rn removed between Bi/Rn
+                'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U',  # Th,Pa,U removed
+            ]
         
         elem_symb, fracs, wave, x_data, y_data = self.batch_maker(batch=batchnum,
                                                          focus_el=els, 
@@ -248,7 +358,7 @@ class PeakyMaker():
 
         elnum = np.sum(fracs>0)
 
-        now_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S') #timestamp string
+        now_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')  # Timestamp string
         dname = f'{batchnum}spectra_{elnum}els_{int(temp/1000)}kK_Tvary{temp_vary}_{now_time}.pickle'
         with open(f'training/' + dname, 'wb') as f:
             pickle.dump(fracs, f)
