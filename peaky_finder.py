@@ -14,25 +14,46 @@ from utils.dataloader import Data
 
 
 class PeakyFinder():
-    """ PeakyFinder is a python class that contains tools for indexing and classifying laser plasma spectroscopy data.
-    Args:
-        data_dir (str literal): Path to the data directory upon which the `PeakyFinder` class loads data.
-    Attributes:
-        data (object):
-    Methods:
+    """Utilities for indexing and classifying laser plasma spectra.
+
+    Parameters
+    ----------
+    data_dir : str
+        Path to the data directory used when loading data.
+
+    Attributes
+    ----------
+    data : :class:`~utils.dataloader.Data`
+        Loaded data object.
     """
 
     def __init__(self, data_dir) -> None:
+        """Initialize the finder and load data.
+
+        Parameters
+        ----------
+        data_dir : str
+            Path to the directory containing the data.
+        """
         self.data_dir = data_dir
         self.data = Data(data_dir)
 
 
     def multi_voigt(self, x, params):
-        """
-        Vectorized multi-Voigt summation.
-        :param x:      1D array of x-values.
-        :param params: 1D array of parameters of length 4*n, with [amp, mu, sigma, gamma] repeated n times.
-        :return:       1D array of the summed Voigt profiles at each x.
+        """Vectorized multi-Voigt summation.
+
+        Parameters
+        ----------
+        x : array_like
+            1-D array of x-values.
+        params : array_like
+            1-D array of parameters of length ``4*n`` with
+            ``[amp, mu, sigma, gamma]`` repeated ``n`` times.
+
+        Returns
+        -------
+        ndarray
+            Summed Voigt profile evaluated at ``x``.
         """
         param_array = params.reshape(-1, 4)
         amps   = param_array[:, 0]
@@ -46,13 +67,43 @@ class PeakyFinder():
     
 
     def voigt_width(self, sigma, gamma):
-        """ Width of a Voigt profile to within ~1%
+        """Return the approximate FWHM of a Voigt profile.
+
+        Parameters
+        ----------
+        sigma : float
+            Gaussian component width.
+        gamma : float
+            Lorentzian component width.
+
+        Returns
+        -------
+        float
+            Approximate full width at half maximum.
         """
         f = 0.5346 * 2 * gamma + np.sqrt(0.2166 * 4 * gamma + 8 * sigma**2 * np.log(2))
         return f
 
 
     def residual(self, params, x, y, func):
+        """Compute the residual between data and a model function.
+
+        Parameters
+        ----------
+        params : array_like
+            Model parameters.
+        x : array_like
+            Independent variable.
+        y : array_like
+            Observed values.
+        func : callable
+            Model function returning ``y`` for ``x`` and ``params``.
+
+        Returns
+        -------
+        ndarray
+            Difference ``y - func(x, params)``.
+        """
         return y - func(x, params)
 
 
@@ -208,8 +259,7 @@ class PeakyFinder():
         transformed = transformer.fit_transform(np.asarray(y).reshape(-1, 1))[:, 0]
         transformed = np.clip(transformed, transformed[0], np.inf)
 
-        self.power_lambda = transformer.lambdas_
-        self.transformed_data = transformed
+        power_lambda = transformer.lambdas_
 
         if len(peaks) == 0:
             return peaks, minima, transformer
@@ -341,14 +391,35 @@ class PeakyFinder():
         return full_max, fwhm, hwhm, nr, nl
 
     
-    def fit_peaks(self, x, y, peak_indices, peak_dictionary=dict({}), plot=False):
-        """  """
+    def fit_peaks(self, x, y, peak_indices, plot=False):
+        """Fit Voigt profiles to detected peaks.
+
+        Parameters
+        ----------
+        x : array_like
+            Wavelength axis.
+        y : array_like
+            Intensity values.
+        peak_indices : array_like
+            Indices of peaks to fit.
+        peak_dictionary : dict, optional
+            Initial peak parameters keyed by index.
+        plot : bool, optional
+            When ``True`` plot intermediate fits.
+
+        Returns
+        -------
+        dict
+            Updated dictionary of fitted peak parameters.
+        """
         # step size
         inc = np.median(np.diff(x))
 
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
         median_fwhm = np.median(fwhm_array) * inc
         fwhm_limit =  5 * median_fwhm
+
+        peak_dictionary = {}
 
         # loop over peaks to fit individually
         for i, p in enumerate(peak_indices):
@@ -402,7 +473,6 @@ class PeakyFinder():
                         popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')            
 
                         if window_peak_num > 1:
-                            # print(f'guess: fit: {np.array([x0, popt.x]).T}')
                             popt = np.reshape(popt.x, (window_peak_num, 4))
                             for k, v in zip(window_peaks, popt):
                                 key = k + node_left
@@ -421,15 +491,28 @@ class PeakyFinder():
     
 
     def fit_shoulders(self, x, y, peak_indices, residuals, peak_dictionary, rng=5):
-        """ Fit peak shoulders by fitting peaks to the residuals
-        :param x: x-values of the spectrum
-        :param y: y-values of the spectrum
-        :param peak_indices: indices of the peaks
-        :param residuals: residuals of the spectrum
-        :param peak_dictionary: dictionary of peak parameters
-        :param rng: range of the window to search for new peaks
-        
-        :return: updated peak dictionary and new peak indices
+        """Fit peak shoulders by modelling the residuals.
+
+        Parameters
+        ----------
+        x : array_like
+            x-values of the spectrum.
+        y : array_like
+            y-values of the spectrum.
+        peak_indices : array_like
+            Indices of previously fitted peaks.
+        residuals : array_like
+            Residual spectrum from initial fits.
+        peak_dictionary : dict
+            Dictionary of peak parameters.
+        rng : int, optional
+            Search window used when locating new peaks.
+
+        Returns
+        -------
+        tuple
+            ``(peak_dictionary, new_peak_indices)`` with updated parameters and
+            indices of newly fitted peaks.
         """
         
         inc = np.median(np.diff(x))
@@ -507,7 +590,23 @@ class PeakyFinder():
     
 
     def fit_all(self, x, y, peak_dictionary, plot=True):
-        """
+        """Refine all peak parameters simultaneously.
+
+        Parameters
+        ----------
+        x : array_like
+            Wavelength values.
+        y : array_like
+            Intensity values.
+        peak_dictionary : dict
+            Initial peak parameters keyed by index.
+        plot : bool, optional
+            When ``True`` display diagnostic plots.
+
+        Returns
+        -------
+        dict
+            Updated peak parameters after the global fit.
         """
         inc = np.median(np.diff(x))
         idxs = np.sort(np.array(list(peak_dictionary.keys())))
@@ -530,13 +629,9 @@ class PeakyFinder():
                 refit_peak_num = len(known_peaks_inrange)
                 
                 x0 = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
-                # x0[2::4] = np.min([x0[2::4], (fwhm_limit/5)*np.ones_like(x0[2::4])], axis=0)
-                # x0[3::4] = np.min([x0[3::4], (fwhm_limit/5)*np.ones_like(x0[3::4])], axis=0)
                 lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
 
                 lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
-                # upper_bounds[2::4] = fwhm_limit * np.ones_like(upper_bounds[2::4])
-                # upper_bounds[3::4] = fwhm_limit * np.ones_like(upper_bounds[3::4])
                 bounds = (lower_bounds, upper_bounds)
 
                 try:
@@ -636,6 +731,7 @@ class PeakyFinder():
                     'sorted_parameter_array': sorted_parameter_array}
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
+        power_lambda = transformer.lambdas_
 
         if plot:
             self.plot(
@@ -649,9 +745,58 @@ class PeakyFinder():
                 residual_data=residual_data,
                 new_peak_indices=new_peak_indices,
                 bg=bg,
+                power_lambda=power_lambda,
             )
 
         return fit_dict
+    
+
+    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=False, *kwargs):
+        """Fit a LIBS spectrum using the :meth:`fit_spectrum` method with data loaded from a :class:`~utils.dataloader.Data` object.
+
+        Parameters
+        ----------
+        s : slice or int
+            Slice or index of the spectrum to fit from the loaded data.
+        n_sigma : float, optional
+            Number of standard deviations above the mean required for a peak to
+            be kept.
+        subtract_background : bool, optional
+            If ``True``, subtract the background from the spectrum before fitting.
+        plot : bool, optional
+            If ``True``, plot the intermediate and final results.
+        *kwargs : dict
+            Additional keyword arguments to pass to the background subtraction or
+            fitting methods.
+        """
+        if self.data.data is None:
+            data = self.data.load_data()
+        else:
+            data = self.data.data
+
+        data = data[s]
+
+        if isinstance(s, int):
+            x = data[0]
+            y = data[1]
+            fit_dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+            
+        elif isinstance(s, slice):
+            data_length = len(data)
+            if data_length == 0:
+                raise ValueError("No data available for the specified slice.")
+            else:
+                fit_dict = {}
+                for d in range(data_length):
+                    x = data[0]
+                    y = data[1]
+                    dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+                    fit_dict['spectrum_' + str(d)] = dict
+
+            self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+
+        return fit_dict
+    
 
     def plot(self, kind, **kwargs):
         """Central plotting utility for :class:`PeakyFinder`.
@@ -661,7 +806,9 @@ class PeakyFinder():
         kind : {"background", "fourier", "spectrum"}
             Type of figure to produce.
         **kwargs : dict
-            Data required for the selected plot.
+            Data required for the selected plot. When ``kind`` is ``"spectrum"``
+            ``power_lambda`` should be provided to label the transformed
+            intensity histogram.
         """
 
         if kind == "background":
@@ -694,6 +841,7 @@ class PeakyFinder():
             residual_data = kwargs.get("residual_data")
             new_peak_indices = kwargs.get("new_peak_indices")
             bg = kwargs.get("bg")
+            power_lambda = kwargs.get("power_lambda")
 
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
@@ -717,9 +865,12 @@ class PeakyFinder():
             ax11.set_ylabel("intensity [counts]")
 
             ax12.hist(yj_data, bins=int(np.sqrt(len(y))), density=True, color="r", alpha=0.5)
-            ax12.set_xlabel(
-                rf"(intensity + 1)$^{{{float(self.power_lambda):.2g}}}$ / {float(self.power_lambda):.2g}"
-            )
+            if power_lambda is not None:
+                ax12.set_xlabel(
+                    rf"(intensity + 1)$^{{{float(power_lambda):.2g}}}$ / {float(power_lambda):.2g}"
+                )
+            else:
+                ax12.set_xlabel("transformed intensity")
             ax12.set_ylabel("prob. density")
 
             # ROW 2 - Residual
