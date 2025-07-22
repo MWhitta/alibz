@@ -480,6 +480,15 @@ class PeakyFinder():
             x0 = np.zeros((window_shoulders_num, 4))
             if window_shoulders_num:
                 fm_ws, fwhm_ws, hwhm_ws, _, _ = self.peak_parameter_guess(y_window, window_shoulders)
+
+                # ``peak_parameter_guess`` returns scalars when the input consists
+                # of a single index.  Convert these values to 1-D arrays so that
+                # they can be iterated over uniformly in the loop below.
+                if window_shoulders_num == 1:
+                    fm_ws = np.array([fm_ws])
+                    fwhm_ws = np.array([fwhm_ws])
+                    hwhm_ws = np.array([hwhm_ws])
+
                 for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
                     x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
                     
@@ -615,12 +624,12 @@ class PeakyFinder():
         p_sort = np.argsort(parameters[:, 0])
         sorted_parameter_array = parameters[p_sort][::-1] # descending order
 
-        self.peak_dictionary = peak_dictionary
-        self.spectrum_dictionary = spectrum_dictionary
-        self.profile = profile
-        self.residual_data = residual_data
-        self.background = bg
-        self.sorted_parameter_array = sorted_parameter_array
+        fit_dict = {'peak_dictionary': peak_dictionary,
+                    'spectrum_dictionary': spectrum_dictionary,
+                    'profile': profile,
+                    'residual_data': residual_data,
+                    'background': bg,
+                    'sorted_parameter_array': sorted_parameter_array}
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
 
@@ -638,7 +647,6 @@ class PeakyFinder():
                 bg=bg,
             )
 
-        # return fig
 
     def plot(self, kind, **kwargs):
         """Central plotting utility for :class:`PeakyFinder`.
