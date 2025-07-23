@@ -80,7 +80,7 @@ class SahaBoltzmann():
         ci = np.ones((len(temperature), len(ions)))  # Weighting constant for ionization state i
         
         if len(ions) == 1:  # Hydrogen
-            Zi, Zie = self.partition(element, temperature)
+            Zi, _ = self.partition(element, temperature)
             ci = 1 / (1 + (Zi / 10**ne))
 
         else: # Non-hydrogen elements
@@ -89,7 +89,7 @@ class SahaBoltzmann():
                 if np.any(Eind):
                     Ei[:, ii] = Eion[Eind, -1][0]
 
-            Zi, Zie = self.partition(element, temperature)
+            Zi, _ = self.partition(element, temperature)
             for iii in range(len(ions) - 1):
                 if np.any(Zi[:, iii] == 0):
                     a = np.zeros_like(Zi[:, iii]).astype(float)
