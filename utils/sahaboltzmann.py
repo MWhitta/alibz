@@ -29,9 +29,9 @@ class SahaBoltzmann():
 
         # line data from database
         ionization, Ek, gi, gk = self.db.lines(element)[:, [0, 5, 12, 13]].T.astype(float)
-        
-        # filter elements without lines data
         ions = np.sort(np.unique(ionization))
+
+        # filter elements without lines data
         if len(ions) == 0:
             return 0
 
@@ -49,12 +49,12 @@ class SahaBoltzmann():
                     Zind = (ionization == ion)
                     Zie = (gk[Zind] / gi[Zind]) * np.exp(-Ek[Zind] / kT[:, None])
                     Zi[:, ii] = np.squeeze(np.sum(Zie, axis=-1))
-                return Zi
+                return Zi, Zie
             else:
                 Zind = (ionization == ions[ion])
                 Zie = (gk[Zind] / gi[Zind]) * np.exp(-Ek[Zind] / kT[:, None])
                 Zi = np.sum(Zie, axis=-1)
-                return Zi
+                return Zi, Zie
 
 
     def ionization_distribution(self, element, temperature, ne, decimal_precision=10):
@@ -80,7 +80,7 @@ class SahaBoltzmann():
         ci = np.ones((len(temperature), len(ions)))  # Weighting constant for ionization state i
         
         if len(ions) == 1:  # Hydrogen
-            Zi = self.partition(element, temperature)
+            Zi, Zie = self.partition(element, temperature)
             ci = 1 / (1 + (Zi / 10**ne))
 
         else: # Non-hydrogen elements
@@ -89,7 +89,7 @@ class SahaBoltzmann():
                 if np.any(Eind):
                     Ei[:, ii] = Eion[Eind, -1][0]
 
-            Zi = self.partition(element, temperature)
+            Zi, Zie = self.partition(element, temperature)
             for iii in range(len(ions) - 1):
                 if np.any(Zi[:, iii] == 0):
                     a = np.zeros_like(Zi[:, iii]).astype(float)
