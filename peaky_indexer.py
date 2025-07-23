@@ -90,7 +90,7 @@ class PeakyIndexer():
                 if len(i_peak_loc) > 0:
                     close_candidates = i_peak_loc - x <= wid
                     i_peak_loc_close = i_peak_loc[close_candidates]
-                    i_gA_close = gA[i_ind * E_ind]
+                    i_gA_close = i_gA[close_candidates]
                 else:
                     i_peak_loc_close = []
                     i_gA_close = []
@@ -99,9 +99,9 @@ class PeakyIndexer():
                     i_peak_loc_round = np.round(i_peak_loc_close, 3)
                     distance_metric = self.distance_decay(x, np.array(i_peak_loc_round), wid)
                     
-                    for location, distance, gA in zip(i_peak_loc_close, distance_metric, i_gA_close):
+                    for location, distance, A in zip(i_peak_loc_close, distance_metric, i_gA_close):
                         if np.abs(x-location) < rang:
-                            close_peaks.append([el, ion, location, distance, gA])
+                            close_peaks.append([el, ion, location, distance, np.log10(A)]) # log10(A)
 
         if len(close_peaks) > 0:
             close_peaks.sort(key=lambda dp: dp[-1], reverse=True)
@@ -109,8 +109,18 @@ class PeakyIndexer():
             close_peaks = [[]]
         
         return close_peaks
-
     
+
+
+
+class Element():
+    """ Object to hold element information
+    """
+
+    def __init__(self, element):
+        pass
+
+
     def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
         """
         """
@@ -127,20 +137,16 @@ class PeakyIndexer():
         peaks = peak_array[close]
         profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks)) 
 
-        if plot:
-            plt.rcParams.update({'font.size': 14})
-            plt.figure(figsize=(30, 10))
-    
-            plt.plot(x, y, color='k', alpha=0.9)
-            plt.plot(x, profile, color='r', lw=0.5)
-            plt.fill_between(x, profile, np.zeros_like(x), color='r', alpha=0.5)
-            plt.xlim([x_lo, x_hi])
-            plt.ylim([0, np.max(y)])
-            plt.tick_params(axis='x', which='minor', bottom=True)
-            plt.xlabel('wavelength [nm]')
-            plt.ylabel('intensity [counts]')
+    def matched_peaks(self, peak_parameters):
+        """
+        """
 
-        return peaks
+
+
+
+
+    
+
 
 
     def ground_state_match(self, peak_array):
