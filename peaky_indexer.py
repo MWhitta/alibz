@@ -1,21 +1,7 @@
-from itertools import groupby
-from collections import defaultdict
-
 import numpy as np
-
+from collections import defaultdict
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator, MultipleLocator
-
-from scipy.special     import wofz
-from scipy.special     import voigt_profile as voigt
-from scipy.optimize    import least_squares
-from scipy.optimize    import linprog
-from scipy.integrate   import cumulative_trapezoid
-from scipy.interpolate import interp1d
-from scipy.interpolate import make_splrep
-
-from sklearn.linear_model  import HuberRegressor, RANSACRegressor
-from sklearn.preprocessing import PowerTransformer
+from scipy.special import voigt_profile as voigt
 
 from utils.database import Database
 from peaky_maker import PeakyMaker
@@ -41,6 +27,28 @@ class PeakyIndexer():
         self.c = 2.99792458 * 10**8 # Speed of light in a vacuum (m/s)
         self.me = 0.51099895000 * 10**6 # electron mass eV / c^2
 
+
+    def ground_state(self, threshold=0.001):
+        """ identify ground state transitions for each element
+        """
+        self.ground_states = {}
+        for el in self.db.elements:
+            ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(el)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
+            ions = np.unique(ionization)
+            
+            for ion in ions:
+                Eind = ionization == ion #indices of single ionization state
+                groundEi = Ei[Eind] == 0 #indices of ground state for ionization state
+                groundpeak = peak_loc[Eind][groundEi] #ground state peak wavelengths
+                groundEk = gk[Eind][groundEi]*np.exp(-Ek[Eind][groundEi]/1000) #ground state upper level occupation probabilities
+                groundgA = 1/gk[Eind][groundEi] * gA[Eind][groundEi]
+                
+                if len(groundEk) > 0:
+                    if np.max(groundEk) > 0:
+                        groundT = groundgA * groundEk
+                        groundEkprob = np.divide(groundT, np.max(groundgA * groundEk), out=np.zeros_like(groundEk), where=groundEk > 0) > threshold
+                        self.ground_states[el][ion] = groundpeak[groundEkprob], groundT[groundEkprob]
+    
 
     def distance_decay(self, w1, w2, s):
         """ Gaussian distance metric for proximate peaks
@@ -68,28 +76,32 @@ class PeakyIndexer():
         
         close_peaks = []
         for el in self.db.elements: # elements
-            ionization, peak_loc, Ei = self.db.lines(el)[:,[0, 1, 4]].T.astype(float)
+            ionization, peak_loc, gA, Ei = self.db.lines(el)[:,[0, 1, 3, 4]].T.astype(float)
             ions = np.sort(np.unique(ionization))
             for ion in ions:
                 i_ind = ionization == ion
                 if ground_state:
                     E_ind = Ei == 0
                 else:
-                    E_ind = Ei >= 1
+                    E_ind = Ei > 0
                 i_peak_loc = peak_loc[i_ind * E_ind]
+                i_gA = gA[i_ind * E_ind]
 
                 if len(i_peak_loc) > 0:
                     close_candidates = i_peak_loc - x <= wid
                     i_peak_loc_close = i_peak_loc[close_candidates]
+                    i_gA_close = gA[i_ind * E_ind]
                 else:
                     i_peak_loc_close = []
+                    i_gA_close = []
                 
                 if len(i_peak_loc_close) > 0:
                     i_peak_loc_round = np.round(i_peak_loc_close, 3)
                     distance_metric = self.distance_decay(x, np.array(i_peak_loc_round), wid)
-                    for location, distance in zip(i_peak_loc_close, distance_metric):
+                    
+                    for location, distance, gA in zip(i_peak_loc_close, distance_metric, i_gA_close):
                         if np.abs(x-location) < rang:
-                            close_peaks.append([el, ion, location, distance])
+                            close_peaks.append([el, ion, location, distance, gA])
 
         if len(close_peaks) > 0:
             close_peaks.sort(key=lambda dp: dp[-1], reverse=True)
@@ -99,28 +111,6 @@ class PeakyIndexer():
         return close_peaks
 
     
-    def ground_state(self, threshold=0.001):
-        """ identify ground state transitions for each element
-        """
-        self.ground_states = defaultdict(dict)
-        for el in self.db.elements:
-            ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(el)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
-            ions = np.unique(ionization)
-            
-            for ion in ions:
-                Eind = ionization == ion #indices of single ionization state
-                groundEi = Ei[Eind] == 0 #indices of ground state for ionization state
-                groundpeak = peak_loc[Eind][groundEi] #ground state peak wavelengths
-                groundEk = gk[Eind][groundEi]*np.exp(-Ek[Eind][groundEi]/1000) #ground state upper level occupation probabilities
-                groundgA = 1/gk[Eind][groundEi] * gA[Eind][groundEi]
-                
-                if len(groundEk) > 0:
-                    if np.max(groundEk) > 0:
-                        groundT = groundgA * groundEk
-                        groundEkprob = np.divide(groundT, np.max(groundgA * groundEk), out=np.zeros_like(groundEk), where=groundEk > 0) > threshold
-                        self.ground_states[el][ion] = groundpeak[groundEkprob], groundT[groundEkprob]
-    
-
     def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
         """
         """
@@ -391,8 +381,6 @@ class PeakyIndexer():
                 min_int = search_peak_array[peak_idx, 0]
 
         return spectrum_dictionary, excited_dictionary
-
-
 
 
     def spectrum_match2(self, peak_array, t_lo=10000, t_hi=11000, t_inc=500, i_tol=100, ground_state=True, plot=False):
@@ -729,42 +717,3 @@ class PeakyIndexer():
                     self.candidates[element].matching_peaks(ion, peak_match)
 
                     self.set_candidate_peak(wavelength)
-
-
-class IndexElement():
-    """ Class to store element indexing information for use in classification and quantificiation
-    """
-
-    def __init__(self, element, ion=None) -> None:
-        self.element = element
-        self.ions = [ion]
-        self.match_wavelengths = {}
-        self.match_peak_indices = {}
-        self.unmatch_peaks = {}
-
-
-    def matching_peaks(self, ion, peak_match):
-        """ retains `peaks` in spectrum matching those of `ion`
-        """
-        if ion not in self.match_peak_indices:
-            self.match_peak_indices[ion] = peak_match
-            self.ions.append(ion)
-        self.ions = [x for i, x in enumerate(self.ions) if x not in self.ions[:i]]
-
-        if ion not in self.unmatch_peaks:
-            self.unmatch_peaks[ion] = ~peak_match
-
-
-class IndexPeak():
-    """ Class to store element indexing information for use in classification and quantificiation
-    """
-
-    def __init__(self, peak) -> None:
-        self.peak = peak
-        self.candidates = {}
-
-    def matching_elements(self, element, ion):
-        if element not in self.candidates:
-            self.candidates[element] = [ion]
-        else:
-            self.candidates[element].append(ion)
