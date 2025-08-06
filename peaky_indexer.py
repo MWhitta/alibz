@@ -6,30 +6,67 @@ from scipy.special import voigt_profile as voigt
 from utils.database import Database
 from peaky_maker import PeakyMaker
 
-
 class PeakyIndexer():
-    """ PeakyIndexer is a python class that contains tools for indexing and classifying laser plasma spectroscopy data.
-    Args:
-        data_dir (str literal): Path to the data directory upon which the `PeakyFinder` class loads data.
-    Attributes:
-        data (object):
-    Methods:
+    """Tools for indexing and classifying laser plasma spectra.
+
+    Parameters
+    ----------
+    PeakyFinder : :class:`~peaky_finder.PeakyFinder`
+        Initialized peak finding utility.
+    dbpath : str, optional
+        Path to the database directory. Default is ``"db"``.
+
+    Attributes
+    ----------
+    finder : :class:`~peaky_finder.PeakyFinder`
+        Peak finding utility used for spectral analysis.
+    maker : :class:`~peaky_maker.PeakyMaker`
+        Spectrum synthesis helper.
+    db : :class:`~utils.database.Database`
+        Atomic line database.
+    k : float
+        Boltzmann constant in eV/K.
+    h : float
+        Planck constant in eV s.
+    c : float
+        Speed of light in m/s.
+    me : float
+        Electron mass in eV/c².
     """
 
     def __init__(self, PeakyFinder, dbpath="db") -> None:
+        """Initialize the indexer.
+
+        Parameters
+        ----------
+        PeakyFinder : :class:`~peaky_finder.PeakyFinder`
+            Initialized peak finding utility.
+        dbpath : str, optional
+            Path to the database directory. Default is ``"db"``.
+        """
         self.finder = PeakyFinder
         self.maker = PeakyMaker(dbpath)
         self.db = Database(dbpath)
 
         # Physical Constants
-        self.k = 8.617333262 * 10 ** -5 # Boltzmann constant (eV/K)
-        self.h = 4.135667696 * 10 ** -15 # Plank constant eV s
-        self.c = 2.99792458 * 10**8 # Speed of light in a vacuum (m/s)
-        self.me = 0.51099895000 * 10**6 # electron mass eV / c^2
+        self.k = 8.617333262 * 10 ** -5  # Boltzmann constant (eV/K)
+        self.h = 4.135667696 * 10 ** -15  # Planck constant eV s
+        self.c = 2.99792458 * 10**8  # Speed of light in a vacuum (m/s)
+        self.me = 0.51099895000 * 10**6  # electron mass eV / c^2
 
 
     def ground_state(self, threshold=0.001):
-        """ identify ground state transitions for each element
+        """Identify ground state transitions for each element.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            Minimum relative occupation probability required to keep a line.
+
+        Returns
+        -------
+        None
+            Results are stored in ``self.ground_states``.
         """
         self.ground_states = {}
         for el in self.db.elements:
@@ -48,24 +85,53 @@ class PeakyIndexer():
                         groundT = groundgA * groundEk
                         groundEkprob = np.divide(groundT, np.max(groundgA * groundEk), out=np.zeros_like(groundEk), where=groundEk > 0) > threshold
                         self.ground_states[el][ion] = groundpeak[groundEkprob], groundT[groundEkprob]
-    
+
 
     def distance_decay(self, w1, w2, s):
-        """ Gaussian distance metric for proximate peaks
+        """Gaussian distance metric for proximate peaks.
+
+        Parameters
+        ----------
+        w1 : float
+            First wavelength.
+        w2 : float
+            Second wavelength.
+        s : float
+            Standard deviation of the Gaussian.
+
+        Returns
+        -------
+        float
+            Distance decay factor.
         """
         d = np.exp(-(w1 - w2)**2 / (2 * s**2))
         return d
 
 
     def peak_proximity(self, peaks, reference, shift_tolerance):
-        """ determine minimum proximity between data and reference peak locations
+        """Determine minimum proximity between data and reference peak locations.
+
+        Parameters
+        ----------
+        peaks : array_like
+            Detected peak positions.
+        reference : array_like
+            Reference peak locations.
+        shift_tolerance : float
+            Maximum allowed deviation for a match.
+
+        Returns
+        -------
+        ndarray
+            Boolean array indicating peaks within ``shift_tolerance`` of any
+            reference line.
         """
         peak_prox = peaks[:, np.newaxis] - reference
         peak_match = np.min(np.abs(peak_prox), axis=-1) <= shift_tolerance
         return peak_match
-    
-    
-    def peak_interference(self, 
+
+
+    def peak_interference(self,
                              x,
                          wid=1,
                         rang=1,
@@ -73,9 +139,31 @@ class PeakyIndexer():
              ground_state=True,
              element_list=None
                                ):
-        """ Determine which ions are most likely to interfere at a given peak location
+        """Determine ions most likely to interfere at a given peak location.
+
+        Parameters
+        ----------
+        x : float
+            Peak location to evaluate.
+        wid : float, optional
+            Width parameter for the Gaussian distance metric.
+        rang : float, optional
+            Maximum distance from ``x`` to consider.
+        log_amp_limit : float, optional
+            Threshold for logarithmic amplitude difference.
+        ground_state : bool, optional
+            If ``True``, only ground-state transitions are considered.
+        element_list : list of str, optional
+            Subset of elements to search. If ``None``, all elements are used.
+
+        Returns
+        -------
+        list of list
+            Each entry is ``[element, ion, location, x, distance, amplitude]``
+            for lines within the specified range. If no peaks are found,
+            returns ``[[]]``.
         """
-        
+
         if element_list is None:
             element_list = self.db.elements
 
@@ -119,7 +207,22 @@ class PeakyIndexer():
 
 
     def peak_match(self, peak_array, ground_state=True, element_list=None):
-        """
+        """Match peaks to candidate element transitions.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters with columns ``[amplitude, center, sigma, gamma]``.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        element_list : list of str, optional
+            Elements to search. If ``None``, all elements in the database are used.
+
+        Returns
+        -------
+        dict
+            Mapping of element names to :class:`Element` instances containing
+            matched peak information.
         """
         peak_idx = np.arange(len(peak_array))
         
@@ -145,8 +248,22 @@ class PeakyIndexer():
 
 
     def spectrum_match(self, peak_array, ground_state=True, plot=False):
-        """ 
-        peak_array: (n, 4) array of peak data (like PeakyFinder.sorted_parameter_array)
+        """Match spectrum peaks to database lines.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        plot : bool, optional
+            If ``True``, display diagnostic plots.
+
+        Returns
+        -------
+        tuple of dict
+            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
+            ions to matched peak locations and unindexed peaks respectively.
         """
         
         data_peak_centers = peak_array[:, 1]
@@ -266,7 +383,30 @@ class PeakyIndexer():
 
 
     def spectrum_match2(self, peak_array, t_lo=10000, t_hi=11000, t_inc=500, i_tol=100, ground_state=True, plot=False):
-        """
+        """Match spectrum peaks to database lines across a temperature range.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        t_lo : float, optional
+            Lower bound for temperature [K].
+        t_hi : float, optional
+            Upper bound for temperature [K].
+        t_inc : float, optional
+            Temperature increment [K].
+        i_tol : float, optional
+            Minimum peak intensity for consideration.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        plot : bool, optional
+            If ``True``, display diagnostic plots.
+
+        Returns
+        -------
+        tuple of dict
+            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
+            ions to matched peak locations and unindexed peaks respectively.
         """
         t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
         kT = self.k * t_array
@@ -415,7 +555,33 @@ class PeakyIndexer():
 
     
     def peak_compare(self, x, y, p, ploc, locations, amps, peaks, limit, rang):
-        """ compare the expected peaks of an ion to the observed peaks and return the fraction found
+        """Compare expected ion peaks to observed peaks.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        p : int
+            Index of the peak under consideration in ``x`` and ``y``.
+        ploc : ndarray
+            Boolean array marking the location of the ion peak being tested.
+        locations : ndarray
+            Wavelengths of all candidate lines for the ion.
+        amps : ndarray
+            Predicted line amplitudes for each temperature.
+        peaks : ndarray
+            Indices of detected peaks in the spectrum.
+        limit : float
+            Minimum relative amplitude required for a line to be considered.
+        rang : float
+            Maximum distance between predicted and observed peaks.
+
+        Returns
+        -------
+        ndarray
+            Fraction of expected peaks found for each temperature.
         """
         if np.sum(ploc) == 0:
             peaks_found = np.zeros_like(amps[:, 0])
@@ -451,12 +617,12 @@ class PeakyIndexer():
                 return peaks_found
       
     
-    def index_probabilities(self,  
+    def index_probabilities(self,
               x,
               y,
               peak_indices,
               peak_array,
-              wid=1, 
+              wid=1,
               rang=0.5,
               t_lo=10000,
               t_hi=11000,
@@ -464,7 +630,37 @@ class PeakyIndexer():
               ground_state=True,
               verbose=True,
               ):
-        """ `index_probabilities` is a method to make and store peak index data
+        """Compute and store peak index probabilities.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        peak_indices : ndarray
+            Indices of detected peaks in ``x`` and ``y``.
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        wid : float, optional
+            Width parameter for the Gaussian distance metric.
+        rang : float, optional
+            Allowed wavelength difference for matching peaks.
+        t_lo : float, optional
+            Lower bound for temperature [K].
+        t_hi : float, optional
+            Upper bound for temperature [K].
+        t_inc : float, optional
+            Temperature increment [K].
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        verbose : bool, optional
+            If ``True``, print progress messages.
+
+        Returns
+        -------
+        None
+            Results are stored in ``self.peak_probability_dictionary``.
         """
         t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
         kT = self.k * t_array
@@ -577,16 +773,35 @@ class PeakyIndexer():
                 self.peak_probability_dictionary[i] = peak_probabilitiy
 
 class Element():
-    """ Object to hold element information
+    """Container for matched element peaks.
+
+    Parameters
+    ----------
+    name : str
+        Element symbol.
     """
 
     def __init__(self, name):
+        """Initialize an element container.
+
+        Parameters
+        ----------
+        name : str
+            Element symbol.
+        """
         self.name = name
         self.ions = dict({})
 
 
     def update(self, data, idx):
-        """
+        """Record a matched peak for an ion.
+
+        Parameters
+        ----------
+        data : sequence
+            Peak information ``[element, ion, location, x, ...]``.
+        idx : int
+            Index of the peak in the original array.
         """
         el, ion, location, x, *rest = data
         
@@ -598,9 +813,33 @@ class Element():
 
 
     def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
+        """Compare an ion's predicted peaks to the observed spectrum.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        element : str
+            Element symbol.
+        ion : float
+            Ionization state.
+        plot : bool, optional
+            If ``True``, display a plot of the comparison.
+        x_lo : float, optional
+            Lower wavelength bound for plotting.
+        x_hi : float, optional
+            Upper wavelength bound for plotting.
+
+        Returns
+        -------
+        None
+            The modeled profile is computed but not returned.
         """
-        """
-        ionization, element_peaks, Ei = self.db.lines(element)[:,[0, 1, 4]].T.astype(float)
+        ionization, element_peaks, Ei = self.db.lines(element)[:, [0, 1, 4]].T.astype(float)
         i_ind = ionization == ion
         i_peaks = element_peaks[i_ind]
 
@@ -611,4 +850,4 @@ class Element():
         close = diffs < 1 * data_peak_widths
 
         peaks = peak_array[close]
-        profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks)) 
+        profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks))
