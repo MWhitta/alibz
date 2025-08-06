@@ -1,108 +1,74 @@
-from itertools import groupby
-from collections import defaultdict
-
 import numpy as np
-
+from collections import defaultdict
 from matplotlib import pyplot as plt
-from matplotlib.ticker import AutoMinorLocator, MultipleLocator
-
-from scipy.special     import wofz
-from scipy.special     import voigt_profile as voigt
-from scipy.optimize    import least_squares
-from scipy.optimize    import linprog
-from scipy.integrate   import cumulative_trapezoid
-from scipy.interpolate import interp1d
-from scipy.interpolate import make_splrep
-
-from sklearn.linear_model  import HuberRegressor, RANSACRegressor
-from sklearn.preprocessing import PowerTransformer
+from scipy.special import voigt_profile as voigt
 
 from utils.database import Database
 from peaky_maker import PeakyMaker
 
-
 class PeakyIndexer():
-    """ PeakyIndexer is a python class that contains tools for indexing and classifying laser plasma spectroscopy data.
-    Args:
-        data_dir (str literal): Path to the data directory upon which the `PeakyFinder` class loads data.
-    Attributes:
-        data (object):
-    Methods:
+    """Tools for indexing and classifying laser plasma spectra.
+
+    Parameters
+    ----------
+    PeakyFinder : :class:`~peaky_finder.PeakyFinder`
+        Initialized peak finding utility.
+    dbpath : str, optional
+        Path to the database directory. Default is ``"db"``.
+
+    Attributes
+    ----------
+    finder : :class:`~peaky_finder.PeakyFinder`
+        Peak finding utility used for spectral analysis.
+    maker : :class:`~peaky_maker.PeakyMaker`
+        Spectrum synthesis helper.
+    db : :class:`~utils.database.Database`
+        Atomic line database.
+    k : float
+        Boltzmann constant in eV/K.
+    h : float
+        Planck constant in eV s.
+    c : float
+        Speed of light in m/s.
+    me : float
+        Electron mass in eV/c².
     """
 
     def __init__(self, PeakyFinder, dbpath="db") -> None:
-        self.PeakyFinder = PeakyFinder
+        """Initialize the indexer.
+
+        Parameters
+        ----------
+        PeakyFinder : :class:`~peaky_finder.PeakyFinder`
+            Initialized peak finding utility.
+        dbpath : str, optional
+            Path to the database directory. Default is ``"db"``.
+        """
+        self.finder = PeakyFinder
         self.maker = PeakyMaker(dbpath)
         self.db = Database(dbpath)
 
-        # Constant Values
-        self.k = 8.617333262 * 10 ** -5 # Boltzmann constant (eV/K)
-        self.h = 4.135667696 * 10 ** -15 # Plank constant eV s
-        self.c = 2.99792458 * 10**8 # Speed of light in a vacuum (m/s)
-        self.me = 0.51099895000 * 10**6 # electron mass eV / c^2
+        # Physical Constants
+        self.k = 8.617333262 * 10 ** -5  # Boltzmann constant (eV/K)
+        self.h = 4.135667696 * 10 ** -15  # Planck constant eV s
+        self.c = 2.99792458 * 10**8  # Speed of light in a vacuum (m/s)
+        self.me = 0.51099895000 * 10**6  # electron mass eV / c^2
 
 
-    def distance_decay(self, w1, w2, s):
-        """ Gaussian distance metric for proximate peaks
-        """
-        d = np.exp(-(w1 - w2)**2 / (2 * s**2))
-        return d
-
-
-    def peak_proximity(self, peaks, reference, shift_tolerance):
-        """ determine minimum proximity between data and reference peak locations
-        """
-        peak_prox = peaks[:, np.newaxis] - reference
-        peak_match = np.min(np.abs(peak_prox), axis=-1) <= shift_tolerance
-        return peak_match
-    
-    
-    def peak_interference(self, 
-                             x,
-                         wid=1,
-                        rang=1,
-             ground_state=True
-                               ):
-        """ Determine which ions are most likely to interfere at a given peak location
-        """
-        
-        close_peaks = []
-        for el in self.db.elements: # elements
-            ionization, peak_loc, Ei = self.db.lines(el)[:,[0, 1, 4]].T.astype(float)
-            ions = np.sort(np.unique(ionization))
-            for ion in ions:
-                i_ind = ionization == ion
-                if ground_state:
-                    E_ind = Ei == 0
-                else:
-                    E_ind = Ei >= 1
-                i_peak_loc = peak_loc[i_ind * E_ind]
-
-                if len(i_peak_loc) > 0:
-                    close_candidates = i_peak_loc - x <= wid
-                    i_peak_loc_close = i_peak_loc[close_candidates]
-                else:
-                    i_peak_loc_close = []
-                
-                if len(i_peak_loc_close) > 0:
-                    i_peak_loc_round = np.round(i_peak_loc_close, 3)
-                    distance_metric = self.distance_decay(x, np.array(i_peak_loc_round), wid)
-                    for location, distance in zip(i_peak_loc_close, distance_metric):
-                        if np.abs(x-location) < rang:
-                            close_peaks.append([el, ion, location, distance])
-
-        if len(close_peaks) > 0:
-            close_peaks.sort(key=lambda dp: dp[-1], reverse=True)
-        else:
-            close_peaks = [[]]
-        
-        return close_peaks
-
-    
     def ground_state(self, threshold=0.001):
-        """ identify ground state transitions for each element
+        """Identify ground state transitions for each element.
+
+        Parameters
+        ----------
+        threshold : float, optional
+            Minimum relative occupation probability required to keep a line.
+
+        Returns
+        -------
+        None
+            Results are stored in ``self.ground_states``.
         """
-        self.ground_states = defaultdict(dict)
+        self.ground_states = {}
         for el in self.db.elements:
             ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(el)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
             ions = np.unique(ionization)
@@ -119,162 +85,185 @@ class PeakyIndexer():
                         groundT = groundgA * groundEk
                         groundEkprob = np.divide(groundT, np.max(groundgA * groundEk), out=np.zeros_like(groundEk), where=groundEk > 0) > threshold
                         self.ground_states[el][ion] = groundpeak[groundEkprob], groundT[groundEkprob]
-    
 
-    def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
+
+    def distance_decay(self, w1, w2, s):
+        """Gaussian distance metric for proximate peaks.
+
+        Parameters
+        ----------
+        w1 : float
+            First wavelength.
+        w2 : float
+            Second wavelength.
+        s : float
+            Standard deviation of the Gaussian.
+
+        Returns
+        -------
+        float
+            Distance decay factor.
         """
+        d = np.exp(-(w1 - w2)**2 / (2 * s**2))
+        return d
+
+
+    def peak_proximity(self, peaks, reference, shift_tolerance):
+        """Determine minimum proximity between data and reference peak locations.
+
+        Parameters
+        ----------
+        peaks : array_like
+            Detected peak positions.
+        reference : array_like
+            Reference peak locations.
+        shift_tolerance : float
+            Maximum allowed deviation for a match.
+
+        Returns
+        -------
+        ndarray
+            Boolean array indicating peaks within ``shift_tolerance`` of any
+            reference line.
         """
-        ionization, element_peaks, Ei = self.db.lines(element)[:,[0, 1, 4]].T.astype(float)
-        i_ind = ionization == ion
-        i_peaks = element_peaks[i_ind]
-
-        data_peak_centers = peak_array[:, 1]
-        data_peak_widths = self.PeakyFinder.voigt_width(peak_array[:, 2], peak_array[:, 3])
-
-        diffs = np.min(np.abs(data_peak_centers[:, np.newaxis] - i_peaks[np.newaxis, :]), axis=1)
-        close = diffs < 1 * data_peak_widths
-
-        peaks = peak_array[close]
-        profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks)) 
-
-        if plot:
-            plt.rcParams.update({'font.size': 14})
-            plt.figure(figsize=(30, 10))
-    
-            plt.plot(x, y, color='k', alpha=0.9)
-            plt.plot(x, profile, color='r', lw=0.5)
-            plt.fill_between(x, profile, np.zeros_like(x), color='r', alpha=0.5)
-            plt.xlim([x_lo, x_hi])
-            plt.ylim([0, np.max(y)])
-            plt.tick_params(axis='x', which='minor', bottom=True)
-            plt.xlabel('wavelength [nm]')
-            plt.ylabel('intensity [counts]')
-
-        return peaks
+        peak_prox = peaks[:, np.newaxis] - reference
+        peak_match = np.min(np.abs(peak_prox), axis=-1) <= shift_tolerance
+        return peak_match
 
 
-    def ground_state_match(self, peak_array):
+    def peak_interference(self,
+                             x,
+                         wid=1,
+                        rang=1,
+               log_amp_limit=6,
+             ground_state=True,
+             element_list=None
+                               ):
+        """Determine ions most likely to interfere at a given peak location.
+
+        Parameters
+        ----------
+        x : float
+            Peak location to evaluate.
+        wid : float, optional
+            Width parameter for the Gaussian distance metric.
+        rang : float, optional
+            Maximum distance from ``x`` to consider.
+        log_amp_limit : float, optional
+            Threshold for logarithmic amplitude difference.
+        ground_state : bool, optional
+            If ``True``, only ground-state transitions are considered.
+        element_list : list of str, optional
+            Subset of elements to search. If ``None``, all elements are used.
+
+        Returns
+        -------
+        list of list
+            Each entry is ``[element, ion, location, x, distance, amplitude]``
+            for lines within the specified range. If no peaks are found,
+            returns ``[[]]``.
         """
-        """
-        no_match_dictionary = dict({})
-        multi_match_dictionary = dict({})
-        single_match_dictionary = dict({})
-        element_match_dictionary = defaultdict(dict)
 
-        for i, peak in enumerate(peak_array):
-            a, mu, sigma, gamma = peak
-            g_match = self.peak_interference(mu)
-            matches = len(g_match)
+        if element_list is None:
+            element_list = self.db.elements
 
-            if matches == 1:
-                if g_match[0]:
-                    single_match_dictionary.update({i : g_match})
+        close_peaks = []
+        for el in element_list: # elements
+            ionization, peak_loc, gA, Ei = self.db.lines(el)[:,[0, 1, 3, 4]].T.astype(float)
+            ions = np.sort(np.unique(ionization))
+            for ion in ions:
+                i_ind = ionization == ion
+                if ground_state:
+                    E_ind = Ei == 0
                 else:
-                    no_match_dictionary.update({i : g_match})
-            else:
-                multi_match_dictionary.update({i: g_match})
+                    E_ind = Ei > 0
+                i_peak_loc = peak_loc[i_ind * E_ind]
+                i_gA = gA[i_ind * E_ind]
 
-        for key, value in multi_match_dictionary.items():
-            for v in value:
-                outer_key = v[0]
-                inner_key = v[1]
-                element_match_dictionary[outer_key][inner_key].add(key)
-        for key, value in single_match_dictionary.items():
-            outer_key = value[0][0]
-            inner_key = value[0][1]
-            element_match_dictionary[outer_key][inner_key].add(key)
+                if len(i_peak_loc) > 0:
+                    close_candidates = i_peak_loc - x <= wid
+                    i_peak_loc_close = i_peak_loc[close_candidates]
+                    i_gA_close = np.log10(i_gA[close_candidates])
+                else:
+                    i_peak_loc_close = []
+                    i_gA_close = []
+                
+                if len(i_peak_loc_close) > 0:
+                    i_peak_loc_round = np.round(i_peak_loc_close, 3)
+                    distance_metric = self.distance_decay(x, np.array(i_peak_loc_round), wid)
+                    amplitude_metric = np.max(i_gA_close) - log_amp_limit
 
-        return single_match_dictionary, no_match_dictionary, multi_match_dictionary, element_match_dictionary
-    
+                    for location, distance, A in zip(i_peak_loc_close, distance_metric, i_gA_close):
+                        if np.abs(x-location) < rang:
+                            if A > amplitude_metric:
+                                close_peaks.append([el, ion, location, x, distance, A]) # log10(A)
 
-    def group_max(self, x, inv):
-        """
-        Given an array x and group indices in inv,
-        compute the maximum of x for each group and return
-        an array of the same shape as x where each element is
-        replaced by the maximum of its group.
-        """
-        order = np.argsort(inv)
-        inv_sorted = inv[order]
-        x_sorted = x[order]
-        # Identify the starting indices of each new group.
-        group_starts = np.r_[0, np.nonzero(np.diff(inv_sorted))[0] + 1]
-        # Compute the maximum for each group.
-        group_max_values = np.maximum.reduceat(x_sorted, group_starts)
-        # Determine the size of each group.
-        sizes = np.diff(np.r_[group_starts, len(x_sorted)])
-        # Broadcast the group maximum back to each element.
-        out = np.empty_like(x)
-        out[order] = np.repeat(group_max_values, sizes)
-        return out
-
-
-    def filter_rows(self, arr):
-        """
-        Remove rows from a (n,3) array such that if, for either
-        of the first two columns, a value is repeated, then only
-        rows with the maximum third-column value for that group are kept.
-        """
-        keep = np.ones(arr.shape[0], dtype=bool)
+        if len(close_peaks) > 0:
+            close_peaks.sort(key=lambda dp: dp[-1], reverse=True)
+        else:
+            close_peaks = [[]]
         
-        # Loop over the first two columns.
-        for col in [0, 1]:
-            # Get group labels (inv) and counts per group.
-            _, inv, counts = np.unique(arr[:, col], return_inverse=True, return_counts=True)
-            # Compute the maximum third-column value within each group.
-            max_vals = self.group_max(arr[:, 2], inv)
-            # Mark rows for which the group has duplicates and the value is not maximal.
-            remove = (counts[inv] > 1) & (arr[:, 2] < max_vals)
-            keep &= ~remove  # Remove rows failing the check for this column.
+        return close_peaks
+
+
+    def peak_match(self, peak_array, ground_state=True, element_list=None):
+        """Match peaks to candidate element transitions.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters with columns ``[amplitude, center, sigma, gamma]``.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        element_list : list of str, optional
+            Elements to search. If ``None``, all elements in the database are used.
+
+        Returns
+        -------
+        dict
+            Mapping of element names to :class:`Element` instances containing
+            matched peak information.
+        """
+        peak_idx = np.arange(len(peak_array))
         
-        return arr[keep]
+        peak_match_dictionary = dict({}) # store matched element peak information
 
+        for idx in peak_idx:
+            close_peaks = self.peak_interference(peak_array[idx, 1], ground_state=ground_state, element_list=element_list)
+            
+            if any(close_peaks[0]): # if any close peaks are found, match them
+                
+                for peak in close_peaks:
+                    el, *rest = peak
+                    match_data = Element(el)
+                    match_data.update(peak, idx)
 
-    def match_points(self, array1, array2, delta_lambda, delta_intensity, d_threshold=1.0):
-        """
-        Match points between two sorted arrays using a normalized Euclidean distance.
+                    if el not in peak_match_dictionary:
+                        peak_match_dictionary[el] = match_data 
+                    else:
+                        peak_match_dictionary[el].update(peak, idx)
+        
+        return peak_match_dictionary
 
-        Parameters:
-            array1, array2 : numpy.ndarray
-                Arrays of shape (n, 2), where each row is (wavelength, intensity).
-                Both arrays must be sorted in increasing order by wavelength.
-            delta_lambda : float
-                Uncertainty or normalization factor for the wavelength differences.
-            delta_intensity : float
-                Uncertainty or normalization factor for the intensity differences.
-            d_threshold : float, optional
-                Maximum allowed normalized Euclidean distance for a match (default is 1.0).
-
-        Returns:
-            matches : list of tuples
-                Each tuple is (index_in_array1, index_in_array2, distance).
-        """
-        matches = []
-        j = 0
-        n2 = array2.shape[0]
-
-        # Loop over each point in array1
-        for i, (w1, I1) in enumerate(array1):
-            # Advance pointer j in array2 so that its wavelength is within the lower bound
-            while j < n2 and array2[j, 0] < w1 - delta_lambda:
-                j += 1
-
-            # Check candidate points in array2 within the upper wavelength bound
-            k = j
-            while k < n2 and array2[k, 0] <= w1 + delta_lambda:
-                w2, I2 = array2[k]
-                # Compute the normalized Euclidean distance
-                d = np.sqrt(((w1 - w2) / delta_lambda)**2 + ((I1 - I2) / (delta_intensity))**2)
-                if d < d_threshold:
-                    matches.append((i, k, d))
-                k += 1
-
-        return np.array(matches)
 
 
     def spectrum_match(self, peak_array, ground_state=True, plot=False):
-        """ 
-        peak_array: (n, 4) array of peak data (like PeakyFinder.sorted_parameter_array)
+        """Match spectrum peaks to database lines.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        plot : bool, optional
+            If ``True``, display diagnostic plots.
+
+        Returns
+        -------
+        tuple of dict
+            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
+            ions to matched peak locations and unindexed peaks respectively.
         """
         
         data_peak_centers = peak_array[:, 1]
@@ -393,10 +382,31 @@ class PeakyIndexer():
         return spectrum_dictionary, excited_dictionary
 
 
-
-
     def spectrum_match2(self, peak_array, t_lo=10000, t_hi=11000, t_inc=500, i_tol=100, ground_state=True, plot=False):
-        """
+        """Match spectrum peaks to database lines across a temperature range.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        t_lo : float, optional
+            Lower bound for temperature [K].
+        t_hi : float, optional
+            Upper bound for temperature [K].
+        t_inc : float, optional
+            Temperature increment [K].
+        i_tol : float, optional
+            Minimum peak intensity for consideration.
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        plot : bool, optional
+            If ``True``, display diagnostic plots.
+
+        Returns
+        -------
+        tuple of dict
+            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
+            ions to matched peak locations and unindexed peaks respectively.
         """
         t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
         kT = self.k * t_array
@@ -545,7 +555,33 @@ class PeakyIndexer():
 
     
     def peak_compare(self, x, y, p, ploc, locations, amps, peaks, limit, rang):
-        """ compare the expected peaks of an ion to the observed peaks and return the fraction found
+        """Compare expected ion peaks to observed peaks.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        p : int
+            Index of the peak under consideration in ``x`` and ``y``.
+        ploc : ndarray
+            Boolean array marking the location of the ion peak being tested.
+        locations : ndarray
+            Wavelengths of all candidate lines for the ion.
+        amps : ndarray
+            Predicted line amplitudes for each temperature.
+        peaks : ndarray
+            Indices of detected peaks in the spectrum.
+        limit : float
+            Minimum relative amplitude required for a line to be considered.
+        rang : float
+            Maximum distance between predicted and observed peaks.
+
+        Returns
+        -------
+        ndarray
+            Fraction of expected peaks found for each temperature.
         """
         if np.sum(ploc) == 0:
             peaks_found = np.zeros_like(amps[:, 0])
@@ -581,12 +617,12 @@ class PeakyIndexer():
                 return peaks_found
       
     
-    def index_probabilities(self,  
+    def index_probabilities(self,
               x,
               y,
               peak_indices,
               peak_array,
-              wid=1, 
+              wid=1,
               rang=0.5,
               t_lo=10000,
               t_hi=11000,
@@ -594,7 +630,37 @@ class PeakyIndexer():
               ground_state=True,
               verbose=True,
               ):
-        """ `index_probabilities` is a method to make and store peak index data
+        """Compute and store peak index probabilities.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        peak_indices : ndarray
+            Indices of detected peaks in ``x`` and ``y``.
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        wid : float, optional
+            Width parameter for the Gaussian distance metric.
+        rang : float, optional
+            Allowed wavelength difference for matching peaks.
+        t_lo : float, optional
+            Lower bound for temperature [K].
+        t_hi : float, optional
+            Upper bound for temperature [K].
+        t_inc : float, optional
+            Temperature increment [K].
+        ground_state : bool, optional
+            If ``True``, restrict matches to ground-state transitions.
+        verbose : bool, optional
+            If ``True``, print progress messages.
+
+        Returns
+        -------
+        None
+            Results are stored in ``self.peak_probability_dictionary``.
         """
         t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
         kT = self.k * t_array
@@ -706,65 +772,82 @@ class PeakyIndexer():
                 peak_probabilitiy = np.hstack((new_px, new_peak_match[:, np.newaxis], new_peak_prob[:, np.newaxis], new_max_relative_intensity[:, np.newaxis]))
                 self.peak_probability_dictionary[i] = peak_probabilitiy
 
+class Element():
+    """Container for matched element peaks.
 
-    def set_candidate_element(self, element, ion):
-        if element not in self.candidates:
-            self.candidates[element] = IndexElement(element, ion)
-
-    
-    def set_candidate_peak(self, wavelength):
-        if wavelength not in self.peaks:
-            self.peaks[wavelength] = IndexPeak(wavelength)
-
-
-    def update_candidates(self, x, y, indexer, threshold=0.01):
-        """ rank candidate elements based on peak locations and intensities
-        """
-        for key in indexer.peak_probability_dictionary.keys():
-            for i, (element, ion, wavelength, distance, match, probability, intensity) in enumerate(indexer.peak_probability_dictionary[key]):
-                if float(probability) > threshold:
-                    self.set_candidate_element(element, ion)
-                    new_wavelength_reference = self.db.lines(element, int(float(ion)))[:, 1].astype(float)
-                    peak_match = self.peak_proximity(x[indexer.peaks], new_wavelength_reference, shift_tolerance=self.shift_tolerance)
-                    self.candidates[element].matching_peaks(ion, peak_match)
-
-                    self.set_candidate_peak(wavelength)
-
-
-class IndexElement():
-    """ Class to store element indexing information for use in classification and quantificiation
+    Parameters
+    ----------
+    name : str
+        Element symbol.
     """
 
-    def __init__(self, element, ion=None) -> None:
-        self.element = element
-        self.ions = [ion]
-        self.match_wavelengths = {}
-        self.match_peak_indices = {}
-        self.unmatch_peaks = {}
+    def __init__(self, name):
+        """Initialize an element container.
 
-
-    def matching_peaks(self, ion, peak_match):
-        """ retains `peaks` in spectrum matching those of `ion`
+        Parameters
+        ----------
+        name : str
+            Element symbol.
         """
-        if ion not in self.match_peak_indices:
-            self.match_peak_indices[ion] = peak_match
-            self.ions.append(ion)
-        self.ions = [x for i, x in enumerate(self.ions) if x not in self.ions[:i]]
-
-        if ion not in self.unmatch_peaks:
-            self.unmatch_peaks[ion] = ~peak_match
+        self.name = name
+        self.ions = dict({})
 
 
-class IndexPeak():
-    """ Class to store element indexing information for use in classification and quantificiation
-    """
+    def update(self, data, idx):
+        """Record a matched peak for an ion.
 
-    def __init__(self, peak) -> None:
-        self.peak = peak
-        self.candidates = {}
+        Parameters
+        ----------
+        data : sequence
+            Peak information ``[element, ion, location, x, ...]``.
+        idx : int
+            Index of the peak in the original array.
+        """
+        el, ion, location, x, *rest = data
+        
+        if ion not in self.ions: # add a new ion
+            self.ions[ion] = dict({idx: np.array([location, x])})
+        else: # update existing ion dictionary with new peak location
+            if idx not in self.ions[ion].keys():
+                self.ions[ion][idx] = np.array([location, x])
 
-    def matching_elements(self, element, ion):
-        if element not in self.candidates:
-            self.candidates[element] = [ion]
-        else:
-            self.candidates[element].append(ion)
+
+    def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
+        """Compare an ion's predicted peaks to the observed spectrum.
+
+        Parameters
+        ----------
+        x : ndarray
+            Wavelength values of the spectrum.
+        y : ndarray
+            Intensity values of the spectrum.
+        peak_array : ndarray
+            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
+        element : str
+            Element symbol.
+        ion : float
+            Ionization state.
+        plot : bool, optional
+            If ``True``, display a plot of the comparison.
+        x_lo : float, optional
+            Lower wavelength bound for plotting.
+        x_hi : float, optional
+            Upper wavelength bound for plotting.
+
+        Returns
+        -------
+        None
+            The modeled profile is computed but not returned.
+        """
+        ionization, element_peaks, Ei = self.db.lines(element)[:, [0, 1, 4]].T.astype(float)
+        i_ind = ionization == ion
+        i_peaks = element_peaks[i_ind]
+
+        data_peak_centers = peak_array[:, 1]
+        data_peak_widths = self.PeakyFinder.voigt_width(peak_array[:, 2], peak_array[:, 3])
+
+        diffs = np.min(np.abs(data_peak_centers[:, np.newaxis] - i_peaks[np.newaxis, :]), axis=1)
+        close = diffs < 1 * data_peak_widths
+
+        peaks = peak_array[close]
+        profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks))
