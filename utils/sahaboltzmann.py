@@ -1,4 +1,8 @@
+from typing import Tuple
+
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
 from utils.database import Database
 
 class SahaBoltzmann():
@@ -151,14 +155,53 @@ class SahaBoltzmann():
         return gsra_array
 
 
-    def calculate(self, element, temperature, ne, decimal_precision=10, gsra=False, time_gated=False, time_0=20, time_f=100, t_step=1):
+    def calculate(
+        self,
+        element: str,
+        temperature: ArrayLike,
+        ne: float,
+        decimal_precision: int = 10,
+        gsra: bool = False,
+        time_gated: bool = False,
+        time_0: float = 20,
+        time_f: float = 100,
+        t_step: float = 1,
+    ) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Calculate Saha-Boltzmann distribution for a given element.
+
+        Parameters
+        ----------
+        element : str
+            Element symbol.
+        temperature : ArrayLike
+            Electron temperature values in kelvin.
+        ne : float
+            Electron density.
+        decimal_precision : int, optional
+            Rounding precision for the ionization fraction, by default 10.
+        gsra : bool, optional
+            Include ground state resonant absorption, by default ``False``.
+        time_gated : bool, optional
+            Apply time gating to the intensity, by default ``False``.
+        time_0 : float, optional
+            Start time for time gating in nanoseconds, by default ``20``.
+        time_f : float, optional
+            Final time for time gating in nanoseconds, by default ``100``.
+        t_step : float, optional
+            Step size for time gating in nanoseconds, by default ``1``.
+
+        Returns
+        -------
+        x : NDArray[np.float64]
+            Emission line positions.
+        y : NDArray[np.float64]
+            Corresponding intensities.
         """
-        temperature = np.asarray(temperature)
+        temperature = np.atleast_1d(np.asarray(temperature, dtype=float))
 
         # Broadcasting kT calculation
         kT = self.boltzmann_constant * temperature[:, None]
-        intensity_constant = (4 * np.pi)**-1 * self.plank_constant * self.speed_c * 10**9
+        intensity_constant = (4 * np.pi) ** -1 * self.plank_constant * self.speed_c * 10**9
 
         ionization, peak_loc, gA, Ek = self.db.lines(element)[:, [0, 1, 3, 5]].T.astype(float)
 
