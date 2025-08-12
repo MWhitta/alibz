@@ -117,7 +117,7 @@ class PeakyIndexer():
         """
 
         if not hasattr(self, "ground_states"):
-            raise AttributeError("Run `ground_state` before calling `anchor_peaks`.")
+            self.ground_state()
 
         peak_centers = peak_array[:, 1]
         anchors: DefaultDict[str, DefaultDict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
