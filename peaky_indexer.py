@@ -1,5 +1,6 @@
 import numpy as np
 from collections import defaultdict
+from typing import DefaultDict, Dict, List
 from matplotlib import pyplot as plt
 from scipy.special import voigt_profile as voigt
 
@@ -55,7 +56,7 @@ class PeakyIndexer():
         self.me = 0.51099895000 * 10**6  # electron mass eV / c^2
 
 
-    def ground_state(self, threshold=0.001):
+    def ground_state(self, threshold: float = 0.001) -> None:
         """Identify ground state transitions for each element.
 
         Parameters
@@ -68,23 +69,73 @@ class PeakyIndexer():
         None
             Results are stored in ``self.ground_states``.
         """
-        self.ground_states = {}
+
+        self.ground_states: DefaultDict[str, Dict[str, np.ndarray]] = defaultdict(dict)
         for el in self.db.elements:
             ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(el)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
             ions = np.unique(ionization)
-            
+
             for ion in ions:
-                Eind = ionization == ion #indices of single ionization state
-                groundEi = Ei[Eind] == 0 #indices of ground state for ionization state
-                groundpeak = peak_loc[Eind][groundEi] #ground state peak wavelengths
-                groundEk = gk[Eind][groundEi]*np.exp(-Ek[Eind][groundEi]/1000) #ground state upper level occupation probabilities
-                groundgA = 1/gk[Eind][groundEi] * gA[Eind][groundEi]
-                
-                if len(groundEk) > 0:
-                    if np.max(groundEk) > 0:
-                        groundT = groundgA * groundEk
-                        groundEkprob = np.divide(groundT, np.max(groundgA * groundEk), out=np.zeros_like(groundEk), where=groundEk > 0) > threshold
-                        self.ground_states[el][ion] = groundpeak[groundEkprob], groundT[groundEkprob]
+                Eind = ionization == ion  # indices of single ionization state
+                groundEi = Ei[Eind] == 0  # indices of ground state for ionization state
+                groundpeak = peak_loc[Eind][groundEi]  # ground state peak wavelengths
+                groundEk = gk[Eind][groundEi] * np.exp(-Ek[Eind][groundEi] / 1000)  # ground state upper level occupation probabilities
+                groundgA = 1 / gk[Eind][groundEi] * gA[Eind][groundEi]
+
+                if len(groundEk) > 0 and np.max(groundEk) > 0:
+                    groundT = groundgA * groundEk
+                    groundEkprob = np.divide(
+                        groundT,
+                        np.max(groundgA * groundEk),
+                        out=np.zeros_like(groundEk),
+                        where=groundEk > 0,
+                    ) > threshold
+                    self.ground_states[el][str(ion)] = (
+                        groundpeak[groundEkprob],
+                        groundT[groundEkprob],
+                    )
+
+    def anchor_peaks(
+        self, peak_array: np.ndarray, shift_tolerance: float = 0.1
+    ) -> Dict[str, Dict[str, List[float]]]:
+        """Identify unambiguous ground-state transitions in fitted peaks.
+
+        Parameters
+        ----------
+        peak_array : ndarray
+            Array of peak parameters with columns ``[amplitude, center, sigma, gamma]``
+            produced by :meth:`finder.fit_spectrum_data`.
+        shift_tolerance : float, optional
+            Maximum allowed deviation in nm between a fitted peak and a ground-state
+            transition. Default is ``0.1``.
+
+        Returns
+        -------
+        dict
+            Nested mapping of element names to ionization states and the wavelengths
+            of matched peaks.
+        """
+
+        if not hasattr(self, "ground_states"):
+            raise AttributeError("Run `ground_state` before calling `anchor_peaks`.")
+
+        peak_centers = peak_array[:, 1]
+        anchors: DefaultDict[str, DefaultDict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+
+        for center in peak_centers:
+            candidates: List[tuple] = []
+            for el, ions in self.ground_states.items():
+                for ion, (wavelengths, _) in ions.items():
+                    if np.any(np.abs(wavelengths - center) <= shift_tolerance):
+                        candidates.append((el, ion))
+
+            unique_elements = {el for el, _ in candidates}
+            if len(unique_elements) == 1 and candidates:
+                el = candidates[0][0]
+                for _, ion in candidates:
+                    anchors[el][ion].append(float(center))
+
+        return {el: dict(ions) for el, ions in anchors.items()}
 
 
     def distance_decay(self, w1, w2, s):
