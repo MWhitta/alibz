@@ -11,6 +11,7 @@ utils/__pycache__/
 # Jupyter notebooks (if you don’t want them tracked)
 peaky_analyzer.ipynb
 peaky_tester.ipynb
+peaky_demo_v1.ipynb
 
 # local spectra
 spectra
