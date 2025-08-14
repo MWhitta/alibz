@@ -43,6 +43,41 @@
           class="checkbox-input"
         />
       </div>
+      <div class="control-group">
+        <label for="elements">Elements:</label>
+        <div class="elements-selector">
+          <input
+            v-model="elementSearch"
+            @input="filterElements"
+            @focus="showElementDropdown = true"
+            @blur="handleElementBlur"
+            type="text"
+            placeholder="Search elements..."
+            class="element-search-input"
+          />
+          <div v-if="showElementDropdown" class="elements-dropdown">
+            <div
+              v-for="element in filteredElements"
+              :key="element.symbol"
+              @click="toggleElement(element.symbol)"
+              :class="['element-option', { 'selected': selectedElements.includes(element.symbol) }]"
+            >
+              <span class="element-symbol">{{ element.symbol }}</span>
+              <span class="element-name">{{ element.name }}</span>
+            </div>
+          </div>
+          <div class="selected-elements">
+            <span
+              v-for="symbol in selectedElements"
+              :key="symbol"
+              class="selected-element-tag"
+            >
+              {{ symbol }}
+              <button @click="removeElement(symbol)" class="remove-element-btn">&times;</button>
+            </span>
+          </div>
+        </div>
+      </div>
       <button 
         @click="performOneClickAnalysis" 
         :disabled="!currentSpectrum"
@@ -82,6 +117,75 @@ let socket: Socket | null = null
 // Analysis parameters
 const nSigma = ref(1)
 const subtractBackground = ref(true)
+
+// Element selection variables
+const elementSearch = ref('')
+const showElementDropdown = ref(false)
+const selectedElements = ref<string[]>([])
+const filteredElements = ref<Array<{symbol: string, name: string}>>([])
+
+// Periodic table data
+const periodicTable = [
+  { symbol: 'H', name: 'Hydrogen' }, { symbol: 'He', name: 'Helium' },
+  { symbol: 'Li', name: 'Lithium' }, { symbol: 'Be', name: 'Beryllium' },
+  { symbol: 'B', name: 'Boron' }, { symbol: 'C', name: 'Carbon' },
+  { symbol: 'N', name: 'Nitrogen' }, { symbol: 'O', name: 'Oxygen' },
+  { symbol: 'F', name: 'Fluorine' }, { symbol: 'Ne', name: 'Neon' },
+  { symbol: 'Na', name: 'Sodium' }, { symbol: 'Mg', name: 'Magnesium' },
+  { symbol: 'Al', name: 'Aluminum' }, { symbol: 'Si', name: 'Silicon' },
+  { symbol: 'P', name: 'Phosphorus' }, { symbol: 'S', name: 'Sulfur' },
+  { symbol: 'Cl', name: 'Chlorine' }, { symbol: 'Ar', name: 'Argon' },
+  { symbol: 'K', name: 'Potassium' }, { symbol: 'Ca', name: 'Calcium' },
+  { symbol: 'Sc', name: 'Scandium' }, { symbol: 'Ti', name: 'Titanium' },
+  { symbol: 'V', name: 'Vanadium' }, { symbol: 'Cr', name: 'Chromium' },
+  { symbol: 'Mn', name: 'Manganese' }, { symbol: 'Fe', name: 'Iron' },
+  { symbol: 'Co', name: 'Cobalt' }, { symbol: 'Ni', name: 'Nickel' },
+  { symbol: 'Cu', name: 'Copper' }, { symbol: 'Zn', name: 'Zinc' },
+  { symbol: 'Ga', name: 'Gallium' }, { symbol: 'Ge', name: 'Germanium' },
+  { symbol: 'As', name: 'Arsenic' }, { symbol: 'Se', name: 'Selenium' },
+  { symbol: 'Br', name: 'Bromine' }, { symbol: 'Kr', name: 'Krypton' },
+  { symbol: 'Rb', name: 'Rubidium' }, { symbol: 'Sr', name: 'Strontium' },
+  { symbol: 'Y', name: 'Yttrium' }, { symbol: 'Zr', name: 'Zirconium' },
+  { symbol: 'Nb', name: 'Niobium' }, { symbol: 'Mo', name: 'Molybdenum' },
+  { symbol: 'Tc', name: 'Technetium' }, { symbol: 'Ru', name: 'Ruthenium' },
+  { symbol: 'Rh', name: 'Rhodium' }, { symbol: 'Pd', name: 'Palladium' },
+  { symbol: 'Ag', name: 'Silver' }, { symbol: 'Cd', name: 'Cadmium' },
+  { symbol: 'In', name: 'Indium' }, { symbol: 'Sn', name: 'Tin' },
+  { symbol: 'Sb', name: 'Antimony' }, { symbol: 'Te', name: 'Tellurium' },
+  { symbol: 'I', name: 'Iodine' }, { symbol: 'Xe', name: 'Xenon' },
+  { symbol: 'Cs', name: 'Cesium' }, { symbol: 'Ba', name: 'Barium' },
+  { symbol: 'La', name: 'Lanthanum' }, { symbol: 'Ce', name: 'Cerium' },
+  { symbol: 'Pr', name: 'Praseodymium' }, { symbol: 'Nd', name: 'Neodymium' },
+  { symbol: 'Pm', name: 'Promethium' }, { symbol: 'Sm', name: 'Samarium' },
+  { symbol: 'Eu', name: 'Europium' }, { symbol: 'Gd', name: 'Gadolinium' },
+  { symbol: 'Tb', name: 'Terbium' }, { symbol: 'Dy', name: 'Dysprosium' },
+  { symbol: 'Ho', name: 'Holmium' }, { symbol: 'Er', name: 'Erbium' },
+  { symbol: 'Tm', name: 'Thulium' }, { symbol: 'Yb', name: 'Ytterbium' },
+  { symbol: 'Lu', name: 'Lutetium' }, { symbol: 'Hf', name: 'Hafnium' },
+  { symbol: 'Ta', name: 'Tantalum' }, { symbol: 'W', name: 'Tungsten' },
+  { symbol: 'Re', name: 'Rhenium' }, { symbol: 'Os', name: 'Osmium' },
+  { symbol: 'Ir', name: 'Iridium' }, { symbol: 'Pt', name: 'Platinum' },
+  { symbol: 'Au', name: 'Gold' }, { symbol: 'Hg', name: 'Mercury' },
+  { symbol: 'Tl', name: 'Thallium' }, { symbol: 'Pb', name: 'Lead' },
+  { symbol: 'Bi', name: 'Bismuth' }, { symbol: 'Po', name: 'Polonium' },
+  { symbol: 'At', name: 'Astatine' }, { symbol: 'Rn', name: 'Radon' },
+  { symbol: 'Fr', name: 'Francium' }, { symbol: 'Ra', name: 'Radium' },
+  { symbol: 'Ac', name: 'Actinium' }, { symbol: 'Th', name: 'Thorium' },
+  { symbol: 'Pa', name: 'Protactinium' }, { symbol: 'U', name: 'Uranium' },
+  { symbol: 'Np', name: 'Neptunium' }, { symbol: 'Pu', name: 'Plutonium' },
+  { symbol: 'Am', name: 'Americium' }, { symbol: 'Cm', name: 'Curium' },
+  { symbol: 'Bk', name: 'Berkelium' }, { symbol: 'Cf', name: 'Californium' },
+  { symbol: 'Es', name: 'Einsteinium' }, { symbol: 'Fm', name: 'Fermium' },
+  { symbol: 'Md', name: 'Mendelevium' }, { symbol: 'No', name: 'Nobelium' },
+  { symbol: 'Lr', name: 'Lawrencium' }, { symbol: 'Rf', name: 'Rutherfordium' },
+  { symbol: 'Db', name: 'Dubnium' }, { symbol: 'Sg', name: 'Seaborgium' },
+  { symbol: 'Bh', name: 'Bohrium' }, { symbol: 'Hs', name: 'Hassium' },
+  { symbol: 'Mt', name: 'Meitnerium' }, { symbol: 'Ds', name: 'Darmstadtium' },
+  { symbol: 'Rg', name: 'Roentgenium' }, { symbol: 'Cn', name: 'Copernicium' },
+  { symbol: 'Nh', name: 'Nihonium' }, { symbol: 'Fl', name: 'Flerovium' },
+  { symbol: 'Mc', name: 'Moscovium' }, { symbol: 'Lv', name: 'Livermorium' },
+  { symbol: 'Ts', name: 'Tennessine' }, { symbol: 'Og', name: 'Oganesson' }
+]
 
 // Store current spectrum data for saving/processing
 const currentSpectrum = ref<{
@@ -478,7 +582,8 @@ const performOneClickAnalysis = async () => {
       wavelength: currentSpectrum.value.wavelengths,
       intensity: currentSpectrum.value.intensities,
       n_sigma: nSigma.value,
-      subtract_background: subtractBackground.value
+      subtract_background: subtractBackground.value,
+      elements: selectedElements.value
     }
     
     console.log('Sending analysis request:', message)
@@ -501,10 +606,51 @@ const performOneClickAnalysis = async () => {
   }
 }
 
+// Element selection functions
+const filterElements = () => {
+  if (!elementSearch.value.trim()) {
+    filteredElements.value = periodicTable
+  } else {
+    const searchTerm = elementSearch.value.toLowerCase()
+    filteredElements.value = periodicTable.filter(element => 
+      element.symbol.toLowerCase().includes(searchTerm) || 
+      element.name.toLowerCase().includes(searchTerm)
+    )
+  }
+}
+
+const toggleElement = (symbol: string) => {
+  const index = selectedElements.value.indexOf(symbol)
+  if (index > -1) {
+    selectedElements.value.splice(index, 1)
+  } else {
+    selectedElements.value.push(symbol)
+  }
+  // console.log(selectedElements.value)
+  // Update the elements string for the analysis
+}
+
+const removeElement = (symbol: string) => {
+  const index = selectedElements.value.indexOf(symbol)
+  if (index > -1) {
+    selectedElements.value.splice(index, 1)
+  }
+  // console.log(selectedElements.value)
+}
+
+const handleElementBlur = () => {
+  // Delay hiding dropdown to allow for clicks
+  setTimeout(() => {
+    showElementDropdown.value = false
+  }, 200)
+}
+
 onMounted(async () => {
   await nextTick()
   createChart()
   connectSocket()
+  // Initialize filtered elements
+  filteredElements.value = periodicTable
 })
 </script>
 
@@ -611,7 +757,7 @@ button:active {
   min-width: 120px;
 }
 
-.number-input, .checkbox-input {
+.number-input, .checkbox-input, .text-input {
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -681,5 +827,93 @@ button:active {
 
 .instructions strong {
   color: #333;
+}
+
+/* Element selector styles */
+.elements-selector {
+  position: relative;
+  flex-grow: 1;
+}
+
+.element-search-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.elements-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.element-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.element-option:hover {
+  background-color: #f5f5f5;
+}
+
+.element-option.selected {
+  background-color: #e3f2fd;
+}
+
+.element-symbol {
+  font-weight: bold;
+  color: #333;
+}
+
+.element-name {
+  color: #666;
+  font-size: 14px;
+}
+
+.selected-elements {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.selected-element-tag {
+  background-color: #4CAF50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.remove-element-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+
+.remove-element-btn:hover {
+  color: #ffebee;
 }
 </style>
