@@ -11,6 +11,33 @@ pip install -r dependencies.txt
 ```
 
 ## Usage
+### Front End Interaction
+
+1. **Start the back end**
+
+Open up a new terminal, navigate to the root folder of this project, and run
+```bash
+# at project root
+python socketio_server.py # for windows users, or
+pyhotn3 socketio_server.py # for linux-based users
+```
+
+2. **Start the front end**
+
+Before running the front end, make sure node.js is installed (see installation instructions at https://nodejs.org/). 
+
+Then open up another terminal, navigate to the root folder of this project and run
+
+```bash
+# at project root
+cd alibz_front_end
+npm install
+npm run dev
+```
+
+3. Access front end at http://localhost:5173/
+
+### Jupyter Notebook
 
 The `peaky_demo_v1.ipynb` notebook demonstrates the typical workflow for
 finding and indexing spectral peaks.
