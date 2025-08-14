@@ -80,7 +80,7 @@
       </div>
       <button 
         @click="performOneClickAnalysis" 
-        :disabled="!currentSpectrum"
+        :disabled="!currentSpectrum || selectedElements.length === 0"
         class="analysis-button"
       >
         One Click Analysis
