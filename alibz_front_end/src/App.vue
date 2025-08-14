@@ -18,6 +18,40 @@
         Load Spectrum from File
       </label>
     </div>
+    
+    <!-- Analysis Controls -->
+    <div class="analysis-controls">
+      <h3>Analysis Parameters</h3>
+      <div class="control-group">
+        <label for="nSigma">N-Sigma:</label>
+        <input
+          id="nSigma"
+          v-model.number="nSigma"
+          type="number"
+          min="1"
+          max="10"
+          step="1"
+          class="number-input"
+        />
+      </div>
+      <div class="control-group">
+        <label for="subtractBackground">Subtract Background:</label>
+        <input
+          id="subtractBackground"
+          v-model="subtractBackground"
+          type="checkbox"
+          class="checkbox-input"
+        />
+      </div>
+      <button 
+        @click="performOneClickAnalysis" 
+        :disabled="!currentSpectrum"
+        class="analysis-button"
+      >
+        One Click Analysis
+      </button>
+    </div>
+    
     <div class="instructions">
       <p><strong>Zoom Controls:</strong></p>
       <ul>
@@ -34,12 +68,20 @@
 import { ref, onMounted, nextTick } from 'vue'
 import Chart from 'chart.js/auto'
 import zoomPlugin from 'chartjs-plugin-zoom'
+import { io, Socket } from 'socket.io-client'
 
 // Register the zoom plugin
 Chart.register(zoomPlugin)
 
 const spectrumChart = ref<HTMLCanvasElement>()
 let chart: Chart | null = null
+
+// Socket.IO client
+let socket: Socket | null = null
+
+// Analysis parameters
+const nSigma = ref(1)
+const subtractBackground = ref(true)
 
 // Store current spectrum data for saving/processing
 const currentSpectrum = ref<{
@@ -384,9 +426,85 @@ const fullResolutionData = ref<{
   intensities: number[]
 } | null>(null)
 
+// Socket.IO connection
+const connectSocket = () => {
+  try {
+    socket = io('http://localhost:2518')
+    
+    socket.on('connect', () => {
+      console.log('Connected to Socket.IO server on localhost:2518')
+    })
+    
+    socket.on('disconnect', () => {
+      console.log('Disconnected from Socket.IO server')
+    })
+    
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error)
+    })
+
+    socket.on('one_click_started', (data) => {
+    console.log('Processing started:', data.message);
+    });
+
+    // Listen for progress updates
+    socket.on('one_click_progress', (data) => {
+        console.log('Progress:', data.message);
+    });
+
+    // Listen for final results
+    socket.on('one_click_result', (data) => {
+        console.log('Results received:', data);
+    });
+
+    // Listen for errors
+    socket.on('one_click_error', (data) => {
+        console.error('Error:', data.error);
+    });
+  } catch (error) {
+    console.error('Failed to connect to Socket.IO server:', error)
+  }
+}
+
+// One Click Analysis function
+const performOneClickAnalysis = async () => {
+  if (!currentSpectrum.value || !socket) {
+    console.error('No spectrum data or socket connection available')
+    return
+  }
+  
+  try {
+    const message = {
+      wavelength: currentSpectrum.value.wavelengths,
+      intensity: currentSpectrum.value.intensities,
+      n_sigma: nSigma.value,
+      subtract_background: subtractBackground.value
+    }
+    
+    console.log('Sending analysis request:', message)
+    
+    // Send the message to the "one_click" event
+    socket.emit('one_click', message)
+    
+    // Wait for response
+    // socket.once('one_click_result', (response) => {
+    //   console.log('Analysis response received:', response)
+    // })
+    
+    // // Set a timeout for the response
+    // setTimeout(() => {
+    //   console.log('Analysis request timeout - no response received')
+    // }, 100000) // 100 second timeout
+    
+  } catch (error) {
+    console.error('Error performing one-click analysis:', error)
+  }
+}
+
 onMounted(async () => {
   await nextTick()
   createChart()
+  connectSocket()
 })
 </script>
 
@@ -463,6 +581,77 @@ button:active {
 
 .file-input-label:active {
   background-color: #3d8b40;
+}
+
+.analysis-controls {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+}
+
+.analysis-controls h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 18px;
+}
+
+.control-group {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-group label {
+  font-size: 16px;
+  color: #333;
+  min-width: 120px;
+}
+
+.number-input, .checkbox-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+  flex-grow: 1;
+}
+
+.checkbox-input {
+  width: auto;
+  min-width: 20px;
+  height: 20px;
+}
+
+.analysis-button {
+  background-color: #007bff;
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.analysis-button:hover {
+  background-color: #0056b3;
+}
+
+.analysis-button:active {
+  background-color: #004085;
+}
+
+.analysis-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  color: #888;
 }
 
 .instructions {
