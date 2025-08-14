@@ -18,6 +18,7 @@
     "chart.js": "^4.5.0",
     "chartjs-plugin-zoom": "^2.2.0",
     "pinia": "^3.0.3",
+    "socket.io-client": "^4.8.1",
     "vue": "^3.5.18",
     "vue-router": "^4.5.1"
   },
