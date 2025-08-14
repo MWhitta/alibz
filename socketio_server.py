@@ -7,6 +7,7 @@ import argparse
 from peaky_finder import PeakyFinder
 from peaky_indexer import PeakyIndexer
 import pandas as pd
+import matplotlib.pyplot as plt
 
 class AlibzSocketIOServer():
     """
@@ -47,15 +48,19 @@ class AlibzSocketIOServer():
 
     def on_one_click(self, sid, params: dict):
         print(f'received one click request from {sid}.')
-        x, y, n_sigma, subtract_background = np.array(params['wavelength']), np.array(params['intensity']), params['n_sigma'], params['subtract_background']
-    
+        x, y, n_sigma, subtract_background, elements = np.array(params['wavelength']), np.array(params['intensity']), params['n_sigma'], params['subtract_background'], params['elements']
+        print(elements)
         # Spawn a greenlet to handle the potentially blocking operation
-        eventlet.spawn(self._process_one_click, sid, x, y, n_sigma, subtract_background)
+        eventlet.spawn(self._process_one_click, sid, x, y, n_sigma, subtract_background, elements)
     
-    def _process_one_click(self, sid, x, y, n_sigma, subtract_background):
+    def _process_one_click(self, sid, x, y, n_sigma, subtract_background, elements):
         """Process the one_click request in a separate greenlet to avoid blocking"""
         try:
             finder_dict = self.peaky_finder.fit_spectrum(x, y, n_sigma, subtract_background, plot=True)
+            test_dict = self.peaky_indexer.peak_match(finder_dict['sorted_parameter_array'], element_list=elements)
+            test_locs = np.array(list(test_dict['Li'].ions[1.0].values()))
+            plt.scatter(test_locs[:,0], test_locs[:,1])
+            plt.show()
             # Emit the result back to the client
             self.sio.emit('one_click_result', finder_dict, room=sid)
         except Exception as e:
