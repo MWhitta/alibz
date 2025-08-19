@@ -93,22 +93,22 @@ class AlibzSocketIOServer():
     def on_sim_peak(self, sid, params: dict):
         try:
             print(f'received sim_peak request from {sid}.')
-            # elements = params['elements']
-            # fracs = [0] * self.peaky_maker.max_z
-            # for el in elements:
-            #     fracs[ELEMENT_ABBR_TO_INDEX[el]] = 1
-            # fracs = np.array(fracs)
-            # wavelength, spectrum, element_spectra = self.peaky_maker.peak_maker(fracs)
+            elements = params['elements']
+            fracs = [0] * self.peaky_maker.max_z
+            for el in elements:
+                fracs[ELEMENT_ABBR_TO_INDEX[el]] = 1
+            fracs = np.array(fracs)
+            wavelength, spectrum, _ = self.peaky_maker.peak_maker(fracs)
             # ele_spectra = {el: element_spectra[ELEMENT_ABBR_TO_INDEX[el]].tolist() for el in elements}
             # print(ele_spectra)
             # print(spectrum)
-            # print(ele_spectra)
-            # self.sio.emit('sim_peak_result', {'wavelength': wavelength.tolist(), 'spectrum': spectrum.tolist(), 'element_spectra': ele_spectra}, room=sid)
-            import pandas as pd
-            df = pd.read_csv('./spectra/2025_06_23_14_55_42/2025_06_23_14_55_42_20250623_025539_PM_Spectrum1.csv', header=0, index_col=None)
-            wavelength = df['wavelength'].values
-            spectrum = df['intensity'].values
-            self.sio.emit('sim_peak_result', {'wavelength': wavelength.tolist(), 'spectrum': spectrum.tolist(), 'element_spectra': {}}, room=sid)
+     
+            self.sio.emit('sim_peak_result', {'wavelength': wavelength.tolist(), 'spectrum': spectrum.tolist()}, room=sid)
+            # import pandas as pd
+            # df = pd.read_csv('./spectra/2025_06_23_14_55_42/2025_06_23_14_55_42_20250623_025539_PM_Spectrum1.csv', header=0, index_col=None)
+            # wavelength = df['wavelength'].values
+            # spectrum = df['intensity'].values
+            # self.sio.emit('sim_peak_result', {'wavelength': wavelength.tolist(), 'spectrum': spectrum.tolist(), 'element_spectra': {}}, room=sid)
         except Exception as e:
             print(f"Error processing sim_peak for {sid}: {e}")
             # Emit error back to the client
