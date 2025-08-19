@@ -5,5 +5,5 @@ scikit-learn
 flask
 python-socketio[client]
 python-socketio
-eventlet
 pandas
+gevent
