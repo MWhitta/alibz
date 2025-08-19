@@ -1,149 +1,183 @@
 <template>
   <div id="app">
     <h1>Spectrum Viewer</h1>
-    <div class="chart-container">
-      <canvas ref="spectrumChart"></canvas>
-    </div>
-    <div class="controls">
-      <button @click="resetZoom">Reset Zoom</button>
-      <!-- <button @click="generateRandomSpectrum">Generate Random Spectrum</button> -->
-      <label for="fileInput" class="file-input-label">
-        <input
-          id="fileInput"
-          type="file"
-          accept=".csv,.txt"
-          @change="loadSpectrumFromFile"
-          style="display: none;"
-        />
-        Load Spectrum from File
-      </label>
-    </div>
     
-    <!-- Analysis Controls -->
-    <div class="analysis-controls">
-      <h3>Analysis Parameters</h3>
-      <div class="control-group">
-        <label for="nSigma">N-Sigma:</label>
-        <input
-          id="nSigma"
-          v-model.number="nSigma"
-          type="number"
-          min="1"
-          max="10"
-          step="1"
-          class="number-input"
-        />
-      </div>
-      <div class="control-group">
-        <label for="subtractBackground">Subtract Background:</label>
-        <input
-          id="subtractBackground"
-          v-model="subtractBackground"
-          type="checkbox"
-          class="checkbox-input"
-        />
-      </div>
-      <div class="control-group">
-        <label for="elements">Elements:</label>
-        <div class="elements-selector">
-          <input
-            v-model="elementSearch"
-            @input="filterElements"
-            @focus="showElementDropdown = true"
-            @blur="handleElementBlur"
-            type="text"
-            placeholder="Search elements..."
-            class="element-search-input"
-          />
-          <div v-if="showElementDropdown" class="elements-dropdown">
-            <div
-              v-for="element in filteredElements"
-              :key="element.symbol"
-              @click="toggleElement(element.symbol)"
-              :class="['element-option', { 'selected': selectedElements.includes(element.symbol) }]"
-            >
-              <span class="element-symbol">{{ element.symbol }}</span>
-              <span class="element-name">{{ element.name }}</span>
-            </div>
-          </div>
-          <div class="selected-elements">
-            <span
-              v-for="symbol in selectedElements"
-              :key="symbol"
-              class="selected-element-tag"
-            >
-              {{ symbol }}
-              <button @click="removeElement(symbol)" class="remove-element-btn">&times;</button>
-            </span>
-          </div>
+    <div class="main-layout">
+      <!-- Left side: Chart and controls -->
+      <div class="left-panel">
+        <div class="chart-container">
+          <canvas ref="spectrumChart"></canvas>
+        </div>
+        <div class="controls">
+          <button @click="resetZoom">Reset Zoom</button>
+          <!-- <button @click="generateRandomSpectrum">Generate Random Spectrum</button> -->
+          <label for="fileInput" class="file-input-label">
+            <input
+              id="fileInput"
+              type="file"
+              accept=".csv,.txt"
+              @change="loadSpectrumFromFile"
+              style="display: none;"
+            />
+            Load Spectrum from File
+          </label>
         </div>
       </div>
-      <button 
-        @click="performOneClickAnalysis" 
-        :disabled="!currentSpectrum || selectedElements.length === 0"
-        class="analysis-button"
-      >
-        One Click Analysis
-      </button>
-    </div>
-    
-    <!-- Spectrum Synthesis Controls -->
-    <div class="spectrum-synthesis-controls">
-      <h3>Spectrum Synthesis</h3>
-      <div class="control-group">
-        <label for="synthesisElements">Elements:</label>
-        <div class="elements-selector">
-          <input
-            v-model="synthesisElementSearch"
-            @input="filterSynthesisElements"
-            @focus="showSynthesisElementDropdown = true"
-            @blur="handleSynthesisElementBlur"
-            type="text"
-            placeholder="Search elements..."
-            class="element-search-input"
-          />
-          <div v-if="showSynthesisElementDropdown" class="elements-dropdown">
-            <div
-              v-for="element in filteredSynthesisElements"
-              :key="element.symbol"
-              @click="toggleSynthesisElement(element.symbol)"
-              :class="['element-option', { 'selected': synthesisElements.includes(element.symbol) }]"
-            >
-              <span class="element-symbol">{{ element.symbol }}</span>
-              <span class="element-name">{{ element.name }}</span>
+      
+      <!-- Right side: Analysis and Synthesis controls -->
+      <div class="right-panel">
+        <!-- Analysis Controls -->
+        <div class="analysis-controls">
+          <h3>Analysis Parameters</h3>
+          <div class="control-group">
+            <label for="nSigma">N-Sigma:</label>
+            <input
+              id="nSigma"
+              v-model.number="nSigma"
+              type="number"
+              min="1"
+              max="10"
+              step="1"
+              class="number-input"
+            />
+          </div>
+          <div class="control-group">
+            <label for="subtractBackground">Subtract Background:</label>
+            <input
+              id="subtractBackground"
+              v-model="subtractBackground"
+              type="checkbox"
+              class="checkbox-input"
+            />
+          </div>
+          <div class="control-group">
+            <label for="elements">Elements:</label>
+            <div class="elements-selector">
+              <input
+                v-model="elementSearch"
+                @input="filterElements"
+                @focus="showElementDropdown = true"
+                @blur="handleElementBlur"
+                type="text"
+                placeholder="Search elements..."
+                class="element-search-input"
+              />
+              <div v-if="showElementDropdown" class="elements-dropdown">
+                <div
+                  v-for="element in filteredElements"
+                  :key="element.symbol"
+                  @click="toggleElement(element.symbol)"
+                  :class="['element-option', { 'selected': selectedElements.includes(element.symbol) }]"
+                >
+                  <span class="element-symbol">{{ element.symbol }}</span>
+                  <span class="element-name">{{ element.name }}</span>
+                </div>
+              </div>
+              <div class="selected-elements">
+                <span
+                  v-for="symbol in selectedElements"
+                  :key="symbol"
+                  class="selected-element-tag"
+                >
+                  {{ symbol }}
+                  <button @click="removeElement(symbol)" class="remove-element-btn">&times;</button>
+                </span>
+              </div>
             </div>
           </div>
-          <div class="selected-elements">
-            <span
-              v-for="symbol in synthesisElements"
-              :key="symbol"
-              class="selected-element-tag"
-            >
-              {{ symbol }}
-              <button @click="removeSynthesisElement(symbol)" class="remove-element-btn">&times;</button>
-            </span>
+          <button 
+            @click="performOneClickAnalysis" 
+            :disabled="!currentSpectrum || selectedElements.length === 0"
+            class="analysis-button"
+          >
+            One Click Analysis
+          </button>
+        </div>
+        
+        <!-- Spectrum Synthesis Controls -->
+        <div class="spectrum-synthesis-controls">
+          <h3>Spectrum Synthesis</h3>
+          <div class="control-group">
+            <label for="synthesisElements">Elements:</label>
+            <div class="elements-selector">
+              <input
+                v-model="synthesisElementSearch"
+                @input="filterSynthesisElements"
+                @focus="showSynthesisElementDropdown = true"
+                @blur="handleSynthesisElementBlur"
+                type="text"
+                placeholder="Search elements..."
+                class="element-search-input"
+              />
+              <div v-if="showSynthesisElementDropdown" class="elements-dropdown">
+                <div
+                  v-for="element in filteredSynthesisElements"
+                  :key="element.symbol"
+                  @click="toggleSynthesisElement(element.symbol)"
+                  :class="['element-option', { 'selected': synthesisElements.includes(element.symbol) }]"
+                >
+                  <span class="element-symbol">{{ element.symbol }}</span>
+                  <span class="element-name">{{ element.name }}</span>
+                </div>
+              </div>
+              <div class="selected-elements">
+                <span
+                  v-for="symbol in synthesisElements"
+                  :key="symbol"
+                  class="selected-element-tag"
+                >
+                  {{ symbol }}
+                  <button @click="removeSynthesisElement(symbol)" class="remove-element-btn">&times;</button>
+                </span>
+              </div>
+            </div>
           </div>
+          <!-- <div class="control-group">
+            <label for="showSynthesisSpectrum">Show Synthesis Spectrum:</label>
+            <input
+              id="showSynthesisSpectrum"
+              v-model="showSynthesisSpectrum"
+              type="checkbox"
+              class="checkbox-input"
+            />
+          </div> -->
+          <div class="control-group">
+            <label for="synthesisScale">Intensity Scale:</label>
+            <div class="scale-slider-container">
+              <input
+                id="synthesisScale"
+                v-model.number="synthesisScale"
+                type="range"
+                min="0"
+                max="1"
+                step="0.001"
+                class="scale-slider"
+                @input="updateSynthesisScale"
+              />
+              <input
+                type="number"
+                :value="synthesisScale"
+                min="0"
+                max="1"
+                step="0.001"
+                class="scale-input"
+                @input="handleScaleInput"
+              />
+              <!-- <span class="scale-value">{{ (synthesisScale * 100).toFixed(1) }}%</span> -->
+            </div>
+          </div>
+          <button 
+            @click="performSpectrumSynthesis" 
+            :disabled="synthesisElements.length === 0"
+            class="synthesis-button"
+          >
+            Update Synthesized Spectrum
+          </button>
         </div>
       </div>
-      <div class="control-group">
-        <label for="showSynthesisSpectrum">Show Synthesis Spectrum:</label>
-        <input
-          id="showSynthesisSpectrum"
-          v-model="showSynthesisSpectrum"
-          type="checkbox"
-          class="checkbox-input"
-        />
-      </div>
-      <button 
-        @click="performSpectrumSynthesis" 
-        :disabled="synthesisElements.length === 0"
-        class="synthesis-button"
-      >
-        Update Synthesized Spectrum
-      </button>
     </div>
     
-    <div class="instructions">
+    <!-- <div class="instructions">
       <p><strong>Zoom Controls:</strong></p>
       <ul>
         <li><strong>Mouse Wheel:</strong> Zoom in/out</li>
@@ -151,7 +185,7 @@
         <li><strong>Pan:</strong> Hold Ctrl + click and drag to move around when zoomed in</li>
         <li><strong>Double Click:</strong> Reset zoom to full view</li>
       </ul>
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -345,7 +379,7 @@ const createChart = () => {
       plugins: {
         title: {
           display: true,
-          text: 'Optical Spectrum',
+          // text: 'Optical Spectrum',
           font: {
             size: 16,
             weight: 'bold'
@@ -470,7 +504,9 @@ const resetZoom = () => {
         fullRange,
         2000 // Use standard downsampling for full view
       )
-      chart.data.datasets[1].data = synFinalIntensities
+      // Apply current scale to the downsampled intensities
+      const scaledIntensities = synFinalIntensities.map(intensity => intensity * synthesisScale.value)
+      chart.data.datasets[1].data = scaledIntensities
     }
     chart.update('none')
   }
@@ -503,7 +539,9 @@ const handleZoom = () => {
             zoomRange,
             2000 // Use standard downsampling for full view
           )
-          chart.data.datasets[1].data = synFinalIntensities
+          // Apply current scale to the downsampled intensities
+          const scaledIntensities = synFinalIntensities.map(intensity => intensity * synthesisScale.value)
+          chart.data.datasets[1].data = scaledIntensities
         }
         chart.update('none')
       }
@@ -655,6 +693,8 @@ const connectSocket = () => {
         intensities: data.spectrum
       }
       
+      // Apply current scale to the synthesis data
+      // updateSynthesisScale()
       resetZoom()
       // Update chart to show both spectra if checkbox is checked
       // if (showSynthesisSpectrum.value && chart && synthesisSpectrumData.value) {
@@ -751,6 +791,7 @@ const showSynthesisElementDropdown = ref(false)
 const synthesisElements = ref<string[]>([])
 const filteredSynthesisElements = ref<Array<{symbol: string, name: string}>>([])
 const showSynthesisSpectrum = ref(false)
+const synthesisScale = ref(1.0) // New: Add synthesisScale ref
 
 // Filter synthesis elements
 const filterSynthesisElements = () => {
@@ -789,6 +830,29 @@ const handleSynthesisElementBlur = () => {
     showSynthesisElementDropdown.value = false
   }, 200)
 }
+
+// Update synthesis scale and apply to chart
+const updateSynthesisScale = () => {
+  if (chart && synthesisSpectrumData.value) {
+    const newIntensities = synthesisSpectrumData.value.intensities.map(
+      (intensity) => intensity * synthesisScale.value
+    );
+    chart.data.datasets[1].data = newIntensities;
+    chart.update('none');
+  }
+};
+
+// Handle scale input with immediate updates
+const handleScaleInput = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const newValue = parseFloat(target.value);
+  
+  // Validate the input value
+  if (!isNaN(newValue) && newValue >= 0 && newValue <= 1) {
+    synthesisScale.value = newValue;
+    updateSynthesisScale();
+  }
+};
 
 // Perform Spectrum Synthesis
 const performSpectrumSynthesis = async () => {
@@ -865,9 +929,25 @@ onMounted(async () => {
 <style scoped>
 #app {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.main-layout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.left-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.right-panel {
+  width: 400px;
+  flex-shrink: 0;
 }
 
 h1 {
@@ -878,7 +958,7 @@ h1 {
 
 .chart-container {
   position: relative;
-  height: 500px;
+  height: 600px;
   margin-bottom: 20px;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -938,7 +1018,8 @@ button:active {
 }
 
 .analysis-controls {
-  margin-top: 30px;
+  margin-top: 0;
+  margin-bottom: 20px;
   padding: 20px;
   background-color: #f8f9fa;
   border-radius: 8px;
@@ -1009,7 +1090,7 @@ button:active {
 }
 
 .spectrum-synthesis-controls {
-  margin-top: 30px;
+  margin-top: 0;
   padding: 20px;
   background-color: #f8f9fa;
   border-radius: 8px;
@@ -1167,5 +1248,72 @@ button:active {
 
 .remove-element-btn:hover {
   color: #ffebee;
+}
+
+/* New styles for scale slider */
+.scale-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.scale-slider {
+  flex-grow: 1;
+  -webkit-appearance: none; /* Remove default styles */
+  appearance: none;
+  height: 8px;
+  background: #ddd;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+  border-radius: 4px;
+}
+
+.scale-slider:hover {
+  opacity: 1;
+}
+
+.scale-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #4CAF50;
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 0 2px #000;
+}
+
+.scale-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #4CAF50;
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 0 2px #000;
+}
+
+.scale-input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+  background: white;
+}
+
+.scale-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.scale-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: bold;
+  min-width: 50px;
 }
 </style>
