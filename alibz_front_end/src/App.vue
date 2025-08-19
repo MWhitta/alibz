@@ -87,6 +87,62 @@
       </button>
     </div>
     
+    <!-- Spectrum Synthesis Controls -->
+    <div class="spectrum-synthesis-controls">
+      <h3>Spectrum Synthesis</h3>
+      <div class="control-group">
+        <label for="synthesisElements">Elements:</label>
+        <div class="elements-selector">
+          <input
+            v-model="synthesisElementSearch"
+            @input="filterSynthesisElements"
+            @focus="showSynthesisElementDropdown = true"
+            @blur="handleSynthesisElementBlur"
+            type="text"
+            placeholder="Search elements..."
+            class="element-search-input"
+          />
+          <div v-if="showSynthesisElementDropdown" class="elements-dropdown">
+            <div
+              v-for="element in filteredSynthesisElements"
+              :key="element.symbol"
+              @click="toggleSynthesisElement(element.symbol)"
+              :class="['element-option', { 'selected': synthesisElements.includes(element.symbol) }]"
+            >
+              <span class="element-symbol">{{ element.symbol }}</span>
+              <span class="element-name">{{ element.name }}</span>
+            </div>
+          </div>
+          <div class="selected-elements">
+            <span
+              v-for="symbol in synthesisElements"
+              :key="symbol"
+              class="selected-element-tag"
+            >
+              {{ symbol }}
+              <button @click="removeSynthesisElement(symbol)" class="remove-element-btn">&times;</button>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="control-group">
+        <label for="showSynthesisSpectrum">Show Synthesis Spectrum:</label>
+        <input
+          id="showSynthesisSpectrum"
+          v-model="showSynthesisSpectrum"
+          type="checkbox"
+          class="checkbox-input"
+        />
+      </div>
+      <button 
+        @click="performSpectrumSynthesis" 
+        :disabled="synthesisElements.length === 0"
+        class="synthesis-button"
+      >
+        Update Synthesized Spectrum
+      </button>
+    </div>
+    
     <div class="instructions">
       <p><strong>Zoom Controls:</strong></p>
       <ul>
@@ -100,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import Chart from 'chart.js/auto'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { io, Socket } from 'socket.io-client'
@@ -187,12 +243,25 @@ const periodicTable = [
   { symbol: 'Ts', name: 'Tennessine' }, { symbol: 'Og', name: 'Oganesson' }
 ]
 
+// Store original full resolution data
+const fullResolutionData = ref<{
+  wavelengths: number[]
+  intensities: number[]
+} | null>(null)
+
 // Store current spectrum data for saving/processing
 const currentSpectrum = ref<{
   wavelengths: number[]
   intensities: number[]
   filename?: string
   timestamp: Date
+} | null>(null)
+
+// Store synthesis spectrum data
+const synthesisSpectrumData = ref<{
+  wavelengths: number[]
+  intensities: number[]
+  element_spectra: any
 } | null>(null)
 
 // Sample spectrum data (wavelength in nm, intensity in arbitrary units)
@@ -230,7 +299,7 @@ const createChart = () => {
     data: {
       labels: wavelengths,
       datasets: [{
-        label: 'Intensity',
+        label: 'Loaded Spectrum',
         data: intensities,
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0)',
@@ -241,7 +310,20 @@ const createChart = () => {
         pointHoverRadius: 0,
         pointHitRadius: 0,
         pointHoverBorderWidth: 0
-      }]
+      },
+      {
+      label: 'Synthesized Spectrum',
+      data: [],
+      borderColor: 'rgb(255, 99, 132)',
+      backgroundColor: 'rgba(255, 99, 132, 0)',
+      borderWidth: 2,
+      fill: false,
+      tension: 0,
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      pointHitRadius: 0,
+      pointHoverBorderWidth: 0
+    }]
     },
     options: {
       responsive: true,
@@ -261,7 +343,7 @@ const createChart = () => {
           }
         },
         legend: {
-          display: false
+          display: true
         },
         zoom: {
           pan: {
@@ -364,11 +446,24 @@ const resetZoom = () => {
         fullRange,
         2000 // Use standard downsampling for full view
       )
-      
       chart.data.labels = finalWavelengths
       chart.data.datasets[0].data = finalIntensities
-      chart.update('none')
+      
     }
+    if (synthesisSpectrumData.value) {
+      const fullRange = {
+        min: Math.min(...synthesisSpectrumData.value.wavelengths),
+        max: Math.max(...synthesisSpectrumData.value.wavelengths)
+      }
+      const { wavelengths: synFinalWavelengths, intensities: synFinalIntensities } = downsampleDataForZoom(
+        synthesisSpectrumData.value.wavelengths,
+        synthesisSpectrumData.value.intensities,
+        fullRange,
+        2000 // Use standard downsampling for full view
+      )
+      chart.data.datasets[1].data = synFinalIntensities
+    }
+    chart.update('none')
   }
 }
 
@@ -381,20 +476,27 @@ const handleZoom = () => {
       if (xAxis && xAxis.min !== undefined && xAxis.max !== undefined) {
         const zoomRange = { min: xAxis.min, max: xAxis.max }
         
-        // Get data for current zoom level
-        const { wavelengths: zoomWavelengths, intensities: zoomIntensities } = downsampleDataForZoom(
-          fullResolutionData.value.wavelengths,
-          fullResolutionData.value.intensities,
-          zoomRange,
-          2000 // Use fewer points for zoomed views
-        )
+        if (fullResolutionData.value) {
+          const { wavelengths: finalWavelengths, intensities: finalIntensities } = downsampleDataForZoom(
+            fullResolutionData.value.wavelengths,
+            fullResolutionData.value.intensities,
+            zoomRange,
+            2000 // Use standard downsampling for full view
+          )
+          chart.data.labels = finalWavelengths
+          chart.data.datasets[0].data = finalIntensities
         
-        // Update chart with zoom-optimized data
-        chart.data.labels = zoomWavelengths
-        chart.data.datasets[0].data = zoomIntensities
+        }
+        if (synthesisSpectrumData.value) {
+          const { wavelengths: synFinalWavelengths, intensities: synFinalIntensities } = downsampleDataForZoom(
+            synthesisSpectrumData.value.wavelengths,
+            synthesisSpectrumData.value.intensities,
+            zoomRange,
+            2000 // Use standard downsampling for full view
+          )
+          chart.data.datasets[1].data = synFinalIntensities
+        }
         chart.update('none')
-        
-        console.log(`Zoom range: ${zoomRange.min.toFixed(1)} - ${zoomRange.max.toFixed(1)} nm, Data points: ${zoomWavelengths.length}`)
       }
     } catch (error) {
       console.error('Error handling zoom:', error)
@@ -432,36 +534,11 @@ const loadSpectrumFromFile = (event: Event) => {
               filename: file.name,
               timestamp: new Date()
             }
-          
+          console.log(fullResolutionData.value)
           console.log(currentSpectrum.value)
-          // Show processing info for large datasets
-          if (data.length > 2000) {
-            console.log(`Processing large dataset: ${data.length} points, downsampling to 2000 points for smooth rendering`)
-          }
           
-          // Downsample data if it's too large for smooth rendering
-          // const { wavelengths: finalWavelengths, intensities: finalIntensities } = downsampleData(wavelengths, intensities)
-          const fullRange = {
-            min: Math.min(...fullResolutionData.value.wavelengths),
-            max: Math.max(...fullResolutionData.value.wavelengths)
-          }
-      
-          const { wavelengths: finalWavelengths, intensities: finalIntensities } = downsampleDataForZoom(
-            fullResolutionData.value.wavelengths,
-            fullResolutionData.value.intensities,
-            fullRange,
-            2000 // Use standard downsampling for full view
-          )
-          if (chart) {
-            chart.data.labels = finalWavelengths
-            chart.data.datasets[0].data = finalIntensities
-            chart.update('none') // Use 'none' mode for faster updates
-            chart.resetZoom()
-            
-            
-          } else {
-            alert('Chart not initialized. Please ensure the canvas is visible.')
-          }
+          resetZoom()
+
         } else {
           alert('No valid data found in the selected file.')
         }
@@ -481,7 +558,7 @@ const loadSpectrumFromFile = (event: Event) => {
 const parseCSV = (csvString: string) => {
   const lines = csvString.trim().split('\n')
   const data: string[][] = []
-
+  // skip the first line
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (line && !line.startsWith('#')) { // Skip empty lines and comments
@@ -524,11 +601,6 @@ const downsampleDataForZoom = (wavelengths: number[], intensities: number[], zoo
   return { wavelengths: downsampledWavelengths, intensities: downsampledIntensities }
 }
 
-// Store original full resolution data
-const fullResolutionData = ref<{
-  wavelengths: number[]
-  intensities: number[]
-} | null>(null)
 
 // Socket.IO connection
 const connectSocket = () => {
@@ -564,6 +636,26 @@ const connectSocket = () => {
     // Listen for errors
     socket.on('one_click_error', (data) => {
         console.error('Error:', data.error);
+    });
+
+    socket.on('sim_peak_result', (data) => {
+      console.log('Sim Peak Result:', data);
+      // Store the synthesis results
+      synthesisSpectrumData.value = {
+        wavelengths: data.wavelength,
+        intensities: data.spectrum,
+        element_spectra: data.element_spectra
+      }
+      
+      resetZoom()
+      // Update chart to show both spectra if checkbox is checked
+      // if (showSynthesisSpectrum.value && chart && synthesisSpectrumData.value) {
+      //   updateChartWithBothSpectra()
+      // }
+    });
+
+    socket.on('sim_peak_error', (data) => {
+      console.error('Sim Peak Error:', data.error);
     });
   } catch (error) {
     console.error('Failed to connect to Socket.IO server:', error)
@@ -645,12 +737,120 @@ const handleElementBlur = () => {
   }, 200)
 }
 
+// Spectrum Synthesis Variables
+const synthesisElementSearch = ref('')
+const showSynthesisElementDropdown = ref(false)
+const synthesisElements = ref<string[]>([])
+const filteredSynthesisElements = ref<Array<{symbol: string, name: string}>>([])
+const showSynthesisSpectrum = ref(false)
+
+// Filter synthesis elements
+const filterSynthesisElements = () => {
+  if (!synthesisElementSearch.value.trim()) {
+    filteredSynthesisElements.value = periodicTable
+  } else {
+    const searchTerm = synthesisElementSearch.value.toLowerCase()
+    filteredSynthesisElements.value = periodicTable.filter(element => 
+      element.symbol.toLowerCase().includes(searchTerm) || 
+      element.name.toLowerCase().includes(searchTerm)
+    )
+  }
+}
+
+const toggleSynthesisElement = (symbol: string) => {
+  const index = synthesisElements.value.indexOf(symbol)
+  if (index > -1) {
+    synthesisElements.value.splice(index, 1)
+  } else {
+    synthesisElements.value.push(symbol)
+  }
+  // console.log(synthesisElements.value)
+}
+
+const removeSynthesisElement = (symbol: string) => {
+  const index = synthesisElements.value.indexOf(symbol)
+  if (index > -1) {
+    synthesisElements.value.splice(index, 1)
+  }
+  // console.log(synthesisElements.value)
+}
+
+const handleSynthesisElementBlur = () => {
+  // Delay hiding dropdown to allow for clicks
+  setTimeout(() => {
+    showSynthesisElementDropdown.value = false
+  }, 200)
+}
+
+// Perform Spectrum Synthesis
+const performSpectrumSynthesis = async () => {
+  if (!currentSpectrum.value || !socket) {
+    console.error('No spectrum data or socket connection available for synthesis')
+    return
+  }
+
+  try {
+    const message = {
+      elements: synthesisElements.value
+    }
+
+    console.log('Sending synthesis request:', message)
+    socket.emit('sim_peak', message)
+
+  } catch (error) {
+    console.error('Error performing spectrum synthesis:', error)
+  }
+}
+
+// Watcher for showSynthesisSpectrum checkbox
+// watch(showSynthesisSpectrum, (newValue) => {
+//   if (newValue && synthesisSpectrumData.value && chart) {
+//     // Show both spectra
+//     updateChartWithBothSpectra()
+//   } else if (!newValue && chart && fullResolutionData.value) {
+//     // Show only original spectrum
+//     const fullRange = {
+//       min: Math.min(...fullResolutionData.value.wavelengths),
+//       max: Math.max(...fullResolutionData.value.wavelengths)
+//     }
+    
+//     const { wavelengths: finalWavelengths, intensities: finalIntensities } = downsampleDataForZoom(
+//       fullResolutionData.value.wavelengths,
+//       fullResolutionData.value.intensities,
+//       fullRange,
+//       2000
+//     )
+    
+//     // Restore single dataset structure
+//     chart.data.datasets = [{
+//       label: 'Loaded Spectrum',
+//       data: finalIntensities,
+//       borderColor: 'rgb(75, 192, 192)',
+//       backgroundColor: 'rgba(75, 192, 192, 0)',
+//       borderWidth: 1,
+//       fill: false,
+//       tension: 0,
+//       pointRadius: 0,
+//       pointHoverRadius: 0,
+//       pointHitRadius: 0,
+//       pointHoverBorderWidth: 0
+//     }]
+    
+//     chart.data.labels = finalWavelengths
+//     chart.data.datasets[0].data = finalIntensities
+//     chart.update('none')
+//     chart.resetZoom()
+//   }
+// })
+
 onMounted(async () => {
   await nextTick()
   createChart()
   connectSocket()
   // Initialize filtered elements
   filteredElements.value = periodicTable
+  // Initialize synthesis elements
+  filteredSynthesisElements.value = periodicTable
 })
 </script>
 
@@ -795,6 +995,50 @@ button:active {
 }
 
 .analysis-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  color: #888;
+}
+
+.spectrum-synthesis-controls {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4CAF50;
+}
+
+.spectrum-synthesis-controls h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 18px;
+}
+
+.synthesis-button {
+  background-color: #007bff;
+  border: none;
+  color: white;
+  padding: 12px 24px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.synthesis-button:hover {
+  background-color: #0056b3;
+}
+
+.synthesis-button:active {
+  background-color: #004085;
+}
+
+.synthesis-button:disabled {
   background-color: #ccc;
   cursor: not-allowed;
   color: #888;
