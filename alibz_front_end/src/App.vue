@@ -182,15 +182,19 @@ const filteredElements = ref<Array<{symbol: string, name: string}>>([])
 
 // Periodic table data
 const periodicTable = [
+  // Row 1
   { symbol: 'H', name: 'Hydrogen' }, { symbol: 'He', name: 'Helium' },
+  // Row 2
   { symbol: 'Li', name: 'Lithium' }, { symbol: 'Be', name: 'Beryllium' },
   { symbol: 'B', name: 'Boron' }, { symbol: 'C', name: 'Carbon' },
   { symbol: 'N', name: 'Nitrogen' }, { symbol: 'O', name: 'Oxygen' },
   { symbol: 'F', name: 'Fluorine' }, { symbol: 'Ne', name: 'Neon' },
+  // Row 3
   { symbol: 'Na', name: 'Sodium' }, { symbol: 'Mg', name: 'Magnesium' },
   { symbol: 'Al', name: 'Aluminum' }, { symbol: 'Si', name: 'Silicon' },
   { symbol: 'P', name: 'Phosphorus' }, { symbol: 'S', name: 'Sulfur' },
   { symbol: 'Cl', name: 'Chlorine' }, { symbol: 'Ar', name: 'Argon' },
+  // Row 4  # Se removed between As/Br
   { symbol: 'K', name: 'Potassium' }, { symbol: 'Ca', name: 'Calcium' },
   { symbol: 'Sc', name: 'Scandium' }, { symbol: 'Ti', name: 'Titanium' },
   { symbol: 'V', name: 'Vanadium' }, { symbol: 'Cr', name: 'Chromium' },
@@ -200,6 +204,7 @@ const periodicTable = [
   { symbol: 'Ga', name: 'Gallium' }, { symbol: 'Ge', name: 'Germanium' },
   { symbol: 'As', name: 'Arsenic' }, { symbol: 'Se', name: 'Selenium' },
   { symbol: 'Br', name: 'Bromine' }, { symbol: 'Kr', name: 'Krypton' },
+  // Row 5
   { symbol: 'Rb', name: 'Rubidium' }, { symbol: 'Sr', name: 'Strontium' },
   { symbol: 'Y', name: 'Yttrium' }, { symbol: 'Zr', name: 'Zirconium' },
   { symbol: 'Nb', name: 'Niobium' }, { symbol: 'Mo', name: 'Molybdenum' },
@@ -209,7 +214,9 @@ const periodicTable = [
   { symbol: 'In', name: 'Indium' }, { symbol: 'Sn', name: 'Tin' },
   { symbol: 'Sb', name: 'Antimony' }, { symbol: 'Te', name: 'Tellurium' },
   { symbol: 'I', name: 'Iodine' }, { symbol: 'Xe', name: 'Xenon' },
+  // Row 6 alkali/alkaline earth
   { symbol: 'Cs', name: 'Cesium' }, { symbol: 'Ba', name: 'Barium' },
+  // Row 6 rare earths  # Pm removed between Nd/Sm
   { symbol: 'La', name: 'Lanthanum' }, { symbol: 'Ce', name: 'Cerium' },
   { symbol: 'Pr', name: 'Praseodymium' }, { symbol: 'Nd', name: 'Neodymium' },
   { symbol: 'Pm', name: 'Promethium' }, { symbol: 'Sm', name: 'Samarium' },
@@ -217,7 +224,9 @@ const periodicTable = [
   { symbol: 'Tb', name: 'Terbium' }, { symbol: 'Dy', name: 'Dysprosium' },
   { symbol: 'Ho', name: 'Holmium' }, { symbol: 'Er', name: 'Erbium' },
   { symbol: 'Tm', name: 'Thulium' }, { symbol: 'Yb', name: 'Ytterbium' },
-  { symbol: 'Lu', name: 'Lutetium' }, { symbol: 'Hf', name: 'Hafnium' },
+  { symbol: 'Lu', name: 'Lutetium' }, 
+  // Row 6 transition metals  # Po,At,Rn removed between Bi/Rn
+  { symbol: 'Hf', name: 'Hafnium' },
   { symbol: 'Ta', name: 'Tantalum' }, { symbol: 'W', name: 'Tungsten' },
   { symbol: 'Re', name: 'Rhenium' }, { symbol: 'Os', name: 'Osmium' },
   { symbol: 'Ir', name: 'Iridium' }, { symbol: 'Pt', name: 'Platinum' },
@@ -225,22 +234,23 @@ const periodicTable = [
   { symbol: 'Tl', name: 'Thallium' }, { symbol: 'Pb', name: 'Lead' },
   { symbol: 'Bi', name: 'Bismuth' }, { symbol: 'Po', name: 'Polonium' },
   { symbol: 'At', name: 'Astatine' }, { symbol: 'Rn', name: 'Radon' },
+  // Th,Pa,U removed
   { symbol: 'Fr', name: 'Francium' }, { symbol: 'Ra', name: 'Radium' },
   { symbol: 'Ac', name: 'Actinium' }, { symbol: 'Th', name: 'Thorium' },
   { symbol: 'Pa', name: 'Protactinium' }, { symbol: 'U', name: 'Uranium' },
-  { symbol: 'Np', name: 'Neptunium' }, { symbol: 'Pu', name: 'Plutonium' },
-  { symbol: 'Am', name: 'Americium' }, { symbol: 'Cm', name: 'Curium' },
-  { symbol: 'Bk', name: 'Berkelium' }, { symbol: 'Cf', name: 'Californium' },
-  { symbol: 'Es', name: 'Einsteinium' }, { symbol: 'Fm', name: 'Fermium' },
-  { symbol: 'Md', name: 'Mendelevium' }, { symbol: 'No', name: 'Nobelium' },
-  { symbol: 'Lr', name: 'Lawrencium' }, { symbol: 'Rf', name: 'Rutherfordium' },
-  { symbol: 'Db', name: 'Dubnium' }, { symbol: 'Sg', name: 'Seaborgium' },
-  { symbol: 'Bh', name: 'Bohrium' }, { symbol: 'Hs', name: 'Hassium' },
-  { symbol: 'Mt', name: 'Meitnerium' }, { symbol: 'Ds', name: 'Darmstadtium' },
-  { symbol: 'Rg', name: 'Roentgenium' }, { symbol: 'Cn', name: 'Copernicium' },
-  { symbol: 'Nh', name: 'Nihonium' }, { symbol: 'Fl', name: 'Flerovium' },
-  { symbol: 'Mc', name: 'Moscovium' }, { symbol: 'Lv', name: 'Livermorium' },
-  { symbol: 'Ts', name: 'Tennessine' }, { symbol: 'Og', name: 'Oganesson' }
+  // { symbol: 'Np', name: 'Neptunium' }, { symbol: 'Pu', name: 'Plutonium' },
+  // { symbol: 'Am', name: 'Americium' }, { symbol: 'Cm', name: 'Curium' },
+  // { symbol: 'Bk', name: 'Berkelium' }, { symbol: 'Cf', name: 'Californium' },
+  // { symbol: 'Es', name: 'Einsteinium' }, { symbol: 'Fm', name: 'Fermium' },
+  // { symbol: 'Md', name: 'Mendelevium' }, { symbol: 'No', name: 'Nobelium' },
+  // { symbol: 'Lr', name: 'Lawrencium' }, { symbol: 'Rf', name: 'Rutherfordium' },
+  // { symbol: 'Db', name: 'Dubnium' }, { symbol: 'Sg', name: 'Seaborgium' },
+  // { symbol: 'Bh', name: 'Bohrium' }, { symbol: 'Hs', name: 'Hassium' },
+  // { symbol: 'Mt', name: 'Meitnerium' }, { symbol: 'Ds', name: 'Darmstadtium' },
+  // { symbol: 'Rg', name: 'Roentgenium' }, { symbol: 'Cn', name: 'Copernicium' },
+  // { symbol: 'Nh', name: 'Nihonium' }, { symbol: 'Fl', name: 'Flerovium' },
+  // { symbol: 'Mc', name: 'Moscovium' }, { symbol: 'Lv', name: 'Livermorium' },
+  // { symbol: 'Ts', name: 'Tennessine' }, { symbol: 'Og', name: 'Oganesson' }
 ]
 
 // Store original full resolution data
@@ -261,7 +271,6 @@ const currentSpectrum = ref<{
 const synthesisSpectrumData = ref<{
   wavelengths: number[]
   intensities: number[]
-  element_spectra: any
 } | null>(null)
 
 // Sample spectrum data (wavelength in nm, intensity in arbitrary units)
@@ -643,8 +652,7 @@ const connectSocket = () => {
       // Store the synthesis results
       synthesisSpectrumData.value = {
         wavelengths: data.wavelength,
-        intensities: data.spectrum,
-        element_spectra: data.element_spectra
+        intensities: data.spectrum
       }
       
       resetZoom()
