@@ -447,39 +447,116 @@ class PeakyFinder():
             an array each entry is returned as an array with matching shape.
         """
 
-        idx = np.atleast_1d(idx)
-        full_max = data[idx]
-        half_max = full_max / 2
+        data = np.asarray(data, dtype=float)
+        idx_arr = np.atleast_1d(np.asarray(idx, dtype=int))
+        was_scalar = np.asarray(idx).ndim == 0
 
-        fwhm = np.zeros_like(full_max, dtype=float)
-        hwhm = np.zeros_like(full_max, dtype=float)
-        nr = np.zeros_like(full_max, dtype=int)
-        nl = np.zeros_like(full_max, dtype=int)
+        # Keep estimates in the original index order even when we sort for
+        # neighbour-aware bounds.
+        sort_order = np.argsort(idx_arr)
+        sorted_idx = idx_arr[sort_order]
 
-        for i, p in enumerate(idx):
-            d1 = data[p:]
-            d2 = data[:p]
+        full_max = np.empty_like(idx_arr, dtype=float)
+        fwhm = np.empty_like(idx_arr, dtype=float)
+        hwhm = np.empty_like(idx_arr, dtype=float)
+        right_edges = np.empty_like(idx_arr, dtype=int)
+        left_edges = np.empty_like(idx_arr, dtype=int)
 
-            if np.any(d1 < half_max[i]):
-                half_max_right = np.argmax(d1 < half_max[i])
-                nr[i] = p + np.argmax(d1 <= 0)
-            else:
-                half_max_right = 0
-                nr[i] = 0
+        n = data.size
 
-            if np.any(d2 < half_max[i]):
-                half_max_left = np.argmax(d2 < half_max[i])
-                nl[i] = p - np.argmax(d2[::-1] <= 0)
-            else:
-                half_max_left = 0
-                nl[i] = 0
+        def clip_crossing(value: float, lower: int, upper: int) -> float:
+            return float(min(max(value, float(lower)), float(upper)))
 
-            fwhm[i] = half_max_right + half_max_left
-            hwhm[i] = fwhm[i] / 2
+        def find_left_cross(center: int, lower_limit: int, level: float) -> float:
+            if center <= lower_limit:
+                return float(center)
+            for k in range(center - 1, lower_limit - 1, -1):
+                curr = data[k]
+                if curr <= level:
+                    next_val = data[k + 1]
+                    denom = next_val - curr
+                    if denom == 0:
+                        return float(k)
+                    frac = (level - curr) / denom
+                    frac = np.clip(frac, 0.0, 1.0)
+                    return k + frac
+            return float(lower_limit)
 
-        if len(idx) == 1:
-            return full_max[0], fwhm[0], hwhm[0], nr[0], nl[0]
-        return full_max, fwhm, hwhm, nr, nl
+        def find_right_cross(center: int, upper_limit: int, level: float) -> float:
+            if center >= upper_limit:
+                return float(center)
+            prev = data[center]
+            for k in range(center + 1, upper_limit + 1):
+                curr = data[k]
+                if curr <= level:
+                    denom = curr - prev
+                    if denom == 0:
+                        return float(k)
+                    frac = (level - prev) / denom
+                    frac = np.clip(frac, 0.0, 1.0)
+                    return (k - 1) + frac
+                prev = curr
+            return float(upper_limit)
+
+        for pos, peak_index in enumerate(sorted_idx):
+            out_idx = sort_order[pos]
+            peak_index = int(peak_index)
+            peak_index = int(np.clip(peak_index, 0, n - 1))
+
+            amplitude = data[peak_index]
+            half_level = amplitude / 2.0
+
+            prev_peak = sorted_idx[pos - 1] if pos > 0 else None
+            next_peak = sorted_idx[pos + 1] if pos < len(sorted_idx) - 1 else None
+
+            left_limit = 0 if prev_peak is None else int(np.floor((prev_peak + peak_index) / 2))
+            right_limit = (n - 1) if next_peak is None else int(np.ceil((peak_index + next_peak) / 2))
+
+            left_limit = max(0, min(left_limit, peak_index))
+            right_limit = min(n - 1, max(right_limit, peak_index))
+
+            left_cross = find_left_cross(peak_index, left_limit, half_level)
+            right_cross = find_right_cross(peak_index, right_limit, half_level)
+
+            left_cross = clip_crossing(left_cross, left_limit, peak_index)
+            right_cross = clip_crossing(right_cross, peak_index, right_limit)
+
+            left_width = peak_index - left_cross
+            right_width = right_cross - peak_index
+
+            left_width = max(left_width, 0.0)
+            right_width = max(right_width, 0.0)
+
+            fwhm_val = left_width + right_width
+
+            # Define fitting window edges while keeping overlap between peaks minimal.
+            left_edge = max(0, int(np.floor(left_cross)))
+            right_edge = min(n, int(np.ceil(right_cross)) + 1)
+
+            # Ensure the peak itself is included and the window spans both sides.
+            if left_edge >= peak_index:
+                left_edge = max(0, peak_index - 1)
+            if right_edge <= peak_index:
+                right_edge = min(n, peak_index + 1)
+            if right_edge - left_edge < 2:
+                left_edge = max(0, peak_index - 1)
+                right_edge = min(n, peak_index + 2)
+
+            full_max[out_idx] = amplitude
+            fwhm[out_idx] = fwhm_val
+            hwhm[out_idx] = fwhm_val / 2.0
+            right_edges[out_idx] = right_edge
+            left_edges[out_idx] = left_edge
+
+        if was_scalar:
+            return (
+                float(full_max[0]),
+                float(fwhm[0]),
+                float(hwhm[0]),
+                int(right_edges[0]),
+                int(left_edges[0]),
+            )
+        return full_max, fwhm, hwhm, right_edges, left_edges
 
     
     def fit_peaks(self, x, y, peak_indices, plot=False, fast: bool = False):
