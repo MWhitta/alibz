@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from scipy.special     import voigt_profile as voigt
-from scipy.optimize    import least_squares
+from scipy.optimize    import least_squares, brentq
 from scipy.integrate   import cumulative_trapezoid
 from scipy.interpolate import interp1d
 
@@ -83,6 +83,97 @@ class PeakyFinder():
         """
         f = 0.5346 * 2 * gamma + np.sqrt(0.2166 * 4 * gamma + 8 * sigma**2 * np.log(2))
         return f
+
+
+    def estimate_voigt_parameters_fast(self, x_window: np.ndarray, y_window: np.ndarray) -> np.ndarray:
+        """Estimate Voigt parameters from intensity-weighted moments.
+
+        Parameters
+        ----------
+        x_window : numpy.ndarray
+            Wavelength samples in the fitting window.
+        y_window : numpy.ndarray
+            Corresponding intensity samples for ``x_window``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array containing ``[amplitude, center, sigma, gamma]`` estimated
+            using intensity-weighted moments and the :meth:`voigt_width`
+            approximation.
+
+        Raises
+        ------
+        ValueError
+            Raised when ``x_window`` and ``y_window`` are incompatible or when
+            non-positive intensities prevent computing meaningful moments.
+        """
+        x_window = np.asarray(x_window, dtype=float)
+        y_window = np.asarray(y_window, dtype=float)
+
+        if x_window.shape != y_window.shape:
+            raise ValueError("Input arrays must share the same shape.")
+        if x_window.size < 3:
+            raise ValueError("At least three samples are required for estimation.")
+
+        weights = np.clip(y_window, 0.0, None)
+        weight_sum = float(weights.sum())
+        if not np.isfinite(weight_sum) or weight_sum <= 0.0:
+            raise ValueError("Intensity weights must be positive and finite.")
+
+        amplitude = float(np.max(y_window))
+        if amplitude <= 0.0:
+            raise ValueError("Peak amplitude must be positive.")
+
+        center = float(np.sum(weights * x_window) / weight_sum)
+        variance = float(np.sum(weights * (x_window - center) ** 2) / weight_sum)
+        sigma = float(np.sqrt(max(variance, np.finfo(float).eps)))
+
+        half_max = amplitude / 2.0
+        peak_idx = int(np.argmax(y_window))
+
+        def interpolate_half(idx_left: int, idx_right: int) -> float:
+            x0, y0 = x_window[idx_left], y_window[idx_left]
+            x1, y1 = x_window[idx_right], y_window[idx_right]
+            if y1 == y0:
+                return float(x0)
+            frac = (half_max - y0) / (y1 - y0)
+            frac = np.clip(frac, 0.0, 1.0)
+            return float(x0 + frac * (x1 - x0))
+
+        left_indices = np.where(y_window[:peak_idx] <= half_max)[0]
+        if left_indices.size > 0:
+            li = left_indices[-1]
+            left_x = interpolate_half(li, min(li + 1, peak_idx))
+        else:
+            left_x = x_window[0]
+
+        right_indices = np.where(y_window[peak_idx + 1:] <= half_max)[0]
+        if right_indices.size > 0:
+            ri = right_indices[0] + peak_idx + 1
+            right_x = interpolate_half(max(ri - 1, peak_idx), ri)
+        else:
+            right_x = x_window[-1]
+
+        fwhm_measured = float(max(right_x - left_x, np.finfo(float).eps))
+        gaussian_fwhm = 2.0 * np.sqrt(2.0 * np.log(2.0)) * sigma
+
+        if fwhm_measured <= gaussian_fwhm:
+            gamma = 0.0
+        else:
+            try:
+                gamma = float(
+                    brentq(
+                        lambda g: self.voigt_width(sigma, g) - fwhm_measured,
+                        0.0,
+                        fwhm_measured,
+                    )
+                )
+            except ValueError:
+                gamma = max((fwhm_measured - gaussian_fwhm) / 2.0, 0.0)
+
+        gamma = float(max(gamma, np.finfo(float).eps))
+        return np.array([amplitude, center, sigma, gamma], dtype=float)
 
 
     def residual(self, params, x, y, func):
@@ -391,7 +482,7 @@ class PeakyFinder():
         return full_max, fwhm, hwhm, nr, nl
 
     
-    def fit_peaks(self, x, y, peak_indices, plot=False):
+    def fit_peaks(self, x, y, peak_indices, plot=False, fast: bool = False):
         """Fit Voigt profiles to detected peaks.
 
         Parameters
@@ -406,6 +497,11 @@ class PeakyFinder():
             Initial peak parameters keyed by index.
         plot : bool, optional
             When ``True`` plot intermediate fits.
+        fast : bool, optional
+            When ``True`` skip non-linear least-squares optimisation and use
+            :meth:`estimate_voigt_parameters_fast` to initialise peak
+            parameters, falling back to optimisation only if the estimation
+            fails.
 
         Returns
         -------
@@ -449,6 +545,27 @@ class PeakyFinder():
                 new_peak_num = np.sum(new_peaks)
                 
                 if new_peak_num > 0:
+                    if fast:
+                        estimation_failed = False
+                        fast_results = {}
+                        for local_peak, is_new in zip(window_peaks, new_peaks):
+                            if not is_new:
+                                continue
+                            key = int(local_peak + node_left)
+                            try:
+                                _, _, _, node_right_fast, node_left_fast = self.peak_parameter_guess(y, key)
+                                x_local = x[node_left_fast:node_right_fast]
+                                y_local = y[node_left_fast:node_right_fast]
+                                params = self.estimate_voigt_parameters_fast(x_local, y_local)
+                                fast_results[key] = params
+                            except (ValueError, ZeroDivisionError, FloatingPointError):
+                                estimation_failed = True
+                                break
+
+                        if not estimation_failed:
+                            peak_dictionary.update(fast_results)
+                            continue
+
                     # define fit bounds
                     lower_bounds = np.array([0, x[node_left], 0, 0] * window_peak_num )
                     upper_bounds = np.array([1, x[node_right], fwhm_limit, fwhm_limit] * window_peak_num )
@@ -680,7 +797,7 @@ class PeakyFinder():
         # find peaks and profile parameters
         peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
         print('fourier peaks done')
-        peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot)
+        peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot, fast=True)
         print('fit peaks done')
         
         # filter and sort fit parameters
