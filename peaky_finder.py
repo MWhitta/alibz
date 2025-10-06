@@ -36,7 +36,7 @@ class PeakyFinder():
             Path to the directory containing the data.
         """
         self.data_dir = data_dir
-        self.data = Data(data_dir)
+        self.data = Data(data_dir, memmap=True)
 
 
     def multi_voigt(self, x, params):
