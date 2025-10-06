@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from scipy.special     import voigt_profile as voigt
-from scipy.optimize    import least_squares, brentq
+from scipy.optimize    import least_squares
 from scipy.integrate   import cumulative_trapezoid
 from scipy.interpolate import interp1d
 
@@ -83,98 +83,6 @@ class PeakyFinder():
         """
         f = 0.5346 * 2 * gamma + np.sqrt(0.2166 * 4 * gamma + 8 * sigma**2 * np.log(2))
         return f
-
-
-    def estimate_voigt_parameters_fast(self, x_window: np.ndarray, y_window: np.ndarray) -> np.ndarray:
-        """Estimate Voigt parameters from intensity-weighted moments.
-
-        Parameters
-        ----------
-        x_window : numpy.ndarray
-            Wavelength samples in the fitting window.
-        y_window : numpy.ndarray
-            Corresponding intensity samples for ``x_window``.
-
-        Returns
-        -------
-        numpy.ndarray
-            Array containing ``[amplitude, center, sigma, gamma]`` estimated
-            using intensity-weighted moments and the :meth:`voigt_width`
-            approximation.
-
-        Raises
-        ------
-        ValueError
-            Raised when ``x_window`` and ``y_window`` are incompatible or when
-            non-positive intensities prevent computing meaningful moments.
-        """
-        x_window = np.asarray(x_window, dtype=float)
-        y_window = np.asarray(y_window, dtype=float)
-
-        if x_window.shape != y_window.shape:
-            raise ValueError("Input arrays must share the same shape.")
-        if x_window.size < 3:
-            raise ValueError("At least three samples are required for estimation.")
-
-        weights = np.clip(y_window, 0.0, None)
-        weight_sum = float(weights.sum())
-        if not np.isfinite(weight_sum) or weight_sum <= 0.0:
-            raise ValueError("Intensity weights must be positive and finite.")
-
-        amplitude = float(np.max(y_window))
-        if amplitude <= 0.0:
-            raise ValueError("Peak amplitude must be positive.")
-
-        center = float(np.sum(weights * x_window) / weight_sum)
-        variance = float(np.sum(weights * (x_window - center) ** 2) / weight_sum)
-        sigma = float(np.sqrt(max(variance, np.finfo(float).eps)))
-
-        half_max = amplitude / 2.0
-        peak_idx = int(np.argmax(y_window))
-
-        def interpolate_half(idx_left: int, idx_right: int) -> float:
-            x0, y0 = x_window[idx_left], y_window[idx_left]
-            x1, y1 = x_window[idx_right], y_window[idx_right]
-            if y1 == y0:
-                return float(x0)
-            frac = (half_max - y0) / (y1 - y0)
-            frac = np.clip(frac, 0.0, 1.0)
-            return float(x0 + frac * (x1 - x0))
-
-        left_indices = np.where(y_window[:peak_idx] <= half_max)[0]
-        if left_indices.size > 0:
-            li = left_indices[-1]
-            left_x = interpolate_half(li, min(li + 1, peak_idx))
-        else:
-            left_x = x_window[0]
-
-        right_indices = np.where(y_window[peak_idx + 1:] <= half_max)[0]
-        if right_indices.size > 0:
-            ri = right_indices[0] + peak_idx + 1
-            right_x = interpolate_half(max(ri - 1, peak_idx), ri)
-        else:
-            right_x = x_window[-1]
-
-        fwhm_measured = float(max(right_x - left_x, np.finfo(float).eps))
-        gaussian_fwhm = 2.0 * np.sqrt(2.0 * np.log(2.0)) * sigma
-
-        if fwhm_measured <= gaussian_fwhm:
-            gamma = 0.0
-        else:
-            try:
-                gamma = float(
-                    brentq(
-                        lambda g: self.voigt_width(sigma, g) - fwhm_measured,
-                        0.0,
-                        fwhm_measured,
-                    )
-                )
-            except ValueError:
-                gamma = max((fwhm_measured - gaussian_fwhm) / 2.0, 0.0)
-
-        gamma = float(max(gamma, np.finfo(float).eps))
-        return np.array([amplitude, center, sigma, gamma], dtype=float)
-
 
     def residual(self, params, x, y, func):
         """Compute the residual between data and a model function.
@@ -628,10 +536,9 @@ class PeakyFinder():
         plot : bool, optional
             When ``True`` plot intermediate fits.
         fast : bool, optional
-            When ``True`` skip non-linear least-squares optimisation and use
-            :meth:`estimate_voigt_parameters_fast` to initialise peak
-            parameters, falling back to optimisation only if the estimation
-            fails.
+            When ``True`` skip non-linear least-squares optimisation and seed
+            new peaks directly from :meth:`peak_parameter_guess`, falling back
+            to optimisation only when the guesses are unusable.
 
         Returns
         -------
@@ -643,7 +550,20 @@ class PeakyFinder():
 
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
         median_fwhm = np.median(fwhm_array) * inc
-        fwhm_limit =  5 * median_fwhm
+        fwhm_limit =  max(5 * median_fwhm, 0.0)
+
+        min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
+        fwhm_limit = max(fwhm_limit, min_inc)
+
+        def build_voigt_guess(peak_idx: int, amplitude: float, fwhm_width: float) -> np.ndarray:
+            peak_idx = int(np.clip(peak_idx, 0, len(x) - 1))
+            amp = float(max(amplitude / 2.0, np.finfo(float).eps))
+            width = float(max(fwhm_width, np.finfo(float).eps)) * min_inc
+            width = float(max(width, min_inc))
+            sigma = float(max(width / (2.0 * np.sqrt(2.0 * np.log(2.0))), np.finfo(float).eps))
+            gamma = float(max(width / 2.0, sigma))
+            center = float(x[peak_idx])
+            return np.array([amp, center, sigma, gamma], dtype=float)
 
         peak_dictionary = {}
 
@@ -682,17 +602,16 @@ class PeakyFinder():
                             if not is_new:
                                 continue
                             key = int(local_peak + node_left)
-                            try:
-                                _, _, _, node_right_fast, node_left_fast = self.peak_parameter_guess(y, key)
-                                x_local = x[node_left_fast:node_right_fast]
-                                y_local = y[node_left_fast:node_right_fast]
-                                params = self.estimate_voigt_parameters_fast(x_local, y_local)
-                                fast_results[key] = params
-                            except (ValueError, ZeroDivisionError, FloatingPointError):
+                            amp_fast, fwhm_fast, _, _, _ = self.peak_parameter_guess(y, key)
+                            if (not np.isfinite(amp_fast)) or amp_fast <= 0.0:
                                 estimation_failed = True
                                 break
+                            if (not np.isfinite(fwhm_fast)) or fwhm_fast <= 0.0:
+                                estimation_failed = True
+                                break
+                            fast_results[key] = build_voigt_guess(key, amp_fast, fwhm_fast)
 
-                        if not estimation_failed:
+                        if not estimation_failed and fast_results:
                             peak_dictionary.update(fast_results)
                             continue
 
@@ -702,12 +621,14 @@ class PeakyFinder():
 
                     # define initial parameter guesses
                     x0 = np.zeros((window_peak_num, 4))
-                    x0[0] = [full_max / 2, x[p], inc * median_fwhm, inc * median_fwhm/2]
+                    x0[0] = build_voigt_guess(p, full_max, fwhm)
 
                     if window_peak_num > 1:
                         for i, pp in enumerate(window_peaks[new_peaks]):
-                            full_max = y_window[pp]
-                            x0[i + known_peak_num] = np.array([full_max / 2, x[node_left + pp], median_fwhm, median_fwhm])
+                            local_idx = int(pp)
+                            amp_local, fwhm_local, _, _, _ = self.peak_parameter_guess(y_window, local_idx)
+                            global_idx = node_left + local_idx
+                            x0[i + known_peak_num] = build_voigt_guess(global_idx, amp_local, fwhm_local)
                         for i, ppp in enumerate(known_peaks_inrange):
                             x0[i] = peak_dictionary[ppp]
                     
