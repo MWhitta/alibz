@@ -36,7 +36,7 @@ class PeakyFinder():
             Path to the directory containing the data.
         """
         self.data_dir = data_dir
-        self.data = Data(data_dir, memmap=True)
+        self.data = Data(data_dir)
 
 
     def multi_voigt(self, x, params):
@@ -457,10 +457,11 @@ class PeakyFinder():
         sorted_idx = idx_arr[sort_order]
 
         full_max = np.empty_like(idx_arr, dtype=float)
-        fwhm = np.empty_like(idx_arr, dtype=float)
-        hwhm = np.empty_like(idx_arr, dtype=float)
-        right_edges = np.empty_like(idx_arr, dtype=int)
-        left_edges = np.empty_like(idx_arr, dtype=int)
+        peak_positions = np.empty_like(idx_arr, dtype=int)
+        left_limits = np.empty_like(idx_arr, dtype=int)
+        right_limits = np.empty_like(idx_arr, dtype=int)
+        left_crosses = np.empty_like(idx_arr, dtype=float)
+        right_crosses = np.empty_like(idx_arr, dtype=float)
 
         n = data.size
 
@@ -521,19 +522,74 @@ class PeakyFinder():
             left_cross = clip_crossing(left_cross, left_limit, peak_index)
             right_cross = clip_crossing(right_cross, peak_index, right_limit)
 
-            left_width = peak_index - left_cross
-            right_width = right_cross - peak_index
+            full_max[out_idx] = amplitude
+            peak_positions[out_idx] = peak_index
+            left_limits[out_idx] = left_limit
+            right_limits[out_idx] = right_limit
+            left_crosses[out_idx] = left_cross
+            right_crosses[out_idx] = right_cross
 
-            left_width = max(left_width, 0.0)
-            right_width = max(right_width, 0.0)
+        peak_positions_f = peak_positions.astype(float)
+        left_widths = np.maximum(peak_positions_f - left_crosses, 0.0)
+        right_widths = np.maximum(right_crosses - peak_positions_f, 0.0)
+        fwhm = left_widths + right_widths
+        hwhm = fwhm / 2.0
 
-            fwhm_val = left_width + right_width
+        if idx_arr.size > 1:
+            valid_widths = np.isfinite(fwhm) & (fwhm > 0)
+            if np.count_nonzero(valid_widths) >= 2:
+                widths = fwhm[valid_widths]
+                median_width = np.median(widths)
+                q1, q3 = np.percentile(widths, [25, 75])
+                iqr = float(q3 - q1)
+                if not np.isfinite(iqr) or iqr <= 0:
+                    lower_bound = median_width / 4.0
+                    upper_bound = median_width * 4.0
+                else:
+                    lower_bound = max(q1 - 1.5 * iqr, median_width / 4.0)
+                    upper_bound = min(q3 + 1.5 * iqr, median_width * 4.0)
+                ratio_cap = 10.0
+                lower_bound = max(lower_bound, median_width / ratio_cap)
+                upper_bound = min(max(upper_bound, median_width), median_width * ratio_cap)
+                if upper_bound <= lower_bound:
+                    if median_width > 0:
+                        lower_bound = median_width / 2.0
+                        upper_bound = median_width * 2.0
+                    else:
+                        lower_bound = 0.0
+                        upper_bound = np.max(widths)
 
-            # Define fitting window edges while keeping overlap between peaks minimal.
-            left_edge = max(0, int(np.floor(left_cross)))
-            right_edge = min(n, int(np.ceil(right_cross)) + 1)
+                indices = np.nonzero(valid_widths)[0]
+                for i in indices:
+                    width = fwhm[i]
+                    new_width = float(np.clip(width, lower_bound, upper_bound))
+                    if not np.isclose(new_width, width):
+                        total_width = left_widths[i] + right_widths[i]
+                        if total_width <= 0:
+                            left_fraction = 0.5
+                        else:
+                            left_fraction = float(np.clip(left_widths[i] / total_width, 0.05, 0.95))
+                        new_left_width = new_width * left_fraction
+                        new_right_width = new_width - new_left_width
+                        center = float(peak_positions[i])
+                        left_cross = clip_crossing(center - new_left_width, int(left_limits[i]), int(center))
+                        right_cross = clip_crossing(center + new_right_width, int(center), int(right_limits[i]))
+                        left_crosses[i] = left_cross
+                        right_crosses[i] = right_cross
+                        left_widths[i] = max(center - left_cross, 0.0)
+                        right_widths[i] = max(right_cross - center, 0.0)
 
-            # Ensure the peak itself is included and the window spans both sides.
+                fwhm = left_widths + right_widths
+                hwhm = fwhm / 2.0
+
+        right_edges = np.empty_like(idx_arr, dtype=int)
+        left_edges = np.empty_like(idx_arr, dtype=int)
+
+        for i in range(idx_arr.size):
+            peak_index = int(peak_positions[i])
+            left_edge = max(0, int(np.floor(left_crosses[i])))
+            right_edge = min(n, int(np.ceil(right_crosses[i])) + 1)
+
             if left_edge >= peak_index:
                 left_edge = max(0, peak_index - 1)
             if right_edge <= peak_index:
@@ -542,11 +598,8 @@ class PeakyFinder():
                 left_edge = max(0, peak_index - 1)
                 right_edge = min(n, peak_index + 2)
 
-            full_max[out_idx] = amplitude
-            fwhm[out_idx] = fwhm_val
-            hwhm[out_idx] = fwhm_val / 2.0
-            right_edges[out_idx] = right_edge
-            left_edges[out_idx] = left_edge
+            left_edges[i] = left_edge
+            right_edges[i] = right_edge
 
         if was_scalar:
             return (
