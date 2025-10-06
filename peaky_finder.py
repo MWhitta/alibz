@@ -699,6 +699,12 @@ class PeakyFinder():
 
         fm, fwhm_arr, hwhm_arr, nr_arr, nl_arr = self.peak_parameter_guess(residuals, new_peak_indices)
 
+        valid_fwhm_mask = np.isfinite(fwhm_arr) & (fwhm_arr > 0)
+        if np.any(valid_fwhm_mask):
+            fallback_fwhm = float(np.median(fwhm_arr[valid_fwhm_mask]))
+        else:
+            fallback_fwhm = 1.0
+
         for p, full_max, fwhm, hwhm, node_right, node_left in zip(new_peak_indices, fm, fwhm_arr, hwhm_arr, nr_arr, nl_arr):
             x_window = x[node_left:node_right]
             y_window = y[node_left:node_right]
@@ -729,6 +735,18 @@ class PeakyFinder():
                     hwhm_ws = np.array([hwhm_ws])
 
                 for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
+                    full_max = float(np.asarray(full_max).reshape(-1)[0])
+                    fwhm = float(np.asarray(fwhm).reshape(-1)[0])
+                    hwhm = float(np.asarray(hwhm).reshape(-1)[0])
+                    if not np.isfinite(full_max):
+                        full_max = 0.0
+                    full_max = float(np.abs(full_max))
+                    if full_max <= 0.0:
+                        full_max = np.finfo(float).eps
+                    if not np.isfinite(fwhm) or fwhm <= 0.0:
+                        fwhm = max(fallback_fwhm, np.finfo(float).eps)
+                    if not np.isfinite(hwhm) or hwhm <= 0.0:
+                        hwhm = fwhm / 2.0
                     x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
                     
             x0 = np.ravel(x0) # flatten to pass to least squares fit
