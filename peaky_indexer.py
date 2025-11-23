@@ -96,8 +96,7 @@ class PeakyIndexer():
                     )
 
     def anchor_peaks(
-        self, peak_array: np.ndarray, shift_tolerance: float = 0.1
-    ) -> Dict[str, Dict[str, List[float]]]:
+        self, peak_array: np.ndarray, shift_tolerance: float = 0.1) -> Dict[str, Dict[str, List[float]]]:
         """Identify unambiguous ground-state transitions in fitted peaks.
 
         Parameters
