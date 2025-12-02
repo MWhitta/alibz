@@ -1,4 +1,5 @@
 numpy
+pulp
 matplotlib
 scipy
 scikit-learn

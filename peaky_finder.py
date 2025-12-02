@@ -913,7 +913,8 @@ class PeakyFinder():
                     'profile': profile,
                     'residual_data': residual_data,
                     'background': bg,
-                    'sorted_parameter_array': sorted_parameter_array}
+                    'sorted_parameter_array': sorted_parameter_array,
+                    'n_sigma': n_sigma}
 
         yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
         power_lambda = transformer.lambdas_

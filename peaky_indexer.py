@@ -1,8 +1,9 @@
 import numpy as np
+import pulp
 from collections import defaultdict
-from typing import DefaultDict, Dict, List
+from typing import DefaultDict, Dict, List, Set
 from matplotlib import pyplot as plt
-from scipy.special import voigt_profile as voigt
+
 
 from utils.database import Database
 from peaky_maker import PeakyMaker
@@ -256,7 +257,7 @@ class PeakyIndexer():
         return close_peaks
 
 
-    def peak_match(self, peak_array, ground_state=True, element_list=None):
+    def peak_match(self, peak_array, ground_state=False, element_list=None):
         """Match peaks to candidate element transitions.
 
         Parameters
@@ -296,608 +297,678 @@ class PeakyIndexer():
         return peak_match_dictionary
 
 
+    def ion_indexer(self, peak_array, element: str, ion: float, position_tol=None):
+        """Compare fitted peaks to a single element/ion reference and return match statistics."""
+        if isinstance(peak_array, dict):
+            if "sorted_parameter_array" not in peak_array:
+                raise ValueError("peak_array dict must contain 'sorted_parameter_array'")
+            peak_array = peak_array["sorted_parameter_array"]
 
-    def spectrum_match(self, peak_array, ground_state=True, plot=False):
-        """Match spectrum peaks to database lines.
+        peak_array = np.asarray(peak_array, dtype=float)
+        if peak_array.ndim != 2 or peak_array.shape[1] < 2:
+            raise ValueError("peak_array must be (n, >=2) with intensity in column 0 and position in column 1")
 
-        Parameters
-        ----------
-        peak_array : ndarray
-            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
-        ground_state : bool, optional
-            If ``True``, restrict matches to ground-state transitions.
-        plot : bool, optional
-            If ``True``, display diagnostic plots.
+        I_obs_raw = np.clip(peak_array[:, 0], 0, None)
+        I_scale = float(np.max(I_obs_raw)) if I_obs_raw.size else 1.0
+        if not np.isfinite(I_scale) or I_scale <= 0:
+            I_scale = 1.0
+        I_obs = I_obs_raw / I_scale
+        p_obs = peak_array[:, 1]
 
-        Returns
-        -------
-        tuple of dict
-            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
-            ions to matched peak locations and unindexed peaks respectively.
-        """
-        
-        data_peak_centers = peak_array[:, 1]
-        data_peak_widths = self.PeakyFinder.voigt_width(peak_array[:, 2], peak_array[:, 3])
-        mean_width = 2 * np.mean(data_peak_widths)
-
-        min_int = np.max(peak_array[:, 0]) # maximum peak intensity in fitted data
-        peak_idx = 0
-        while min_int > 200: 
-            print(f'min_int: {min_int}')
-            close_peaks = self.peak_interference(peak_array[peak_idx, 1], ground_state=ground_state)
-            
-            if any(close_peaks[0]): # if any close peaks are found, match them
-                close_elements, close_ions = np.array(close_peaks)[:, 0:2].T
-                close_elion = []
-                for (e, i) in zip(close_elements, close_ions):
-                    close_elion.append(e+i)
-
-                scores = []
-                for peak in close_peaks: # loop over close peaks to look for spectrum matches
-                    element, ion, loc, _ = peak
-                    # retreive element data from database
-                    ionization, element_peaks, gA, Ei, Ek, gi, gk = self.db.lines(element)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
-                    
-                    # search for experimental peaks that are close to predicted peaks and compare intensities for similarity
-                    if float(ion) < 6: # hard coded ionization cutoff. Incorporate physical model with ionization energy
-                        i_ind = np.array(ionization).astype(float) == float(ion)
-                        w_ind = (element_peaks > 240) & (element_peaks < 910)
-                        i_ind *= w_ind
-                        i_peaks = element_peaks[i_ind] # predicted peak locations
-                        i_amps = element_peaks[i_ind]**-1 * gA[i_ind] / gk[i_ind] * np.exp(-Ek[i_ind] / 1) # predicted peak amplitudes at 10000K
-                        n_amps = np.divide(i_amps, np.max(i_amps), where=np.max(i_amps)>0, out=np.zeros_like(i_amps))
-                        signal_bool = n_amps > 10**-3
-                        n_amps = n_amps[signal_bool]
-                        i_peaks = element_peaks[i_ind][signal_bool] # predicted peak locations > 10^-3
-
-                        peak_diff = np.abs(data_peak_centers[:, np.newaxis] - i_peaks[np.newaxis, :]) # pairwise comparison of experimental and predicted peaks
-                        diffs1, diffs2 = np.min(peak_diff, axis=1), np.min(peak_diff, axis=0) # closest peaks in data, prediction
-                        close1, close2 = diffs1 < data_peak_widths, diffs2 < mean_width # indeces of the close peaks in data, prediction
-                        
-                        peak_locs = data_peak_centers[close1]
-                        peak_amps = peak_array[close1, 0] # peaks found in data close to ion peaks
-                    
-                        peak_data = np.stack((peak_locs, peak_amps)).T # (x, y) pairs of (wavelength, intensity)
-                        peak_sort = np.argsort(peak_locs) # sort by increasing wavelength
-                        peak_data = peak_data[peak_sort] # sorted data
-                        
-                        amps = n_amps[close2] # predicted peaks close to those found in data
-                        peak_locations = i_peaks[close2] # predicted peak wavelengths close to those found in data
-
-                        # combine overlapping predicted amplitudes within experimental resolution
-                        split_indices = np.where(np.diff(peak_locations) > 1/15)[0] + 1
-                        groups = np.split(peak_locations, split_indices)
-                        amp_groups = np.split(amps, split_indices)
-                        group_means = np.array([np.average(group, weights=amp) for (amp, group) in zip(amp_groups, groups)])
-                        amp_sums = np.array([amp.sum() for amp in amp_groups])
-
-                        # rescale nonzero peak amps such that the matched peak is set to 1 
-                        if len(peak_amps) > 0:
-                            predicted_peak_location = np.argmin(np.abs(group_means - peak_array[0, 1])) # index of predicted peak
-                            predicted_amplitude_sum = amp_sums[predicted_peak_location] # amplitude of predicted peak
-                            matched_wavelength      = group_means[predicted_peak_location] # wavelength of predicted peak
-                            matched_data_location   = np.argmin(np.abs(peak_locs - matched_wavelength)) # index of matched data
-                            predicted_scale = np.divide(peak_amps[matched_data_location], predicted_amplitude_sum, where=amp_sums[predicted_peak_location]>0, out=np.zeros_like(peak_amps[matched_data_location]))
-                            
-                            amp_sums *= predicted_scale
-                            amp_data = np.stack((group_means, amp_sums)).T # predicted (wavelength, intensity) scaled to match experimental data
-                            amp_sort = np.argsort(group_means)
-                            amp_data = amp_data[amp_sort]
-
-                            match_score = np.max(amp_sums)
-                            scores.append(match_score)
-
-                            print(f'match: {element}[{ion}]  match_score {match_score}')
-                            print(f'amp_sums: {amp_sums}')
-
-                        if plot:
-                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(30,5))
-                            ax1.scatter(peak_locs[peak_sort], peak_amps[peak_sort])
-                            ax1.set_xlabel('wavelength [nm]')
-                            ax1.set_ylabel('measured amp')
-                            ax1.text(0.95, 0.95, f'{element}[{ion}]', transform=ax1.transAxes, fontsize=14, verticalalignment='top', horizontalalignment='right')
-                            ax1.minorticks_on()
-                            
-                            ax2.scatter(group_means[amp_sort], amp_sums[amp_sort])
-                            ax2.set_xlabel('wavelength [nm]')
-                            ax2.set_ylabel('predicted amp')
-                            ax2.minorticks_on()
-                            
-                            plt.plot()
-                            plt.show()
-
-                    else: # ionization state too high to be reasonable
-                        scores.append(-np.inf) # goes to zero when softmax is applied
-
-                score_probabilities = np.exp(scores)/sum(np.exp(scores)) # softmax
-                matched_ion_idx = np.abs(score_probabilities) > 10**-3 # hard coded cutoff - find better method
-                matched_ions = close_peaks[matched_ion_idx]
-
-                for peak in matched_ions:
-                    element, ion, loc, _ = peak
-                    spectrum_dictionary.setdefault(str(element), {}).setdefault(str(ion), []).append(loc)
-
-                peak_idx += 1
-                min_int = search_peak_array[peak_idx, 0]
-            
-            else: # no matching peaks were found 
-                if ground_state == True:
-                    excited_dictionary['unindexed'].append(search_peak_array[0, 1])
-                else:
-                    print('hmmmmmm. There are really no peaks in this vicinity?')
-
-                peak_idx += 1
-                min_int = search_peak_array[peak_idx, 0]
-
-        return spectrum_dictionary, excited_dictionary
-
-
-    def spectrum_match2(self, peak_array, t_lo=10000, t_hi=11000, t_inc=500, i_tol=100, ground_state=True, plot=False):
-        """Match spectrum peaks to database lines across a temperature range.
-
-        Parameters
-        ----------
-        peak_array : ndarray
-            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
-        t_lo : float, optional
-            Lower bound for temperature [K].
-        t_hi : float, optional
-            Upper bound for temperature [K].
-        t_inc : float, optional
-            Temperature increment [K].
-        i_tol : float, optional
-            Minimum peak intensity for consideration.
-        ground_state : bool, optional
-            If ``True``, restrict matches to ground-state transitions.
-        plot : bool, optional
-            If ``True``, display diagnostic plots.
-
-        Returns
-        -------
-        tuple of dict
-            ``(spectrum_dictionary, excited_dictionary)`` mapping elements and
-            ions to matched peak locations and unindexed peaks respectively.
-        """
-        t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
-        kT = self.k * t_array
-
-        data_peak_centers = peak_array[:, 1]
-        data_peak_widths = self.PeakyFinder.voigt_width(peak_array[:, 2], peak_array[:, 3])
-        mean_width = 2 * np.mean(data_peak_widths)
-
-        spectrum_dictionary  = dict({}) # store matched element peak information
-        candidate_dictionary = dict({}) # store matched element peak information
-        intensity_dictionary = dict({}) # store modeled intensity information
-        element_dictionary   = dict({}) # store peak information that matches element
-        rejected_dictionary  = dict({}) # store rejected elements
-        excited_dictionary   = dict({'unindexed' : []}) # store rejected peaks
-        search_peak_array    = peak_array.copy()
-        peak_array_idx       = np.arange(len(peak_array))
-
-        min_int = np.max(peak_array[:, 0]) # maximum peak intensity in fitted data
-        peak_idx = 0
-        while min_int > i_tol: 
-            print(f'min_int: {min_int}')
-            close_peaks = self.peak_interference(search_peak_array[peak_idx, 1], ground_state=ground_state)
-            
-            if any(close_peaks[0]): # if any close peaks are found, match them
-                close_elements, close_ions = np.array(close_peaks)[:, 0:2].T
-                close_elion = []
-                for (e, i) in zip(close_elements, close_ions):
-                    close_elion.append(e+i)
-
-                # eleminate previously rejected cendidates from search
-                if np.any(rejected_dictionary.items()):
-                    reject_elements, reject_ions = np.array([
-                        [outer_key, inner_key]
-                        for outer_key, inner_dict in rejected_dictionary.items()
-                        for inner_key in inner_dict.keys()]).T
-                
-                    close_rejected_species = []
-                    for (e, i) in zip(reject_elements, reject_ions):
-                            close_rejected_species.append(e+i)
-                else:
-                    close_rejected_species = [[]]                
-
-                close_peaks_rejected = np.in1d(close_elion, close_rejected_species)
-                close_peaks = np.array(close_peaks)[~close_peaks_rejected]
-                print(f'close_peaks: {close_peaks}')
-                scores = []
-                for peak in close_peaks: # loop over close peaks to look for spectrum matches
-                    element, ion, loc, _ = peak
-                    
-                    if element in intensity_dictionary and ion in intensity_dictionary[element]:
-                        element_dictionary.setdefault(element, {}).setdefault(ion, []).append(loc) # save peak location to element dictionary
-                        search_peak_array = search_peak_array[1:] # advance down peak list
-                    
-                    # retreive element data from database
-                    ionization, element_peaks, gA, Ei, Ek, gi, gk = self.db.lines(element)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
-                    
-                    # search for experimental peaks that are close to predicted peaks and compare intensities for similarity
-                    
-                    if float(ion) < 6: # hard coded ionization cutoff. Incorporate physical model with ionization energy?
-                        i_ind = np.array(ionization).astype(float) == float(ion)
-                        w_ind = (element_peaks > 240) & (element_peaks < 910)
-                        i_ind *= w_ind
-                        i_peaks = element_peaks[i_ind]
-                        peak_diff = np.abs(data_peak_centers[:, np.newaxis] - i_peaks[np.newaxis, :]) # pairwise comparison of experimental and predicted peaks
-                        diffs1, diffs2 = np.min(peak_diff, axis=1), np.min(peak_diff, axis=0) # closest peaks in data, prediction
-                        close1, close2 = diffs1 < data_peak_widths, diffs2 < mean_width # indeces of the close peaks
-                        
-                        peak_locs = data_peak_centers[close1]
-                        peak_amps = peak_array[close1, 0] # peaks found in data close to ion peaks
-                    
-                        peak_data = np.stack((peak_locs, peak_amps)).T # (x, y) pairs of (wavelength, intensity)
-                        peak_sort = np.argsort(peak_locs) # sort by increasing wavelength
-                        peak_data = peak_data[peak_sort] # sorted data
-
-                        all_amps = element_peaks[i_ind]**-1 * gA[i_ind] / gk[i_ind] * np.exp(-Ek[i_ind] / kT) # predicted amplitudes
-                        amps = all_amps[0, close2] # ion peaks close to those found in data
-                        peak_locations = i_peaks[close2] # ion peak wavelengths close to those found in data
-
-                        # combine overlapping predicted amplitudes within experimental resolution
-                        split_indices = np.where(np.diff(peak_locations) > 1/15)[0] + 1
-                        groups = np.split(peak_locations, split_indices)
-                        amp_groups = np.split(amps, split_indices)
-                        group_means = np.array([np.average(group, weights=amp) for (amp, group) in zip(amp_groups, groups)])
-                        amp_sums = np.array([amp.sum() for amp in amp_groups])
-
-                        # rescale nonzero peak amps such that the matched peak is set to 1 
-                        if len(peak_amps) > 0:
-                            predicted_peak_location = np.argmin(np.abs(group_means - search_peak_array[0, 1])) # index of predicted peak
-                            predicted_amplitude_sum = amp_sums[predicted_peak_location] # amplitude of predicted peak
-                            matched_wavelength      = group_means[predicted_peak_location] # wavelength of predicted peak
-                            matched_data_location = np.argmax(np.abs(peak_locs - matched_wavelength) < mean_width) # index of matched data
-                            predicted_scale = np.divide(peak_amps[matched_data_location], predicted_amplitude_sum, where=amp_sums[predicted_peak_location]>0, out=np.zeros_like(peak_amps[matched_data_location]))
-                            
-                            amp_sums *= predicted_scale
-                            amp_data = np.stack((group_means, amp_sums)).T # predicted (wavelength, intensity) scaled to match experimental data
-                            amp_sort = np.argsort(group_means)
-                            amp_data = amp_data[amp_sort]
-
-                        match_amps = peak_amps[peak_amps < min_int]
-                        match_amp_sums = amp_sums[amp_sums < min_int]
-                        match_score = np.log(np.divide(np.sum(match_amps),  np.sum(match_amp_sums), where=np.sum(match_amp_sums)>0, out=np.zeros_like(np.sum(match_amp_sums)))) # ratio of experimental to predicted intensity
-                        scores.append(match_score)
-
-                        print(f'match: {element}[{ion}]  match_score {match_score}')
-
-                        if plot:
-                            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(30,5))
-                            ax1.scatter(peak_locs[peak_sort], peak_amps[peak_sort])
-                            ax1.set_xlabel('wavelength [nm]')
-                            ax1.set_ylabel('measured amp')
-                            ax1.text(0.95, 0.95, f'{element}[{ion}]', transform=ax1.transAxes, fontsize=14, verticalalignment='top', horizontalalignment='right')
-                            ax1.minorticks_on()
-                            
-                            ax2.scatter(group_means[amp_sort], amp_sums[amp_sort])
-                            ax2.set_xlabel('wavelength [nm]')
-                            ax2.set_ylabel('predicted amp')
-                            ax2.minorticks_on()
-                            
-                            plt.plot()
-                            plt.show()
-
-                    else: # ionization state too high to be reasonable
-                        scores.append(-np.inf) # goes to zero when softmax is applied
-
-                score_probabilities = np.exp(scores)/sum(np.exp(scores)) # softmax
-                matched_ion_idx = np.abs(score_probabilities) > 10**-3 # hard coded cutoff - find better method
-                matched_ions = close_peaks[matched_ion_idx]
-
-                for peak in matched_ions:
-                    element, ion, loc, _ = peak
-                    spectrum_dictionary.setdefault(str(element), {}).setdefault(str(ion), []).append(loc)
-
-                peak_idx += 1
-                min_int = search_peak_array[peak_idx, 0]
-            
-            else: # no matching peaks were found 
-                if ground_state == True:
-                    excited_dictionary['unindexed'].append(search_peak_array[0, 1])
-                else:
-                    print('hmmmmmm. There are really no peaks in this vicinity?')
-
-                peak_idx += 1
-                min_int = search_peak_array[peak_idx, 0]
-
-        return spectrum_dictionary, excited_dictionary
-
-    
-    def peak_compare(self, x, y, p, ploc, locations, amps, peaks, limit, rang):
-        """Compare expected ion peaks to observed peaks.
-
-        Parameters
-        ----------
-        x : ndarray
-            Wavelength values of the spectrum.
-        y : ndarray
-            Intensity values of the spectrum.
-        p : int
-            Index of the peak under consideration in ``x`` and ``y``.
-        ploc : ndarray
-            Boolean array marking the location of the ion peak being tested.
-        locations : ndarray
-            Wavelengths of all candidate lines for the ion.
-        amps : ndarray
-            Predicted line amplitudes for each temperature.
-        peaks : ndarray
-            Indices of detected peaks in the spectrum.
-        limit : float
-            Minimum relative amplitude required for a line to be considered.
-        rang : float
-            Maximum distance between predicted and observed peaks.
-
-        Returns
-        -------
-        ndarray
-            Fraction of expected peaks found for each temperature.
-        """
-        if np.sum(ploc) == 0:
-            peaks_found = np.zeros_like(amps[:, 0])
-            return peaks_found
-        
-        else:
-            min, max = np.min(y), np.max(y)
-            intensities_max = max - min
-            relint = (y[p]-min) / intensities_max
-
-            amp = np.sum(amps[:, ploc], axis=1) # sum accounts for multiple peaks in same location
-            a_max = np.max(amps, axis=1)
-            a_norm = np.divide(amp, a_max, where=a_max>0)
-
-            if np.all(amp < (limit * a_max)):
-                peaks_found = np.zeros_like(amps[:, 0])
-                return peaks_found
-                
+        if position_tol is None:
+            sigmas = peak_array[:, 2] if peak_array.shape[1] > 2 else np.array([])
+            gammas = peak_array[:, 3] if peak_array.shape[1] > 3 else np.array([])
+            if sigmas.size and gammas.size:
+                fwhm = self.finder.voigt_width(sigmas, gammas)
+                position_tol = float(np.median(fwhm)) if np.any(np.isfinite(fwhm)) else 0.0
             else:
-                dqe_mask = (locations > 240) * (locations < 920)
-                a_mask = a_norm > limit
+                position_tol = 0.0
+            if position_tol <= 0:
+                position_tol = 0.1
 
-                valid_peaks = amps > ((limit / relint) * (a_max * a_mask)[:, np.newaxis])
-                valid_peaks *= dqe_mask
-                valid_locations = locations[np.newaxis, :] * valid_peaks
+        lines = self.db.lines(element)
+        if lines.size == 0:
+            raise ValueError(f"No lines found for element {element}")
+        ionization = lines[:, 0].astype(float)
+        mask = ionization == ion
+        if not np.any(mask):
+            raise ValueError(f"No lines found for element {element} ion {ion}")
+        predicted_pos = lines[mask, 1].astype(float)
+        # Column 3 stored linearly; use directly
+        predicted_int = lines[mask, 3].astype(float)
+        gk = lines[mask, 13].astype(float) if lines.shape[1] > 13 else np.ones_like(predicted_int)
+        predicted_int = predicted_int * np.clip(gk, 1e-12, None)
+        p_scale = float(np.max(predicted_int)) if predicted_int.size else 1.0
+        if not np.isfinite(p_scale) or p_scale <= 0:
+            p_scale = 1.0
+        predicted_int_norm = predicted_int / p_scale
 
-                differences = np.abs(valid_locations - x[peaks][:, np.newaxis, np.newaxis])
-                index_match = np.min(differences, axis=0) < rang
+        # Exclude predicted peaks outside the observed window (with a small buffer of position_tol)
+        if p_obs.size:
+            lo, hi = float(np.min(p_obs)) - position_tol, float(np.max(p_obs)) + position_tol
+            in_window = (predicted_pos >= lo) & (predicted_pos <= hi)
+            predicted_pos = predicted_pos[in_window]
+            predicted_int_norm = predicted_int_norm[in_window]
 
-                sum_match, sum_all = np.sum(index_match, axis=1), np.sum(valid_peaks, axis=1)
-                peaks_found = np.divide(sum_match, sum_all, out=np.zeros_like(sum_all).astype(float), where=sum_all>0)
+        matches = []
+        used_pred = set()
+        unmatched_observed = []
+        per_predicted_usage = defaultdict(float)
+        for i, obs_pos in enumerate(p_obs):
+            width = position_tol
+            if peak_array.shape[1] > 3:
+                width = max(width, float(self.finder.voigt_width(peak_array[i, 2], peak_array[i, 3])))
+            mask = np.abs(predicted_pos - obs_pos) <= width
+            pred_sum = float(np.sum(predicted_int_norm[mask])) if np.any(mask) else 0.0
+            if pred_sum > 0:
+                used_pred.update(np.nonzero(mask)[0])
+                for idx in np.nonzero(mask)[0]:
+                    per_predicted_usage[idx] += predicted_int_norm[idx]
+            ratio = I_obs[i] / pred_sum if pred_sum > 0 else float("nan")
+            if pred_sum > 0:
+                matches.append(
+                    {
+                        "obs_pos": float(obs_pos),
+                        "predicted_positions": predicted_pos[mask].tolist(),
+                        "predicted_intensities": predicted_int_norm[mask].tolist(),
+                        "predicted_intensity_sum": pred_sum,
+                        "obs_int": float(I_obs[i]),
+                        "intensity_ratio_obs_over_pred": float(ratio),
+                    }
+                )
+            else:
+                unmatched_observed.append({"obs_pos": float(obs_pos), "obs_int": float(I_obs[i])})
 
-                return peaks_found
-      
-    
-    def index_probabilities(self,
-              x,
-              y,
-              peak_indices,
-              peak_array,
-              wid=1,
-              rang=0.5,
-              t_lo=10000,
-              t_hi=11000,
-              t_inc=500,
-              ground_state=True,
-              verbose=True,
-              ):
-        """Compute and store peak index probabilities.
+        # Combine matches that share the same predicted-position set and renormalize intensities
+        combined = defaultdict(lambda: {"obs_int_sum": 0.0, "predicted_positions": None, "predicted_intensities": None, "predicted_intensity_sum": 0.0})
+        for m in matches:
+            key = tuple(m["predicted_positions"])
+            combined[key]["obs_int_sum"] += m["obs_int"]
+            if combined[key]["predicted_positions"] is None:
+                combined[key]["predicted_positions"] = m["predicted_positions"]
+                combined[key]["predicted_intensities"] = m["predicted_intensities"]
+                combined[key]["predicted_intensity_sum"] = m["predicted_intensity_sum"]
+        merged_matches = []
+        for key, val in combined.items():
+            pred_sum = val["predicted_intensity_sum"]
+            ratio = val["obs_int_sum"] / pred_sum if pred_sum > 0 else float("nan")
+            merged_matches.append(
+                {
+                    "obs_int_sum": float(val["obs_int_sum"]),
+                    "predicted_positions": val["predicted_positions"],
+                    "predicted_intensities": val["predicted_intensities"],
+                    "predicted_intensity_sum": float(pred_sum),
+                    "intensity_ratio_obs_over_pred": float(ratio),
+                }
+            )
+        matches = merged_matches
+
+        unmatched_predicted = []
+        for idx, (pp, pint) in enumerate(zip(predicted_pos, predicted_int_norm)):
+            if idx not in used_pred:
+                unmatched_predicted.append({"pred_pos": float(pp), "pred_int": float(pint)})
+
+        ratios = [m["intensity_ratio_obs_over_pred"] for m in matches if np.isfinite(m["intensity_ratio_obs_over_pred"]) and m["predicted_intensity_sum"] > 0]
+        summary = {
+            "predicted_count": int(len(predicted_pos)),
+            "matched_count": int(len(matches)),
+            "unmatched_predicted": int(len(unmatched_predicted)),
+            "unmatched_observed": int(len(unmatched_observed)),
+            "ratio_mean": float(np.mean(ratios)) if ratios else float("nan"),
+            "ratio_median": float(np.median(ratios)) if ratios else float("nan"),
+        }
+
+        return {
+            "matches": matches,
+            "unmatched_predicted": unmatched_predicted,
+            "unmatched_observed": unmatched_observed,
+            "summary": summary,
+        }
+
+
+    def _prune_references_for_spectrum(
+        self,
+        p_obs,
+        I_obs,
+        refs,
+        detection_limit,
+        position_tol,
+        eta=0.8,
+        max_rank=5,
+    ):
+        """Prune obviously poor references using anchor peaks before MILP."""
+        if not refs:
+            return refs
+
+        p_obs = np.asarray(p_obs, dtype=float)
+        I_obs = np.asarray(I_obs, dtype=float)
+
+        order = np.argsort(I_obs)[::-1]
+        bad_refs: Set[int] = set()
+        max_rank = min(max_rank, len(order))
+
+        if detection_limit is None:
+            detection_limit = -np.inf
+        obs_above_limit = I_obs >= detection_limit if np.isfinite(detection_limit) else np.ones_like(I_obs, dtype=bool)
+        obs_pos_vis = p_obs[obs_above_limit]
+
+        ref_pos = []
+        ref_pos_vis = []
+        for ref in refs:
+            pos = np.asarray(ref["pos"], dtype=float)
+            inten = np.asarray(ref["intensity"], dtype=float)
+            ref_pos.append(pos)
+            if pos.size == 0:
+                ref_pos_vis.append(pos)
+                continue
+            mask = inten >= detection_limit if np.isfinite(detection_limit) else np.ones_like(inten, dtype=bool)
+            ref_pos_vis.append(pos[mask])
+
+        for rank in range(max_rank):
+            anchor_idx = int(order[rank])
+            anchor_pos = p_obs[anchor_idx]
+
+            candidate_refs = [
+                m
+                for m, pos in enumerate(ref_pos)
+                if m not in bad_refs and pos.size > 0 and np.any(np.abs(pos - anchor_pos) <= position_tol)
+            ]
+
+            if not candidate_refs:
+                continue
+
+            good_refs = []
+            for m in candidate_refs:
+                pos_vis = ref_pos_vis[m]
+                if pos_vis.size == 0:
+                    good_refs.append(m)
+                    continue
+
+                if obs_pos_vis.size == 0:
+                    bad_refs.add(m)
+                    continue
+
+                match = np.any(np.abs(obs_pos_vis[:, None] - pos_vis[None, :]) <= position_tol, axis=0)
+                matched = np.count_nonzero(match)
+                missing_frac = 1.0 - matched / max(1, pos_vis.size)
+
+                if missing_frac <= eta:
+                    good_refs.append(m)
+                else:
+                    bad_refs.add(m)
+
+        if not bad_refs:
+            return refs
+        keep = [m for m in range(len(refs)) if m not in bad_refs]
+        return [refs[m] for m in keep]
+
+
+    def spectrum_match(
+        self,
+        peak_array,
+        refs=None,
+        position_tol=None,
+        detection_limit=None,
+        w_pos=1.0,
+        w_int=1.0,
+        alpha=1.0,
+        beta=1.0,
+        M_big=None,
+        solver=None,
+        interference_kwargs=None,
+        prune_kwargs=None,
+    ):
+        """
+        Match observed spectrum peaks to a set of reference spectra using a MILP model.
 
         Parameters
         ----------
-        x : ndarray
-            Wavelength values of the spectrum.
-        y : ndarray
-            Intensity values of the spectrum.
-        peak_indices : ndarray
-            Indices of detected peaks in ``x`` and ``y``.
-        peak_array : ndarray
-            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
-        wid : float, optional
-            Width parameter for the Gaussian distance metric.
-        rang : float, optional
-            Allowed wavelength difference for matching peaks.
-        t_lo : float, optional
-            Lower bound for temperature [K].
-        t_hi : float, optional
-            Upper bound for temperature [K].
-        t_inc : float, optional
-            Temperature increment [K].
-        ground_state : bool, optional
-            If ``True``, restrict matches to ground-state transitions.
-        verbose : bool, optional
-            If ``True``, print progress messages.
+        peak_array : array_like or dict
+            Observed peak parameters with intensity in column 0 and peak position
+            in column 1. Pass ``fit_dict["sorted_parameter_array"]`` from
+            :meth:`~peaky_finder.PeakyFinder.fit_spectrum_data` directly; the
+            second and first columns provide ``p_obs`` and ``I_obs`` respectively.
+        refs : list of dict or None
+            Each dict must have keys:
+                - "pos": array_like of peak positions (q_{mj})
+                - "intensity": array_like of nominal reference intensities (R_{mj})
+            Peak locations can come from :meth:`peak_interference` and intensities
+            from :meth:`peaky_maker.PeakyMaker.peak_maker`. All arrays are 1-D of
+            the same length within each reference. If ``None``, references are
+            generated by running :meth:`peak_match` to find candidate elements/ions
+            and then scanning those ions with :meth:`peak_interference`.
+        position_tol : float or None
+            Maximum allowed position difference |p_i - q_{mj}| to consider a candidate match.
+            When ``None``, it is set to the median Voigt FWHM computed from the
+            sigma and gamma columns of ``peak_array`` using
+            :meth:`PeakyFinder.voigt_width`.
+        detection_limit : float or None
+            Detection limit L for intensities in the observed spectrum. When
+            ``None``, it is derived from observed amplitudes using ``n_sigma``
+            saved in the finder ``fit_dict`` (mean + n_sigma * std of amplitudes;
+            defaults to ``n_sigma=0`` if unavailable).
+            Observed intensities are normalized to [0, 1] internally, so this
+            value is interpreted in that normalized scale.
+        w_pos : float, optional
+            Weight for squared position mismatch in the objective.
+        w_int : float, optional
+            Weight for intensity mismatch residuals in the objective.
+        alpha : float, optional
+            Penalty for marking an observed peak as noise (unassigned).
+        beta : float, optional
+            Penalty for marking a reference peak as "hidden" (missing though expected).
+        M_big : float, optional
+            Big-M constant for linearization. If None, a heuristic value is chosen.
+        solver : pulp solver instance, optional
+            Custom pulp solver; if None, uses ``pulp.PULP_CBC_CMD()``.
+        interference_kwargs : dict, optional
+            Passed to :meth:`peak_match` (``ground_state``, ``element_list``) and
+            the internal reference builder (e.g. ``wid``, ``rang``,
+            ``log_amp_limit``) when ``refs`` is ``None``.
+        prune_kwargs : dict, optional
+            Parameters for the pre-filtering helper (e.g. ``eta``=0.8,
+            ``max_rank``=5); applied before running the MILP.
 
         Returns
         -------
-        None
-            Results are stored in ``self.peak_probability_dictionary``.
+        result : dict
+            Dictionary with fields:
+                - "status": MILP solver status string (e.g. "Optimal").
+                - "c": array, shape (M,), estimated component fractions.
+                - "assignments": list of length n.
+                  For each observed peak i, either None (noise) or a dict:
+                    {
+                    "ref_index": m,
+                    "ref_peak_index": j,
+                    "ref_peak_global_index": f,
+                    }
+                - "noise_mask": boolean array, shape (n,), True for noise peaks.
+                - "hidden_ref_mask": boolean array, shape (P,), True for hidden reference peaks.
+                - "objective_value": float, optimal objective value.
+                - "flattened_reference": dict with:
+                    "pos", "intensity", "ref_index", "ref_peak_index"
+                - "elements": mapping of element symbols to :class:`Element`
+                  objects populated from assignments (when reference metadata
+                  includes ``element`` and ``ion``)
         """
-        t_array = np.arange(t_lo, t_hi, t_inc)[:, np.newaxis] # make column vector for proper broadcasting, with temps as rows
-        kT = self.k * t_array
+        # --- Inputs to numpy ---
+        n_sigma_val = None
+        if isinstance(peak_array, dict):
+            if "sorted_parameter_array" not in peak_array:
+                raise ValueError(
+                    "peak_array dict must contain 'sorted_parameter_array' as returned by PeakyFinder.fit_spectrum_data"
+                )
+            n_sigma_val = peak_array.get("n_sigma")
+            peak_array = peak_array["sorted_parameter_array"]
 
-        total_peaks = int(np.count_nonzero(peak_indices) * 0.1)
-        self.peak_lim = 0.05
-        for i, (p, v) in enumerate(zip(peak_indices, peak_array)):
-            
-            if verbose:
-                print(f'peak {i+1} / {total_peaks+1} successfully indexed')
-            px = self.peak_interference(x[p], wid=wid, rang=rang, ground_state=ground_state)
-            
-            if len(px[0]) < 1:
-                if verbose:
-                    print(f'no ground state transitions for found for peak {i+1} at {x[p]}')
-                    print(f'excited orphan created for later assignment')
-                self.peak_probability_dictionary[i] = []
-            
-            else: 
-                peak_match = []
-                temperature_match = []
-                absolute_intensity = []
+        peak_array = np.asarray(peak_array, dtype=float)
+        if peak_array.ndim != 2 or peak_array.shape[1] < 2:
+            raise ValueError("peak_array must be (n, >=2) with intensity in column 0 and position in column 1")
 
-                if ground_state:
-                    if not hasattr(self, 'ground_state'):
-                        self.ground_state()
+        # Normalize observed intensities to [0, 1]
+        I_obs_raw = np.clip(peak_array[:, 0], 0, None)
+        I_scale = float(np.max(I_obs_raw)) if I_obs_raw.size else 1.0
+        if not np.isfinite(I_scale) or I_scale <= 0:
+            I_scale = 1.0
+        I_obs = I_obs_raw / I_scale
+        p_obs = peak_array[:, 1]
+        n = p_obs.shape[0]
 
-                for element, ion, wavelength, distance in px:
-                    if element in self.intensity_probability_dictionary and ion in self.intensity_probability_dictionary[element]:
-                        ploc_all, amps = self.intensity_probability_dictionary[element][ion]
+        if position_tol is None:
+            sigmas = peak_array[:, 2] if peak_array.shape[1] > 2 else np.array([])
+            gammas = peak_array[:, 3] if peak_array.shape[1] > 3 else np.array([])
+            if sigmas.size and gammas.size:
+                fwhm = self.finder.voigt_width(sigmas, gammas) / 2.0  # half-width at half-maximum
+                position_tol = float(np.median(fwhm)) if np.any(np.isfinite(fwhm)) else 0.0
+            else:
+                position_tol = 0.0
+            if position_tol <= 0:
+                position_tol = 0.1  # conservative fallback
 
-                        ionization, peak_loc = self.db.lines(element)[:, [0, 1]].T.astype(float)
-                        Zind = ionization == ion
-                        ploc = peak_loc[Zind] == wavelength
-                        
-                        if ground_state:
-                            gs = self.ground_states[element]
-                            if ion in gs:
-                                ploc_ground = [ploc == gsw for gsw in gs[ion]]
-                                amp = np.sum(amps[:, ploc_ground], axis=1) # sum accounts for multiple peaks in same location
-                        else:
-                            amp = np.sum(amps[:, ploc], axis=1) # sum accounts for multiple peaks in same location
+        if detection_limit is None:
+            mean_I = float(np.mean(I_obs)) if n > 0 else 0.0
+            std_I = float(np.std(I_obs)) if n > 0 else 0.0
+            n_sigma_use = float(n_sigma_val) if n_sigma_val is not None else 0.0
+            detection_limit = mean_I + n_sigma_use * std_I
+        else:
+            detection_limit = float(detection_limit) / I_scale
 
+        # Precompute range for edge tapering of reference oscillator strengths
+        if n > 0:
+            loc_min, loc_max = float(np.min(p_obs)), float(np.max(p_obs))
+        else:
+            loc_min, loc_max = 0.0, 1.0
+
+        def tukey_weight(loc, edge_frac=0.1):
+            """Raised-cosine taper: middle 80% at 1.0, outer 10% fades to 0."""
+            if loc_max <= loc_min:
+                return 1.0
+            rel = (loc - loc_min) / (loc_max - loc_min)
+            if rel < 0 or rel > 1:
+                return 0.0
+            if rel < edge_frac:
+                return 0.5 * (1 - np.cos(np.pi * rel / edge_frac))
+            if rel > 1 - edge_frac:
+                return 0.5 * (1 - np.cos(np.pi * (1 - rel) / edge_frac))
+            return 1.0
+
+        def _normalize_refs(ref_list):
+            norm = []
+            for ref in ref_list:
+                ref_copy = dict(ref)
+                inten = np.asarray(ref_copy["intensity"], dtype=float)
+                inten = np.clip(inten, 0, None)
+                max_inten = float(np.max(inten)) if inten.size else 0.0
+                if np.isfinite(max_inten) and max_inten > 0:
+                    inten = inten / max_inten
+                ref_copy["intensity"] = inten
+                norm.append(ref_copy)
+            return norm
+
+        if refs is None:
+            kwargs = (interference_kwargs or {}).copy()
+            ground_state = kwargs.pop("ground_state", False)
+            element_list = kwargs.pop("element_list", None)
+            wid = kwargs.pop("wid", 1)
+            rang = kwargs.pop("rang", 1)
+            log_amp_limit = kwargs.pop("log_amp_limit", 6)
+
+            # Iteratively build and prune references starting from the strongest peaks
+            refs_map: Dict[tuple, Dict[str, List[float]]] = defaultdict(lambda: {"pos": [], "intensity": []})
+            bad_pairs: Set[tuple] = set()
+            refs = []
+
+            for center in p_obs:
+                hits = self.peak_interference(
+                    center,
+                    wid=wid,
+                    rang=rang,
+                    log_amp_limit=log_amp_limit,
+                    ground_state=ground_state,
+                    element_list=element_list,
+                )
+                if len(hits) == 1 and hits[0] == []:
+                    continue
+                for el, ion, location, *_rest, A in hits:
+                    pair = (el, ion)
+                    if pair in bad_pairs:
+                        continue
+                    ref = refs_map[pair]
+                    ref["pos"].append(float(location))
+                    if np.isfinite(A):
+                        weight = tukey_weight(location)
+                        ref["intensity"].append(float((10 ** A) * weight))
                     else:
-                        ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(element)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
-                        Zind = ionization == ion
-                        
-                        if ground_state:
-                            Eind = Ei == 0 #indices of ground states
-                            Zind = Zind * Eind    
-                        
-                        amps = peak_loc[Zind]**-1 * gA[Zind] * np.exp(-Ek[Zind] / kT)
-                        ploc = peak_loc[Zind] == wavelength
-                        ploc_all = peak_loc[Zind]
-                        amp = np.sum(amps[:, ploc], axis=1) # sum accounts for multiple peaks in same location
+                        ref["intensity"].append(0.0)
 
-                        if np.sum(amps) == 0:
-                            amps = np.zeros_like(t_array, dtype=float)
-                            ploc = np.zeros_like(t_array, dtype=int)
-                            
-                        ion_cutoff = int(float(ion))
-                        if ion_cutoff >= 5:
-                            amps = np.zeros_like(amps)
+                # Build refs for current state and prune obvious mismatches
+                current_refs = []
+                for (el, ion), data in refs_map.items():
+                    if data["pos"]:
+                        current_refs.append(
+                            {
+                                "element": el,
+                                "ion": ion,
+                                "pos": np.asarray(data["pos"], dtype=float),
+                                "intensity": np.asarray(data["intensity"], dtype=float),
+                            }
+                        )
+                current_refs = _normalize_refs(current_refs)
+                if current_refs:
+                    pruned = self._prune_references_for_spectrum(
+                        p_obs,
+                        I_obs,
+                        current_refs,
+                        detection_limit,
+                        position_tol,
+                        **(prune_kwargs or {}),
+                    )
+                    removed = {(r["element"], r["ion"]) for r in current_refs} - {(r["element"], r["ion"]) for r in pruned}
+                    bad_pairs.update(removed)
+                    refs_map = defaultdict(lambda: {"pos": [], "intensity": []})
+                    for ref in pruned:
+                        key = (ref.get("element"), ref.get("ion"))
+                        refs_map[key]["pos"].extend(np.asarray(ref["pos"], dtype=float).tolist())
+                        refs_map[key]["intensity"].extend(np.asarray(ref["intensity"], dtype=float).tolist())
+                    refs = pruned
+        else:
+            # Normalize provided refs intensities to [0, 1]
+            refs = _normalize_refs(refs)
 
-                        self.intensity_probability_dictionary[element][str(ion)] = (ploc_all, amps)
+        # Normalize any built refs
+        if refs:
+            refs = _normalize_refs(refs)
+        prune_args = prune_kwargs or {}
+        refs = self._prune_references_for_spectrum(
+            p_obs,
+            I_obs,
+            refs,
+            detection_limit,
+            position_tol,
+            **prune_args,
+        )
+        M = len(refs)
 
-                    peak_matches = self.peak_compare(x, y, p, ploc, ploc_all, amps, peak_indices, self.peak_lim, rang=rang)
-                    peak_match.append(peak_matches)                
-                    absolute_intensity.append(amp)
+        # --- Flatten reference peaks into a single index space f = 0..P-1 ---
+        q_list = []
+        R_list = []
+        ref_id_list = []   # which reference each flattened peak belongs to
+        peak_id_list = []  # local index within that reference
+        ref_elements = []
+        ref_ions = []
+        for m, ref in enumerate(refs):
+            pos = np.asarray(ref["pos"], dtype=float)
+            inten = np.asarray(ref["intensity"], dtype=float)
+            if pos.shape != inten.shape:
+                raise ValueError(f"ref[{m}]['pos'] and ref[{m}]['intensity'] must have the same shape")
+            q_list.append(pos)
+            R_list.append(inten)
+            ref_id_list.append(np.full(pos.shape, m, dtype=int))
+            peak_id_list.append(np.arange(pos.shape[0], dtype=int))
+            ref_elements.append(ref.get("element"))
+            ref_ions.append(ref.get("ion"))
 
-                peak_match = np.swapaxes(peak_match, 0, 1)
-                
-                absolute_intensity = np.array(absolute_intensity)
-                max_intensity = np.max(absolute_intensity, axis=0)
-                max_intensity_expanded = max_intensity[np.newaxis, :]  # Shape: (1, n)
-                max_intensity_expanded = np.broadcast_to(max_intensity_expanded, absolute_intensity.shape)
+        if not q_list:
+            raise ValueError("refs must contain at least one reference spectrum")
 
-                # Create a where condition with the same shape
-                where_condition = max_intensity_expanded > 0
+        q = np.concatenate(q_list)            # shape (P,)
+        R = np.concatenate(R_list)            # shape (P,)
+        ref_id = np.concatenate(ref_id_list)  # shape (P,)
+        peak_id = np.concatenate(peak_id_list)  # shape (P,)
+        P = q.shape[0]
 
-                # Prepare the output array
-                relative_intensity = np.zeros_like(absolute_intensity, dtype=float)
+        # --- Vectorized construction of candidate matches based on position tolerance ---
 
-                # Perform the division
-                np.divide(
-                    absolute_intensity,
-                    max_intensity_expanded,
-                    where=where_condition,
-                    out=relative_intensity)
+        # delta_pos[i, f] = p_obs[i] - q[f]
+        delta_pos = p_obs[:, None] - q[None, :]
+        abs_delta = np.abs(delta_pos)
+        candidate_mask = abs_delta <= position_tol
 
-                # Swap the axes
-                relative_intensity = np.swapaxes(relative_intensity, 0, 1)
-                relative_intensity[relative_intensity > 1] = 1
-                peak_prob = np.array([distance for _, _, _, distance in px]) * peak_match # * relative_intensity
-                max_ind = np.argmax(np.max(peak_prob, axis=1))
+        # Indices of candidate edges e: (i_idx[e], f_idx[e])
+        i_idx, f_idx = np.nonzero(candidate_mask)
+        E = i_idx.shape[0]
 
-                max_peak_prob = peak_prob[max_ind]
-                max_peak_match = peak_match[max_ind]
-                max_relative_intensity = relative_intensity[max_ind]
-                
-                sort_prob = np.argsort(max_peak_prob)[::-1]
+        # Precompute position costs for each candidate edge (vectorized)
+        pos_cost_e = (delta_pos[i_idx, f_idx] ** 2)
 
-                new_peak_prob = max_peak_prob[sort_prob]
-                new_peak_match = max_peak_match[sort_prob]
-                new_max_relative_intensity = max_relative_intensity[sort_prob]
-                new_max_t = t_array[max_ind]
-                new_px = np.array(px)[sort_prob]
-                
-                peak_probabilitiy = np.hstack((new_px, new_peak_match[:, np.newaxis], new_peak_prob[:, np.newaxis], new_max_relative_intensity[:, np.newaxis]))
-                self.peak_probability_dictionary[i] = peak_probabilitiy
+        # --- Heuristic big-M if not given: based on data scale ---
+        if M_big is None:
+            max_I = float(np.max(I_obs)) if n > 0 else 1.0
+            max_R = float(np.max(R)) if P > 0 else 1.0
+            M_big = 10.0 * (max_I + max_R)
 
-class Element():
-    """Container for matched element peaks.
+        # --- Build adjacency lists for constraints (small Python loops; main math is already vectorized) ---
+        edges_by_obs = [[] for _ in range(n)]      # for each i: list of e
+        for e, i in enumerate(i_idx):
+            edges_by_obs[i].append(e)
 
-    Parameters
-    ----------
-    name : str
-        Element symbol.
-    """
+        edges_by_ref_peak = [[] for _ in range(P)]  # for each f: list of e
+        for e, f in enumerate(f_idx):
+            edges_by_ref_peak[f].append(e)
 
-    def __init__(self, name):
-        """Initialize an element container.
+        # --- MILP model ---
+        prob = pulp.LpProblem("spectrum_reference_matching", pulp.LpMinimize)
 
-        Parameters
-        ----------
-        name : str
-            Element symbol.
-        """
+        # Decision variables
+        # x_e: binary assignment for candidate edge e
+        x_vars = [pulp.LpVariable(f"x_{e}", lowBound=0, upBound=1, cat="Binary") for e in range(E)]
+        # s_e: nonnegative residual for intensity mismatch
+        s_vars = [pulp.LpVariable(f"s_{e}", lowBound=0, cat="Continuous") for e in range(E)]
+        # u_i: binary noise indicator for observed peaks
+        u_vars = [pulp.LpVariable(f"u_{i}", lowBound=0, upBound=1, cat="Binary") for i in range(n)]
+        # v_f: binary hidden indicator for reference peaks
+        v_vars = [pulp.LpVariable(f"v_{f}", lowBound=0, upBound=1, cat="Binary") for f in range(P)]
+        # c_m: nonnegative component fractions
+        c_vars = [pulp.LpVariable(f"c_{m}", lowBound=0, cat="Continuous") for m in range(M)]
+
+        # --- Constraints ---
+
+        # 1) Each observed peak is either assigned to one reference peak or noise
+        for i in range(n):
+            prob += (
+                pulp.lpSum(x_vars[e] for e in edges_by_obs[i]) + u_vars[i] == 1,
+                f"obs_assign_{i}",
+            )
+
+        # 2) Each reference peak can be matched to at most one observed peak
+        for f in range(P):
+            prob += (
+                pulp.lpSum(x_vars[e] for e in edges_by_ref_peak[f]) <= 1,
+                f"ref_peak_once_{f}",
+            )
+
+        # 3) Absolute intensity residual constraints for each candidate edge
+        for e in range(E):
+            i = int(i_idx[e])
+            f = int(f_idx[e])
+            m = int(ref_id[f])
+            I_i = float(I_obs[i])
+            R_f = float(R[f])
+
+            # s_e >= I_i - c_m * R_f - M*(1 - x_e)
+            prob += (
+                s_vars[e]
+                >= I_i - c_vars[m] * R_f - M_big * (1 - x_vars[e]),
+                f"s_pos_{e}",
+            )
+            # s_e >= c_m * R_f - I_i - M*(1 - x_e)
+            prob += (
+                s_vars[e]
+                >= c_vars[m] * R_f - I_i - M_big * (1 - x_vars[e]),
+                f"s_neg_{e}",
+            )
+
+        # 4) Detection limit / missing expected peaks constraints for each reference peak f
+        for f in range(P):
+            m = int(ref_id[f])
+            R_f = float(R[f])
+            edges_f = edges_by_ref_peak[f]
+
+            # c_m * R_f <= L + M * (v_f + sum_e x_e)
+            prob += (
+                c_vars[m] * R_f
+                <= detection_limit
+                + M_big * (v_vars[f] + pulp.lpSum(x_vars[e] for e in edges_f)),
+                f"det_limit_{f}",
+            )
+
+            # Optional: don't allow a peak to be both matched and hidden
+            prob += (
+                v_vars[f] + pulp.lpSum(x_vars[e] for e in edges_f) <= 1,
+                f"hidden_or_matched_{f}",
+            )
+
+        # --- Objective: position + intensity costs + noise + hidden peaks ---
+        objective_terms = []
+
+        # Per-edge terms
+        for e in range(E):
+            objective_terms.append(w_pos * float(pos_cost_e[e]) * x_vars[e])
+            objective_terms.append(w_int * s_vars[e])
+
+        # Noise penalties
+        for i in range(n):
+            objective_terms.append(alpha * u_vars[i])
+
+        # Hidden reference peak penalties
+        for f in range(P):
+            objective_terms.append(beta * v_vars[f])
+
+        prob += pulp.lpSum(objective_terms)
+
+        # --- Solve ---
+        if solver is None:
+            solver = pulp.PULP_CBC_CMD(msg=False)
+        prob.solve(solver)
+
+        status = pulp.LpStatus[prob.status]
+
+        # --- Extract solution ---
+        def _safe_val(var):
+            val = pulp.value(var)
+            return float(val) if val is not None and np.isfinite(val) else 0.0
+
+        c_est = np.array([_safe_val(c_vars[m]) for m in range(M)], dtype=float)
+        noise_mask = np.array([_safe_val(u_vars[i]) > 0.5 for i in range(n)], dtype=bool)
+        hidden_ref_mask = np.array([_safe_val(v_vars[f]) > 0.5 for f in range(P)], dtype=bool)
+
+        # For each observed peak, find its assigned reference (if any)
+        assignments = [None] * n
+        element_matches: Dict[str, Element] = {}
+        for e in range(E):
+            if _safe_val(x_vars[e]) > 0.5:
+                i = int(i_idx[e])
+                f = int(f_idx[e])
+                m = int(ref_id[f])
+                j = int(peak_id[f])
+                el = ref_elements[m]
+                ion = ref_ions[m]
+                if el is not None and ion is not None:
+                    loc_ref = q[f]
+                    element_obj = element_matches.setdefault(el, Element(el))
+                    element_obj.update([el, ion, loc_ref, p_obs[i]], i)
+                assignments[i] = {
+                    "ref_index": m,
+                    "ref_peak_index": j,
+                    "ref_peak_global_index": f,
+                }
+
+        result = {
+            "status": status,
+            "c": c_est,
+            "assignments": assignments,
+            "noise_mask": noise_mask,
+            "hidden_ref_mask": hidden_ref_mask,
+            "objective_value": float(pulp.value(prob.objective)),
+            "flattened_reference": {
+                "pos": q,
+                "intensity": R,
+                "ref_index": ref_id,
+                "ref_peak_index": peak_id,
+                "ref_element": np.asarray(ref_elements, dtype=object),
+                "ref_ion": np.asarray(ref_ions, dtype=object),
+            },
+            "elements": element_matches,
+        }
+
+        return result
+
+
+class Element:
+    """Container for matched element peaks."""
+
+    def __init__(self, name: str) -> None:
         self.name = name
-        self.ions = dict({})
+        # Nested mapping ion -> {peak_idx: np.array([ref_location, obs_location])}
+        self.ions: Dict[float, Dict[int, np.ndarray]] = {}
 
 
-    def update(self, data, idx):
-        """Record a matched peak for an ion.
+    def update(self, data, idx: int) -> None:
+        """Record a matched peak for an ion."""
+        el, ion, location, x, *_ = data
+        if el != self.name:
+            raise ValueError(f"Element mismatch: container {self.name}, data {el}")
 
-        Parameters
-        ----------
-        data : sequence
-            Peak information ``[element, ion, location, x, ...]``.
-        idx : int
-            Index of the peak in the original array.
-        """
-        el, ion, location, x, *rest = data
-        
-        if ion not in self.ions: # add a new ion
-            self.ions[ion] = dict({idx: np.array([location, x])})
-        else: # update existing ion dictionary with new peak location
-            if idx not in self.ions[ion].keys():
-                self.ions[ion][idx] = np.array([location, x])
-
-
-    def ion_match(self, x, y, peak_array, element, ion, plot=False, x_lo=None, x_hi=None):
-        """Compare an ion's predicted peaks to the observed spectrum.
-
-        Parameters
-        ----------
-        x : ndarray
-            Wavelength values of the spectrum.
-        y : ndarray
-            Intensity values of the spectrum.
-        peak_array : ndarray
-            Array of peak parameters ``(amplitude, center, sigma, gamma)``.
-        element : str
-            Element symbol.
-        ion : float
-            Ionization state.
-        plot : bool, optional
-            If ``True``, display a plot of the comparison.
-        x_lo : float, optional
-            Lower wavelength bound for plotting.
-        x_hi : float, optional
-            Upper wavelength bound for plotting.
-
-        Returns
-        -------
-        None
-            The modeled profile is computed but not returned.
-        """
-        ionization, element_peaks, Ei = self.db.lines(element)[:, [0, 1, 4]].T.astype(float)
-        i_ind = ionization == ion
-        i_peaks = element_peaks[i_ind]
-
-        data_peak_centers = peak_array[:, 1]
-        data_peak_widths = self.PeakyFinder.voigt_width(peak_array[:, 2], peak_array[:, 3])
-
-        diffs = np.min(np.abs(data_peak_centers[:, np.newaxis] - i_peaks[np.newaxis, :]), axis=1)
-        close = diffs < 1 * data_peak_widths
-
-        peaks = peak_array[close]
-        profile = self.PeakyFinder.multi_voigt(x, np.ravel(peaks))
+        ion_dict = self.ions.setdefault(ion, {})
+        if idx not in ion_dict:
+            ion_dict[idx] = np.array([location, x])
