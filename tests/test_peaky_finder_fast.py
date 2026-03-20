@@ -1,13 +1,9 @@
-import pathlib
-import sys
 import unittest
 from unittest.mock import patch
 
 import numpy as np
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-
-from peaky_finder import PeakyFinder
+from alibz.peaky_finder import PeakyFinder
 
 
 class TestPeakyFinderFast(unittest.TestCase):
@@ -24,7 +20,7 @@ class TestPeakyFinderFast(unittest.TestCase):
 
         peak_indices = np.array([int(np.argmax(y))])
 
-        with patch("peaky_finder.least_squares") as mock_least_squares:
+        with patch("alibz.peaky_finder.least_squares") as mock_least_squares:
             result = finder.fit_peaks(x, y, peak_indices, fast=True)
 
         self.assertFalse(mock_least_squares.called)

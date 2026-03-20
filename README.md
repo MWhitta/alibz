@@ -1,66 +1,64 @@
 # alibz
-Laser induced breakdown spectroscopy data analysis
+
+LIBS (Laser-Induced Breakdown Spectroscopy) data analysis toolkit for spectral peak finding, Voigt profile fitting, elemental indexing, and PCA-based peak-shape decomposition.
 
 ## Installation
 
-Use `pip` to install the required libraries. The repository includes a
-`dependencies.txt` file with the core packages:
-
 ```bash
-pip install -r dependencies.txt
+pip install -e .
 ```
 
-## Usage
+This installs `alibz` as an editable package with all dependencies (numpy, scipy, scikit-learn, matplotlib, pulp).
 
-The `peaky_demo_v1.ipynb` notebook demonstrates the typical workflow for
-finding and indexing spectral peaks.
+## Modules
 
-1. **Open the demo notebook**
+| Module | Description |
+|---|---|
+| `alibz.peaky_finder` | Peak detection, FFT background removal, multi-Voigt fitting |
+| `alibz.peaky_indexer` | Peak-to-element matching, MILP composition solver |
+| `alibz.peaky_fitter` | Extended fitting with temperature estimation |
+| `alibz.peaky_maker` | Forward spectral synthesis via Saha-Boltzmann |
+| `alibz.peaky_corpus` | Batch loading, standardization, width statistics |
+| `alibz.peaky_pca` | PCA peak-shape decomposition and broadening classification |
+| `alibz.utils` | Shared Voigt utilities, physical constants, database loader |
 
-   Launch Jupyter and open `peaky_demo_v1.ipynb`.
+## Quick Start
 
-2. **Import the analysis tools**
+```python
+from alibz import PeakyFinder, PeakyIndexer
 
-   ```python
-   from peaky_finder import PeakyFinder
-   from peaky_indexer import PeakyIndexer
-   ```
+# Load data and fit spectra
+finder = PeakyFinder("path/to/raw/data")
+finder.data.load_data()
+results = finder.fit_spectrum_data(sample_index, n_sigma=1)
 
-3. **Create the Finder and Indexer**
+# Match peaks to elemental database entries
+indexer = PeakyIndexer(finder)
+matches = indexer.peak_match(
+    results["sorted_parameter_array"],
+    element_list=["Li", "Na", "Ca", "K", "Rb", "Cs", "Ba"],
+)
+```
 
-   Provide the path to your raw spectrum data and initialize the classes:
+## Notebooks
 
-   ```python
-   data_dir = "path/to/raw/data"
-   finder = PeakyFinder(data_dir)
-   indexer = PeakyIndexer(finder)
-   ```
+- `peaky_demo_v1.ipynb` — Peak finding, fitting, and elemental indexing workflow
+- `peaky_pca_demo.ipynb` — PCA peak-shape analysis and broadening mechanism classification
 
-4. **Load data and fit spectra**
+## CLI
 
-   ```python
-   finder.data.load_data()
-   results = finder.fit_spectrum_data(sample_index, n_sigma=1)
-   ```
+```bash
+run-corpus-pca /path/to/libs/data --out results.pkl
+```
 
-5. **Match peaks to database entries**
+Runs the full corpus PCA pipeline (load, standardize, fit, width stats, PCA, decomposition).
 
-   ```python
-   matches = indexer.peak_match(
-       results["sorted_parameter_array"],
-       element_list=["Li", "Na", "Ca", "K", "Rb", "Cs", "Ba"],
-   )
-   ```
+## Tests
 
-6. **Visualize matched peaks (optional)**
+```bash
+python -m unittest discover -s tests
+```
 
-   ```python
-   import numpy as np
-   import matplotlib.pyplot as plt
+## License
 
-   li_peaks = np.array(list(matches["Li"].ions[1.0].values()))
-   plt.scatter(li_peaks[:, 0], li_peaks[:, 1])
-   ```
-
-These steps mirror the workflow in `peaky_demo_v1.ipynb` and provide a
-starting point for analyzing laser-induced breakdown spectroscopy data.
+[Unlicense](LICENSE) (public domain)

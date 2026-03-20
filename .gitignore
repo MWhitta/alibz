@@ -6,8 +6,15 @@ db/
 
 # Python bytecode
 __pycache__/
-utils/__pycache__/
+
+# Build/install artifacts
+*.egg-info/
+dist/
+build/
 
 # Jupyter notebooks (if you don’t want them tracked)
 peaky_analyzer.ipynb
 peaky_tester.ipynb
+
+# Internal docs
+docs/moissanite_remote_setup.md
