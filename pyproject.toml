@@ -20,6 +20,9 @@ dependencies = [
 dev = [
     "pytest",
 ]
+gpu = [
+    "cupy-cuda12x",
+]
 
 [project.scripts]
 run-corpus-pca = "alibz.run_corpus_pca:main"

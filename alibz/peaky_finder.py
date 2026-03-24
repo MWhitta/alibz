@@ -56,7 +56,8 @@ class PeakyFinder():
         ndarray
             Summed Voigt profile evaluated at ``x``.
         """
-        return _multi_voigt(x, params)
+        use_gpu = getattr(self, '_use_gpu', None)
+        return _multi_voigt(x, params, use_gpu=use_gpu)
     
 
     def voigt_width(self, sigma, gamma):
@@ -827,7 +828,7 @@ class PeakyFinder():
         return peak_dictionary
 
 
-    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, *kwargs):
+    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, skip_profile=False, *kwargs):
         """Fit a LIBS spectrum.
 
         Uses :meth:`fourier_peaks`, :meth:`fit_peaks`, :meth:`fit_shoulders`,
@@ -870,18 +871,24 @@ class PeakyFinder():
         # filter and sort fit parameters
         parameters = np.array(list(peak_dictionary.values()))
 
-        profile = self.multi_voigt(x, np.ravel(parameters))
-        profile_outliers = profile > 1.5 * np.max(y)
-        profile[profile_outliers] = 0
-        residual_data = y_bgsub - profile
+        if skip_profile:
+            # Fast path: skip full-spectrum Voigt evaluation, shoulder
+            # fitting, and global refit.  The per-window fits from
+            # fit_peaks already provide good peak parameters.
+            residual_data = None
+        else:
+            profile = self.multi_voigt(x, np.ravel(parameters))
+            profile_outliers = profile > 1.5 * np.max(y)
+            profile[profile_outliers] = 0
+            residual_data = y_bgsub - profile
 
-        peak_dictionary, new_peak_indices = self.fit_shoulders(x, y_bgsub, peak_indices, residual_data, peak_dictionary)
-        if verbose:
-            print('fit shoulders done')
-        peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
-        if verbose:
-            print('fit all done')
-        
+            peak_dictionary, new_peak_indices = self.fit_shoulders(x, y_bgsub, peak_indices, residual_data, peak_dictionary)
+            if verbose:
+                print('fit shoulders done')
+            peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
+            if verbose:
+                print('fit all done')
+
         spectrum_dictionary = {}
         inc = np.median(np.diff(x))
         sigmas, gammas = np.array(list(peak_dictionary.values()))[:, 2:4].T
@@ -904,7 +911,10 @@ class PeakyFinder():
                 spectrum_dictionary.update({key: value})
 
         parameters = np.array(list(spectrum_dictionary.values()))
-        profile = self.multi_voigt(x, np.ravel(parameters))
+        if skip_profile:
+            profile = None
+        else:
+            profile = self.multi_voigt(x, np.ravel(parameters))
         p_sort = np.argsort(parameters[:, 0])
         sorted_parameter_array = parameters[p_sort][::-1] # descending order
 

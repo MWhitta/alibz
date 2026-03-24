@@ -1,10 +1,75 @@
+import multiprocessing as mp
+
 import numpy as np
 from scipy.special import voigt_profile as voigt
 from scipy.interpolate import interp1d
 from scipy.optimize import least_squares
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 
 from alibz.utils.voigt import voigt_width as _voigt_width
+from alibz.gpu import gpu_available, to_numpy
+
+if gpu_available:
+    from alibz.gpu import pca_gpu, extract_windows_gpu
+
+
+# ------------------------------------------------------------------
+# Module-level worker for parallel window extraction
+# ------------------------------------------------------------------
+
+def _extract_windows_for_spectrum(args):
+    """Extract peak windows from a single spectrum.  Picklable for Pool."""
+    spec_idx, spectrum, wl, params, half_window, n_window_points = args
+    wl_lo, wl_hi = wl[0], wl[-1]
+    x_fixed = np.linspace(0, 1, n_window_points)
+
+    windows = []
+    metadata = []
+
+    for peak_idx in range(params.shape[0]):
+        amp, mu, sigma, gamma = params[peak_idx]
+        lo = mu - half_window
+        hi = mu + half_window
+
+        if lo < wl_lo or hi > wl_hi:
+            continue
+
+        mask = (wl >= lo) & (wl <= hi)
+        wl_win = wl[mask]
+        int_win = spectrum[mask].copy()
+
+        if len(wl_win) < 5:
+            continue
+
+        baseline = np.linspace(int_win[0], int_win[-1], len(int_win))
+        int_win -= baseline
+
+        # Normalise to unit peak height.  For narrow windows the peak
+        # may sit *below* the linear baseline (endpoints are on the
+        # peak flanks), so use absolute range.
+        peak_range = np.max(int_win) - np.min(int_win)
+        if peak_range <= 0:
+            continue
+        int_win -= np.min(int_win)
+        int_win /= peak_range
+
+        x_norm = np.linspace(0, 1, len(wl_win))
+        resampler = interp1d(x_norm, int_win, kind='linear')
+        window = resampler(x_fixed)
+
+        fwhm_g = 2 * np.sqrt(2 * np.log(2)) * sigma
+        fwhm_l = 2 * gamma
+        fwhm = 0.5346 * fwhm_l + np.sqrt(0.2166 * fwhm_l**2 + fwhm_g**2)
+
+        windows.append(window)
+        metadata.append({
+            'spectrum_idx': spec_idx,
+            'peak_idx': peak_idx,
+            'mu': mu, 'sigma': sigma, 'gamma': gamma, 'amp': amp,
+            'fwhm': fwhm,
+        })
+
+    return windows, metadata
 
 
 class PeakyPCA:
@@ -29,11 +94,19 @@ class PeakyPCA:
     """
 
     def __init__(self, corpus, window_multiplier=3.0, n_components=5,
-                 n_window_points=101, half_window_nm=None):
+                 n_window_points=101, half_window_nm=None, use_gpu=None,
+                 workers=1):
         self.corpus = corpus
+        self.workers = workers
         self.window_multiplier = window_multiplier
         self.n_components = n_components
         self.n_window_points = n_window_points
+
+        # GPU flag: None = auto-detect, True = force, False = disable
+        if use_gpu is None:
+            self.use_gpu = gpu_available
+        else:
+            self.use_gpu = use_gpu and gpu_available
 
         self.median_fwhm = corpus.get_median_peak_width()
         if half_window_nm is not None:
@@ -72,71 +145,65 @@ class PeakyPCA:
 
         Peaks whose windows extend beyond the spectral bounds are skipped.
 
+        When ``use_gpu=True`` the extraction runs on GPU via
+        :func:`alibz.gpu.extract_windows_gpu`.
+
         Stores
         ------
         self.windows : ndarray, shape (n_peaks, n_window_points)
         self.peak_metadata : list of dict
         """
+        # --- Build task list (shared by serial and parallel paths) ---
         wl = self.corpus.common_wavelength
-        wl_lo, wl_hi = wl[0], wl[-1]
-
-        windows = []
-        metadata = []
-
+        tasks = []
         for spec_idx, (params, fit_dict) in enumerate(
             zip(self.corpus.all_peak_params, self.corpus.fit_results)
         ):
             if fit_dict is None or params.size == 0:
                 continue
+            tasks.append((
+                spec_idx,
+                np.array(self.corpus.spectra[spec_idx]),
+                wl,
+                params,
+                self.half_window,
+                self.n_window_points,
+            ))
 
-            spectrum = self.corpus.spectra[spec_idx]
+        # --- Parallel path ---
+        if self.workers > 1 and len(tasks) > 0:
+            import time as _time
+            print(f"  extracting windows with {self.workers} workers "
+                  f"({len(tasks)} spectra)")
+            t0 = _time.time()
 
-            for peak_idx in range(params.shape[0]):
-                amp, mu, sigma, gamma = params[peak_idx]
+            windows = []
+            metadata = []
+            with mp.Pool(processes=self.workers) as pool:
+                for win_batch, meta_batch in pool.imap(
+                    _extract_windows_for_spectrum, tasks, chunksize=8
+                ):
+                    windows.extend(win_batch)
+                    metadata.extend(meta_batch)
 
-                lo = mu - self.half_window
-                hi = mu + self.half_window
+            elapsed = _time.time() - t0
+            print(f"  extracted {len(windows)} windows in {elapsed:.1f}s")
+            self.windows = np.array(windows) if windows else np.empty(
+                (0, self.n_window_points))
+            self.peak_metadata = metadata
+            return self.windows
 
-                # skip peaks too close to edges
-                if lo < wl_lo or hi > wl_hi:
-                    continue
+        # --- Sequential path ---
+        windows = []
+        metadata = []
 
-                # extract raw window
-                mask = (wl >= lo) & (wl <= hi)
-                wl_win = wl[mask]
-                int_win = spectrum[mask].copy()
+        for task in tasks:
+            win_batch, meta_batch = _extract_windows_for_spectrum(task)
+            windows.extend(win_batch)
+            metadata.extend(meta_batch)
 
-                if len(wl_win) < 5:
-                    continue
-
-                # subtract linear baseline between endpoints
-                baseline = np.linspace(int_win[0], int_win[-1], len(int_win))
-                int_win -= baseline
-
-                # normalise to unit height
-                peak_max = np.max(int_win)
-                if peak_max <= 0:
-                    continue
-                int_win /= peak_max
-
-                # resample to fixed grid
-                x_norm = np.linspace(0, 1, len(wl_win))
-                x_fixed = np.linspace(0, 1, self.n_window_points)
-                resampler = interp1d(x_norm, int_win, kind='linear')
-                window = resampler(x_fixed)
-
-                windows.append(window)
-                metadata.append({
-                    'spectrum_idx': spec_idx,
-                    'peak_idx': peak_idx,
-                    'mu': mu,
-                    'sigma': sigma,
-                    'gamma': gamma,
-                    'amp': amp,
-                    'fwhm': self._voigt_width(sigma, gamma),
-                })
-
-        self.windows = np.array(windows)
+        self.windows = np.array(windows) if windows else np.empty(
+            (0, self.n_window_points))
         self.peak_metadata = metadata
         return self.windows
 
@@ -147,9 +214,13 @@ class PeakyPCA:
     def fit_pca(self):
         """Fit PCA to the extracted peak windows.
 
+        When ``use_gpu=True`` the SVD is computed on the GPU via CuPy,
+        bypassing scikit-learn entirely.  The resulting attributes are
+        always NumPy arrays regardless of backend.
+
         Stores
         ------
-        self.pca : sklearn PCA object
+        self.pca : sklearn PCA object (CPU) or ``None`` (GPU)
         self.scores : ndarray (n_peaks, n_components)
         self.components : ndarray (n_components, n_window_points)
         self.explained_variance_ratio : ndarray (n_components,)
@@ -158,12 +229,50 @@ class PeakyPCA:
         if self.windows is None or len(self.windows) == 0:
             raise RuntimeError("Call extract_peak_windows() first.")
 
-        n_comp = min(self.n_components, self.windows.shape[0], self.windows.shape[1])
-        self.pca = PCA(n_components=n_comp)
-        self.scores = self.pca.fit_transform(self.windows)
-        self.components = self.pca.components_
-        self.explained_variance_ratio = self.pca.explained_variance_ratio_
-        self.mean_peak = self.pca.mean_
+        n_comp = min(self.n_components, self.windows.shape[0],
+                     self.windows.shape[1])
+
+        # GPU PCA requires uploading the full windows matrix to VRAM.
+        gpu_pca_feasible = (self.use_gpu and
+                            self.windows.nbytes < 4 * 1024**3)  # < 4 GB
+
+        n_samples = self.windows.shape[0]
+        # Use IncrementalPCA for large datasets (>1M samples) to avoid
+        # allocating a full SVD working set; batch_size chosen so each
+        # batch fits comfortably in L3 cache.
+        use_incremental = (n_samples > 1_000_000)
+
+        import time as _time
+        t0 = _time.time()
+
+        if gpu_pca_feasible:
+            result = pca_gpu(self.windows, n_comp)
+            self.pca = None
+            self.mean_peak = result['mean']
+            self.components = result['components']
+            self.scores = result['scores']
+            self.explained_variance_ratio = result['explained_variance_ratio']
+        elif use_incremental:
+            batch_size = max(n_comp * 10, min(10_000, n_samples))
+            print(f"  IncrementalPCA: {n_samples} samples, "
+                  f"batch_size={batch_size}")
+            self.pca = IncrementalPCA(n_components=n_comp,
+                                      batch_size=batch_size)
+            self.scores = self.pca.fit_transform(self.windows)
+            self.components = self.pca.components_
+            self.explained_variance_ratio = self.pca.explained_variance_ratio_
+            self.mean_peak = self.pca.mean_
+        else:
+            self.pca = PCA(n_components=n_comp, svd_solver='randomized',
+                           random_state=42)
+            self.scores = self.pca.fit_transform(self.windows)
+            self.components = self.pca.components_
+            self.explained_variance_ratio = self.pca.explained_variance_ratio_
+            self.mean_peak = self.pca.mean_
+
+        elapsed = _time.time() - t0
+        print(f"  PCA completed in {elapsed:.1f}s")
+
         return self.pca
 
     # ------------------------------------------------------------------
@@ -384,17 +493,136 @@ class PeakyPCA:
     def decompose_all_components(self, n_alphas=11):
         """Decompose every principal component via perturbation analysis.
 
+        When ``use_gpu=True`` the perturbed profiles are generated on the
+        GPU in a single batched operation before being fitted on CPU.
+        The Voigt re-fitting itself remains on CPU (iterative
+        least-squares), but the profile generation — which dominates at
+        high peak counts — is fully GPU-accelerated.
+
         Returns
         -------
         list of dict
         """
         if not hasattr(self, 'mean_fit') or self.mean_fit is None:
             self.characterize_mean_peak()
-        self.decompositions = []
+
         n = self.components.shape[0] if self.components is not None else 0
-        for i in range(n):
-            self.decompositions.append(self.decompose_component(i, n_alphas=n_alphas))
+
+        if self.use_gpu and n > 0:
+            self.decompositions = self._decompose_all_gpu(n_alphas)
+        else:
+            self.decompositions = []
+            for i in range(n):
+                self.decompositions.append(
+                    self.decompose_component(i, n_alphas=n_alphas))
+
         return self.decompositions
+
+    # ------------------------------------------------------------------
+    # GPU-accelerated batch decomposition
+    # ------------------------------------------------------------------
+
+    def _decompose_all_gpu(self, n_alphas=11):
+        """Batch-generate perturbed profiles on GPU, then fit on CPU.
+
+        For *n_components* PCs and *n_alphas* perturbation levels this
+        builds all ``n_components × n_alphas`` perturbed profiles in a
+        single GPU kernel launch, transfers back to CPU, then runs the
+        Voigt re-fits using :mod:`scipy.optimize`.
+        """
+        import cupy as cp
+
+        n_comp = self.components.shape[0]
+        x = np.linspace(-1, 1, self.n_window_points)
+        left = self.mean_fit['fit_left']
+        right = self.mean_fit['fit_right']
+        x_fit = x[left:right + 1]
+
+        seed = np.array([self.mean_fit['amp'], self.mean_fit['center'],
+                         self.mean_fit['sigma'], self.mean_fit['gamma'],
+                         self.mean_fit['tau']])
+
+        # --- build all perturbed profiles on GPU ---
+        mean_d = cp.asarray(self.mean_peak, dtype=cp.float64)
+        comps_d = cp.asarray(self.components, dtype=cp.float64)
+        offset = self.mean_offset
+
+        all_alphas = []
+        for ci in range(n_comp):
+            sc = self.scores[:, ci]
+            lo, hi = np.percentile(sc, [5, 95])
+            all_alphas.append(np.linspace(lo, hi, n_alphas))
+
+        # shape: (n_comp, n_alphas, n_window_points)
+        alphas_d = cp.asarray(np.array(all_alphas), dtype=cp.float64)
+        perturbed = (mean_d[None, None, :]
+                     + alphas_d[:, :, None] * comps_d[:, None, :])
+        perturbed = perturbed - offset
+        perturbed = cp.clip(perturbed, 0, None)
+        perturbed_np = cp.asnumpy(perturbed)
+
+        # --- fit on CPU ---
+        decompositions = []
+        for ci in range(n_comp):
+            alphas = all_alphas[ci]
+            sigmas, gammas, taus, amps = [], [], [], []
+            fitted_profiles = {}
+
+            for ai, alpha in enumerate(alphas):
+                y_fit = perturbed_np[ci, ai, left:right + 1]
+                params, _ = self._fit_voigt(x_fit, y_fit, x0=seed.copy())
+                amps.append(params[0])
+                sigmas.append(params[2])
+                gammas.append(params[3])
+                taus.append(params[4])
+                if ai == 0 or ai == n_alphas - 1 or abs(alpha) < 1e-10:
+                    fitted_profiles[float(alpha)] = \
+                        self._asymmetric_voigt_model(x, *params)
+
+            sigmas = np.array(sigmas)
+            gammas = np.array(gammas)
+            taus = np.array(taus)
+
+            def slope(alphas, values):
+                A = np.vstack([alphas, np.ones(len(alphas))]).T
+                m, _ = np.linalg.lstsq(A, values, rcond=None)[0]
+                return m
+
+            d_sigma = slope(alphas, sigmas)
+            d_gamma = slope(alphas, gammas)
+            d_tau = slope(alphas, taus)
+
+            abs_sum = abs(d_sigma) + abs(d_gamma) + abs(d_tau)
+            if abs_sum < 1e-15:
+                abs_sum = 1.0
+
+            g_frac = abs(d_sigma) / abs_sum
+            l_frac = abs(d_gamma) / abs_sum
+            a_frac = abs(d_tau) / abs_sum
+
+            if g_frac >= l_frac and g_frac >= a_frac:
+                interp = 'Doppler/instrumental (Gaussian width variation)'
+            elif l_frac >= g_frac and l_frac >= a_frac:
+                interp = 'Stark/natural (Lorentzian width variation)'
+            else:
+                interp = 'Self-absorption (asymmetry variation)'
+
+            decompositions.append({
+                'alphas': alphas,
+                'sigmas': sigmas,
+                'gammas': gammas,
+                'taus': taus,
+                'd_sigma': float(d_sigma),
+                'd_gamma': float(d_gamma),
+                'd_tau': float(d_tau),
+                'gaussian_fraction': float(g_frac),
+                'lorentzian_fraction': float(l_frac),
+                'asymmetry_fraction': float(a_frac),
+                'fitted_profiles': fitted_profiles,
+                'physical_interpretation': interp,
+            })
+
+        return decompositions
 
     # ------------------------------------------------------------------
     # Peak classification

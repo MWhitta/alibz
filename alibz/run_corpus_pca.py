@@ -2,25 +2,30 @@
 """Run the peak-shape PCA pipeline on a LIBS corpus.
 
 Usage (on moissanite):
-    python run_corpus_pca.py /path/to/libs/data [--pattern '**/*AverageSpectrum.csv'] [--out results.npz]
+    python run_corpus_pca.py /path/to/libs/data [--pattern '**/*AverageSpectrum.csv'] [--out results.pkl]
+    python run_corpus_pca.py /dir1 /dir2 /dir3 --gpu --out results.pkl
 
-Produces an .npz file containing width statistics, PCA components,
+Produces a .pkl file containing width statistics, PCA components,
 scores, decompositions, and peak metadata.
 """
 
 import argparse
 import pickle
 import sys
+import time
 
 import numpy as np
 
 from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
+from alibz.gpu import gpu_available
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('data_dir', help='Root directory of LIBS CSV spectra')
+    parser.add_argument('data_dirs', nargs='+',
+                        help='Root directories of LIBS CSV spectra '
+                             '(multiple directories are combined)')
     parser.add_argument('--pattern', default='**/*AverageSpectrum.csv',
                         help='Glob pattern to filter CSV files')
     parser.add_argument('--wl-min', type=float, default=190.0)
@@ -38,16 +43,50 @@ def main():
                         help='Output pickle file')
     parser.add_argument('--no-memmap', action='store_true',
                         help='Disable memory mapping (load everything into RAM)')
+    parser.add_argument('--workers', type=int, default=1,
+                        help='Number of parallel CPU workers for peak fitting '
+                             '(default: 1 = sequential)')
+    parser.add_argument('--timeout', type=int, default=120,
+                        help='Per-spectrum fit timeout in seconds '
+                             '(default: 120, 0 to disable)')
+    parser.add_argument('--fit-checkpoint', default=None,
+                        help='Path to save/load fit results checkpoint. '
+                             'If the file exists and matches the corpus, '
+                             'fitting is skipped.')
+    parser.add_argument('--gpu', action='store_true', default=False,
+                        help='Force GPU acceleration (auto-detected if omitted)')
+    parser.add_argument('--no-gpu', action='store_true', default=False,
+                        help='Disable GPU even if available')
     args = parser.parse_args()
 
-    print(f"=== Loading corpus from {args.data_dir} ===")
+    # Resolve GPU preference
+    if args.no_gpu:
+        use_gpu = False
+    elif args.gpu:
+        use_gpu = True
+        if not gpu_available:
+            print("WARNING: --gpu requested but no CUDA device found. "
+                  "Falling back to CPU.")
+            use_gpu = False
+    else:
+        use_gpu = None  # auto-detect
+
+    t_start = time.time()
+    dirs_str = ', '.join(args.data_dirs)
+    print(f"=== Loading corpus from {len(args.data_dirs)} director{'y' if len(args.data_dirs) == 1 else 'ies'}: {dirs_str} ===")
+    if gpu_available:
+        import cupy as cp
+        n_gpus = cp.cuda.runtime.getDeviceCount()
+        print(f"  GPU: {n_gpus} CUDA device(s) detected")
+
     corpus = PeakyCorpus(
-        args.data_dir,
+        args.data_dirs if len(args.data_dirs) > 1 else args.data_dirs[0],
         wl_min=args.wl_min,
         wl_max=args.wl_max,
         wl_step=args.wl_step,
         memmap=not args.no_memmap,
         pattern=args.pattern,
+        use_gpu=use_gpu,
     )
     corpus.load_corpus()
 
@@ -55,8 +94,21 @@ def main():
           f"({args.wl_min}-{args.wl_max} nm, step {args.wl_step} nm) ===")
     corpus.standardize_all()
 
-    print(f"\n=== Fitting peaks (n_sigma={args.n_sigma}) ===")
-    corpus.fit_all_spectra(n_sigma=args.n_sigma)
+    # --- Fit peaks (with optional checkpoint) ---
+    loaded_checkpoint = False
+    if args.fit_checkpoint:
+        print(f"\n=== Checking fit checkpoint: {args.fit_checkpoint} ===")
+        loaded_checkpoint = corpus.load_fit_results(args.fit_checkpoint)
+
+    if not loaded_checkpoint:
+        w_label = f"{args.workers} workers" if args.workers > 1 else "sequential"
+        print(f"\n=== Fitting peaks (n_sigma={args.n_sigma}, {w_label}) ===")
+        corpus.fit_all_spectra(n_sigma=args.n_sigma, workers=args.workers,
+                               timeout=args.timeout or None)
+
+        if args.fit_checkpoint:
+            print(f"\n=== Saving fit checkpoint ===")
+            corpus.save_fit_results(args.fit_checkpoint)
 
     print(f"\n=== Width statistics ===")
     stats = corpus.peak_width_statistics()
@@ -78,6 +130,8 @@ def main():
         window_multiplier=args.window_multiplier,
         n_components=args.n_components,
         half_window_nm=args.half_window_nm,
+        use_gpu=use_gpu,
+        workers=args.workers,
     )
     pca_analyzer.extract_peak_windows()
     print(f"  Half-window: {pca_analyzer.half_window:.4f} nm")
@@ -110,7 +164,21 @@ def main():
     for label, count in counts.most_common():
         print(f"  {label}: {count}")
 
-    # Save results
+    # Save results — store score summary stats instead of the full
+    # 13M x n_comp array to keep the pickle small and fast to load.
+    all_scores = pca_analyzer.scores
+    score_stats = {
+        'mean': np.mean(all_scores, axis=0),
+        'std': np.std(all_scores, axis=0),
+        'min': np.min(all_scores, axis=0),
+        'max': np.max(all_scores, axis=0),
+        'percentiles': {
+            q: np.percentile(all_scores, q, axis=0)
+            for q in [1, 5, 25, 50, 75, 95, 99]
+        },
+        'n_samples': all_scores.shape[0],
+    }
+
     results = {
         'csv_files': corpus.csv_files,
         'width_stats': {k: v for k, v in stats.items()},
@@ -120,7 +188,7 @@ def main():
         'mean_peak_zeroed': pca_analyzer.mean_peak_zeroed,
         'mean_offset': pca_analyzer.mean_offset,
         'mean_fit': pca_analyzer.mean_fit,
-        'scores': pca_analyzer.scores,
+        'score_stats': score_stats,
         'decompositions': pca_analyzer.decompositions,
         'peak_metadata': pca_analyzer.peak_metadata,
         'peak_classifications': labels,
@@ -128,7 +196,12 @@ def main():
 
     with open(args.out, 'wb') as f:
         pickle.dump(results, f)
+
+    elapsed = time.time() - t_start
+    m, s = divmod(elapsed, 60)
     print(f"\nResults saved to {args.out}")
+    print(f"Total time: {int(m)}m {s:.1f}s"
+          f" (GPU: {'yes' if corpus.use_gpu else 'no'})")
 
 
 if __name__ == '__main__':

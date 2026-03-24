@@ -16,5 +16,12 @@ build/
 peaky_analyzer.ipynb
 peaky_tester.ipynb
 
+# Large result files
+jobs/*.pkl
+
+# Memory-mapped data
+corpus_raw.dat
+corpus_standardized.dat
+
 # Internal docs
 docs/moissanite_remote_setup.md

@@ -1,5 +1,6 @@
 import os
 import glob
+import multiprocessing as mp
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -7,6 +8,68 @@ from sklearn.mixture import GaussianMixture
 
 from alibz.peaky_finder import PeakyFinder
 from alibz.utils.voigt import voigt_width as _voigt_width
+from alibz.gpu import gpu_available
+
+if gpu_available:
+    from alibz.gpu import batch_interpolate_gpu
+
+
+# ------------------------------------------------------------------
+# Module-level worker for multiprocessing (must be picklable)
+# ------------------------------------------------------------------
+
+class _FitTimeout(Exception):
+    pass
+
+
+def _timeout_handler(signum, frame):
+    raise _FitTimeout("spectrum fit timed out")
+
+
+def _worker_init():
+    """Pool initializer — disable GPU in forked worker processes.
+
+    CUDA contexts cannot survive ``fork()``.  We patch all modules that
+    cache the ``gpu_available`` flag so no worker attempts GPU calls.
+    """
+    import alibz.gpu as _gpu_mod
+    _gpu_mod.gpu_available = False
+    _gpu_mod.cp = None
+    # Patch cached copies in downstream modules
+    import alibz.utils.voigt as _voigt_mod
+    _voigt_mod.gpu_available = False
+
+
+def _fit_one_spectrum(args):
+    """Fit peaks for a single spectrum.  Called by Pool.imap_unordered."""
+    import signal
+    idx, x, y, n_sigma, subtract_background, timeout = args
+    finder = PeakyFinder.__new__(PeakyFinder)
+
+    old_handler = None
+    if timeout and timeout > 0:
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(timeout)
+
+    try:
+        fit_dict = finder.fit_spectrum(
+            x, y,
+            n_sigma=n_sigma,
+            subtract_background=subtract_background,
+            plot=False,
+            skip_profile=True,
+        )
+        params = np.array(list(fit_dict['spectrum_dictionary'].values()))
+        return idx, fit_dict, params, None
+    except _FitTimeout:
+        return idx, None, np.empty((0, 4)), 'timeout'
+    except Exception as e:
+        return idx, None, np.empty((0, 4)), str(e)
+    finally:
+        if timeout and timeout > 0:
+            signal.alarm(0)
+            if old_handler is not None:
+                signal.signal(signal.SIGALRM, old_handler)
 
 
 class PeakyCorpus:
@@ -14,8 +77,10 @@ class PeakyCorpus:
 
     Parameters
     ----------
-    data_dir : str
-        Root directory containing CSV spectrum files (searched recursively).
+    data_dir : str or list of str
+        Root directory (or directories) containing CSV spectrum files
+        (searched recursively).  When a list is given, files from every
+        directory are combined into a single corpus.
     wl_min : float, optional
         Minimum wavelength in nm for the common grid.
     wl_max : float, optional
@@ -32,12 +97,19 @@ class PeakyCorpus:
         Column delimiter used in the CSV files.
     skip_header : int, optional
         Number of header rows to skip when reading each CSV.
+    use_gpu : bool or None, optional
+        Force GPU (True), force CPU (False), or auto-detect (None).
     """
 
     def __init__(self, data_dir, wl_min=190.0, wl_max=910.0, wl_step=0.01,
                  memmap=True, pattern='**/*AverageSpectrum.csv',
-                 delimiter=',', skip_header=1):
-        self.data_dir = data_dir
+                 delimiter=',', skip_header=1, use_gpu=None):
+        if isinstance(data_dir, (list, tuple)):
+            self.data_dirs = list(data_dir)
+            self.data_dir = data_dir[0]
+        else:
+            self.data_dirs = [data_dir]
+            self.data_dir = data_dir
         self.wl_min = wl_min
         self.wl_max = wl_max
         self.wl_step = wl_step
@@ -45,6 +117,11 @@ class PeakyCorpus:
         self.pattern = pattern
         self.delimiter = delimiter
         self.skip_header = skip_header
+
+        if use_gpu is None:
+            self.use_gpu = gpu_available
+        else:
+            self.use_gpu = use_gpu and gpu_available
 
         self.common_wavelength = np.arange(wl_min, wl_max + wl_step, wl_step)
         self.n_channels = len(self.common_wavelength)
@@ -73,13 +150,17 @@ class PeakyCorpus:
         ndarray
             The raw data array.
         """
-        # Discover files
-        self.csv_files = sorted(
-            glob.glob(os.path.join(self.data_dir, self.pattern), recursive=True)
-        )
+        # Discover files across all data directories
+        self.csv_files = []
+        for d in self.data_dirs:
+            self.csv_files.extend(
+                glob.glob(os.path.join(d, self.pattern), recursive=True)
+            )
+        self.csv_files = sorted(self.csv_files)
         if len(self.csv_files) == 0:
+            dirs = ', '.join(self.data_dirs)
             raise FileNotFoundError(
-                f"No files matching '{self.pattern}' found under {self.data_dir}"
+                f"No files matching '{self.pattern}' found under {dirs}"
             )
 
         # Peek at the first file to determine the number of spectral channels
@@ -143,6 +224,9 @@ class PeakyCorpus:
         ``(num_spectra, len(common_wavelength))``.  When *memmap* is enabled
         the array is backed by a temporary memory-mapped file.
 
+        When ``use_gpu=True`` all spectra are interpolated in a single
+        GPU batch via :func:`alibz.gpu.batch_interpolate_gpu`.
+
         Returns
         -------
         ndarray
@@ -153,6 +237,26 @@ class PeakyCorpus:
 
         n_spectra = self.raw_data.shape[0]
 
+        # --- GPU batch interpolation ---
+        if self.use_gpu:
+            raw_wl = self.raw_data[:, 0, :]   # (n_spectra, n_raw)
+            raw_int = self.raw_data[:, 1, :]
+            result = batch_interpolate_gpu(raw_wl, raw_int,
+                                           self.common_wavelength)
+            if self.use_memmap:
+                self.spectra = np.memmap(
+                    'corpus_standardized.dat',
+                    dtype='float64',
+                    mode='w+',
+                    shape=(n_spectra, self.n_channels),
+                )
+                self.spectra[:] = result
+            else:
+                self.spectra = result
+            print(f"  standardized {n_spectra}/{n_spectra} (GPU)")
+            return self.spectra
+
+        # --- CPU path (unchanged) ---
         if self.use_memmap:
             self.spectra = np.memmap(
                 'corpus_standardized.dat',
@@ -176,12 +280,9 @@ class PeakyCorpus:
     # Fitting
     # ------------------------------------------------------------------
 
-    def fit_all_spectra(self, n_sigma=0, subtract_background=True):
+    def fit_all_spectra(self, n_sigma=0, subtract_background=True, workers=1,
+                        timeout=None):
         """Fit peaks for every standardized spectrum.
-
-        Uses :meth:`PeakyFinder.fit_spectrum` with ``fast=True`` internally.
-        Results are accumulated in ``self.fit_results`` (list of *fit_dict*)
-        and ``self.all_peak_params`` (list of parameter arrays).
 
         Parameters
         ----------
@@ -189,6 +290,15 @@ class PeakyCorpus:
             Detection threshold passed to :meth:`PeakyFinder.fit_spectrum`.
         subtract_background : bool, optional
             Whether to estimate and remove the background.
+        workers : int, optional
+            Number of parallel worker processes.  ``1`` (default) runs
+            sequentially in the main process.  Values >1 use a
+            :class:`multiprocessing.Pool` — each spectrum is fitted in
+            its own process, giving near-linear speedup on multi-core
+            machines.
+        timeout : int or None, optional
+            Per-spectrum timeout in seconds.  Spectra that exceed this
+            are recorded as failed with reason ``'timeout'``.
 
         Returns
         -------
@@ -198,10 +308,16 @@ class PeakyCorpus:
         if self.spectra is None:
             raise RuntimeError("Call standardize_all() before fit_all_spectra().")
 
-        # Create a lightweight PeakyFinder without triggering Data loading
-        finder = PeakyFinder.__new__(PeakyFinder)
+        self.failed_fits = []  # list of (idx, reason) for failed spectra
 
         n_spectra = self.spectra.shape[0]
+
+        if workers > 1:
+            return self._fit_all_parallel(n_sigma, subtract_background,
+                                          workers, timeout)
+
+        # --- Sequential path ---
+        finder = PeakyFinder.__new__(PeakyFinder)
         self.fit_results = []
         self.all_peak_params = []
 
@@ -221,14 +337,151 @@ class PeakyCorpus:
                 params = np.array(list(fit_dict['spectrum_dictionary'].values()))
                 self.all_peak_params.append(params)
             except Exception as e:
-                print(f"Spectrum {i} fitting failed: {e}")
                 self.fit_results.append(None)
                 self.all_peak_params.append(np.empty((0, 4)))
+                self.failed_fits.append((i, str(e)))
 
             if (i + 1) % 10 == 0 or i == n_spectra - 1:
                 print(f"  fitted {i + 1}/{n_spectra}")
 
         return self.fit_results
+
+    def _fit_all_parallel(self, n_sigma, subtract_background, workers,
+                          timeout=None):
+        """Parallel peak fitting using multiprocessing.Pool."""
+        import time as _time
+
+        n_spectra = self.spectra.shape[0]
+        x = self.common_wavelength
+        to = timeout or 0
+
+        # Pre-build argument tuples — each worker gets a copy of the
+        # wavelength array and one spectrum's intensity array.
+        tasks = [
+            (i, x, np.array(self.spectra[i]), n_sigma, subtract_background, to)
+            for i in range(n_spectra)
+        ]
+
+        # Pre-allocate output lists (indexed by spectrum order)
+        self.fit_results = [None] * n_spectra
+        self.all_peak_params = [np.empty((0, 4))] * n_spectra
+
+        to_label = f", timeout={to}s" if to else ""
+        print(f"  launching {workers} workers for {n_spectra} spectra{to_label}")
+        t0 = _time.time()
+        done = 0
+        n_timeout = 0
+        n_error = 0
+
+        with mp.Pool(processes=workers, initializer=_worker_init) as pool:
+            for idx, fit_dict, params, fail_reason in pool.imap_unordered(
+                _fit_one_spectrum, tasks, chunksize=4
+            ):
+                self.fit_results[idx] = fit_dict
+                self.all_peak_params[idx] = params
+                if fail_reason is not None:
+                    self.failed_fits.append((idx, fail_reason))
+                    if fail_reason == 'timeout':
+                        n_timeout += 1
+                    else:
+                        n_error += 1
+                done += 1
+                if done % 50 == 0 or done == n_spectra:
+                    elapsed = _time.time() - t0
+                    rate = done / elapsed
+                    eta = (n_spectra - done) / rate if rate > 0 else 0
+                    print(f"  fitted {done}/{n_spectra}  "
+                          f"({rate:.1f} spectra/s, ETA {eta/60:.0f}m)")
+
+        elapsed = _time.time() - t0
+        failed = sum(1 for r in self.fit_results if r is None)
+        print(f"  done in {elapsed/60:.1f}m  "
+              f"({n_spectra / elapsed:.1f} spectra/s, "
+              f"{failed} failed: {n_timeout} timeout, {n_error} error)")
+        if self.failed_fits:
+            print(f"  failed spectra: {self.failed_fits}")
+        return self.fit_results
+
+    # ------------------------------------------------------------------
+    # Checkpoint save / load
+    # ------------------------------------------------------------------
+
+    def save_fit_results(self, path):
+        """Save fit results and peak params to a NumPy archive.
+
+        The archive stores:
+        - ``all_peak_params``: list of per-spectrum (n_peaks, 4) arrays
+        - ``fit_results``: list of fit dictionaries (or None)
+        - ``csv_files``: file list for consistency checking
+        - ``spectra_shape``: shape of the standardized spectra array
+
+        Parameters
+        ----------
+        path : str
+            Output file path (typically ``.npz``).
+        """
+        import pickle as _pickle
+
+        blob = _pickle.dumps({
+            'fit_results': self.fit_results,
+            'all_peak_params': self.all_peak_params,
+            'csv_files': self.csv_files,
+            'spectra_shape': self.spectra.shape if self.spectra is not None else None,
+            'failed_fits': getattr(self, 'failed_fits', []),
+        })
+        with open(path, 'wb') as f:
+            f.write(blob)
+        print(f"  saved fit checkpoint to {path} "
+              f"({len(self.fit_results)} spectra, "
+              f"{os.path.getsize(path) / 1e6:.1f} MB)")
+
+    def load_fit_results(self, path):
+        """Load fit results from a checkpoint file.
+
+        Validates that the checkpoint matches the current corpus
+        (same number of spectra and same file list).
+
+        Parameters
+        ----------
+        path : str
+            Path to the checkpoint file written by :meth:`save_fit_results`.
+
+        Returns
+        -------
+        bool
+            True if loaded successfully, False otherwise.
+        """
+        import pickle as _pickle
+
+        if not os.path.exists(path):
+            return False
+
+        with open(path, 'rb') as f:
+            data = _pickle.loads(f.read())
+
+        saved_files = data.get('csv_files', [])
+        if len(saved_files) != len(self.csv_files):
+            print(f"  checkpoint mismatch: {len(saved_files)} vs "
+                  f"{len(self.csv_files)} spectra — refitting")
+            return False
+
+        if saved_files != self.csv_files:
+            print("  checkpoint file list differs — refitting")
+            return False
+
+        self.fit_results = data['fit_results']
+        self.all_peak_params = data['all_peak_params']
+        self.failed_fits = data.get('failed_fits', [])
+        n_fitted = sum(1 for r in self.fit_results if r is not None)
+        n_failed = len(self.fit_results) - n_fitted
+        print(f"  loaded fit checkpoint from {path} "
+              f"({n_fitted}/{len(self.fit_results)} succeeded, "
+              f"{n_failed} failed)")
+        if self.failed_fits:
+            n_to = sum(1 for _, r in self.failed_fits if r == 'timeout')
+            n_err = len(self.failed_fits) - n_to
+            print(f"  failures: {n_to} timeout, {n_err} error")
+        return True
 
     # ------------------------------------------------------------------
     # Width statistics
