@@ -10,6 +10,7 @@ scores, decompositions, and peak metadata.
 """
 
 import argparse
+import os
 import pickle
 import sys
 import time
@@ -193,6 +194,10 @@ def main():
         'peak_metadata': pca_analyzer.peak_metadata,
         'peak_classifications': labels,
     }
+
+    out_dir = os.path.dirname(os.path.abspath(args.out))
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
 
     with open(args.out, 'wb') as f:
         pickle.dump(results, f)

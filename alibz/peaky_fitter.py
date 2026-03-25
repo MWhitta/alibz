@@ -451,7 +451,12 @@ class PeakyFitter():
                             location_comparison.append((peak_loc[Zind][close_wavelength], w))
 
                             i_ind = int(float(ion)-1)
-                            emission_array.append(peak_loc[Zind][close_wavelength]**-1 * gA[Zind][close_wavelength] * np.exp(-Ek[Zind][close_wavelength] / kT) / self.finder.maker.sb.partition(element, t_array, i_ind))
+                            emission_array.append(
+                                peak_loc[Zind][close_wavelength]**-1
+                                * gA[Zind][close_wavelength]
+                                * np.exp(-Ek[Zind][close_wavelength] / kT)
+                                / self.finder.maker.sb.stage_partition(element, t_array, i_ind)
+                            )
                             intensity_array.append(a*s*np.sqrt(np.pi))
 
                     emission_array = np.squeeze(emission_array)
@@ -526,7 +531,7 @@ class PeakyFitter():
                     ax.scatter(min_kT, min_cov, color='k')
                     ax.set_xlabel('kT [eV]')
                     ax.set_ylabel(r'|$\sigma$|')
-                    secax = ax.secondary_xaxis('top', functions=(self.finder.maker.K2eV, self.finder.maker.eV2K))
+                    secax = ax.secondary_xaxis('top', functions=(self.finder.maker.eV2K, self.finder.maker.K2eV))
                     secax.set_xlabel('T [K]')
                     
                     ax2 = ax.twinx()

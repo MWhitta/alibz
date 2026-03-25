@@ -59,7 +59,7 @@ def _fit_one_spectrum(args):
             plot=False,
             skip_profile=True,
         )
-        params = np.array(list(fit_dict['spectrum_dictionary'].values()))
+        params = finder._parameter_array(fit_dict['spectrum_dictionary'])
         return idx, fit_dict, params, None
     except _FitTimeout:
         return idx, None, np.empty((0, 4)), 'timeout'
@@ -133,6 +133,12 @@ class PeakyCorpus:
         self.all_peak_params = []
         self.width_stats = None
 
+    def _cache_path(self, filename):
+        """Return a stable cache-file path rooted at the corpus input directory."""
+        cache_root = os.path.join(os.path.abspath(self.data_dirs[0]), ".alibz_cache")
+        os.makedirs(cache_root, exist_ok=True)
+        return os.path.join(cache_root, filename)
+
     # ------------------------------------------------------------------
     # Loading
     # ------------------------------------------------------------------
@@ -175,7 +181,10 @@ class PeakyCorpus:
 
         if self.use_memmap:
             self.raw_data = np.memmap(
-                'corpus_raw.dat', dtype='float64', mode='w+', shape=shape,
+                self._cache_path('corpus_raw.dat'),
+                dtype='float64',
+                mode='w+',
+                shape=shape,
             )
         else:
             self.raw_data = np.zeros(shape, dtype='float64')
@@ -245,7 +254,7 @@ class PeakyCorpus:
                                            self.common_wavelength)
             if self.use_memmap:
                 self.spectra = np.memmap(
-                    'corpus_standardized.dat',
+                    self._cache_path('corpus_standardized.dat'),
                     dtype='float64',
                     mode='w+',
                     shape=(n_spectra, self.n_channels),
@@ -259,7 +268,7 @@ class PeakyCorpus:
         # --- CPU path (unchanged) ---
         if self.use_memmap:
             self.spectra = np.memmap(
-                'corpus_standardized.dat',
+                self._cache_path('corpus_standardized.dat'),
                 dtype='float64',
                 mode='w+',
                 shape=(n_spectra, self.n_channels),
@@ -334,7 +343,7 @@ class PeakyCorpus:
                 )
                 self.fit_results.append(fit_dict)
 
-                params = np.array(list(fit_dict['spectrum_dictionary'].values()))
+                params = finder._parameter_array(fit_dict['spectrum_dictionary'])
                 self.all_peak_params.append(params)
             except Exception as e:
                 self.fit_results.append(None)
@@ -407,7 +416,7 @@ class PeakyCorpus:
     # ------------------------------------------------------------------
 
     def save_fit_results(self, path):
-        """Save fit results and peak params to a NumPy archive.
+        """Save fit results and peak params to a pickle checkpoint.
 
         The archive stores:
         - ``all_peak_params``: list of per-spectrum (n_peaks, 4) arrays
@@ -418,9 +427,13 @@ class PeakyCorpus:
         Parameters
         ----------
         path : str
-            Output file path (typically ``.npz``).
+            Output file path.
         """
         import pickle as _pickle
+
+        parent = os.path.dirname(os.path.abspath(path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
 
         blob = _pickle.dumps({
             'fit_results': self.fit_results,

@@ -1,11 +1,31 @@
 import pickle
+from pathlib import Path
+
 import numpy as np
 
 class Database():
     """ class containing the lines and ionization states of an element imported from database
     """
 
+    @staticmethod
+    def _resolve_dbpath(dbpath):
+        candidate = Path(dbpath).expanduser()
+        if candidate.is_dir():
+            return candidate.resolve()
+
+        project_root = Path(__file__).resolve().parents[2]
+        fallback = (project_root / candidate).resolve()
+        if fallback.is_dir():
+            return fallback
+
+        raise FileNotFoundError(
+            f"Database path {dbpath!r} was not found relative to the current "
+            f"working directory or the project root"
+        )
+
     def __init__(self, dbpath) -> None:
+        dbpath = self._resolve_dbpath(dbpath)
+        self.dbpath = dbpath
         self.elements= ['H', 'He', #row1
                         'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', #row2
                         'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', #row3
@@ -17,18 +37,18 @@ class Database():
                         'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U'] #row 7 stable actinide elements
 
         #database missing data for these elements
-        with open(f"{dbpath}/no_lines26.pickle", 'rb') as f:
+        with open(self.dbpath / "no_lines26.pickle", 'rb') as f:
             self.no_lines = pickle.load(f)
         
-        with open(f"{dbpath}/el_lines92.pickle", 'rb') as f:
+        with open(self.dbpath / "el_lines92.pickle", 'rb') as f:
             self.atom_dict = pickle.load(f)
 
         # ionization energies
-        with open(f"{dbpath}/ionization/ionization.pickle", 'rb') as f:
+        with open(self.dbpath / "ionization" / "ionization.pickle", 'rb') as f:
             self.ion= pickle.load(f)
 
         #relative natural abundance of elements
-        abund = np.loadtxt(f"{dbpath}/abundance_92.csv") # crustal elemental abundance
+        abund = np.loadtxt(self.dbpath / "abundance_92.csv") # crustal elemental abundance
         self.elem_abund = abund / np.sum(abund) # normalized elemental abundance probability
         self.elem_abund = {i: j for i, j in zip(self.elements, self.elem_abund)} # make dictionary from list
 

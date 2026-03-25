@@ -57,13 +57,16 @@ class PeakyIndexer():
         self.me = ELECTRON_MASS
 
 
-    def ground_state(self, threshold: float = 0.001) -> None:
+    def ground_state(self, threshold: float = 0.001, temperature: float = 10000.0) -> None:
         """Identify ground state transitions for each element.
 
         Parameters
         ----------
         threshold : float, optional
             Minimum relative occupation probability required to keep a line.
+        temperature : float, optional
+            Temperature in kelvin used for the Boltzmann weighting of the
+            upper level population. Default is ``10000``.
 
         Returns
         -------
@@ -71,6 +74,10 @@ class PeakyIndexer():
             Results are stored in ``self.ground_states``.
         """
 
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+
+        kT = self.k * float(temperature)
         self.ground_states: DefaultDict[str, Dict[str, np.ndarray]] = defaultdict(dict)
         for el in self.db.elements:
             ionization, peak_loc, gA, Ei, Ek, gi, gk = self.db.lines(el)[:, [0, 1, 3, 4, 5, 12, 13]].T.astype(float)
@@ -80,20 +87,26 @@ class PeakyIndexer():
                 Eind = ionization == ion  # indices of single ionization state
                 groundEi = Ei[Eind] == 0  # indices of ground state for ionization state
                 groundpeak = peak_loc[Eind][groundEi]  # ground state peak wavelengths
-                groundEk = gk[Eind][groundEi] * np.exp(-Ek[Eind][groundEi] / 1000)  # ground state upper level occupation probabilities
-                groundgA = 1 / gk[Eind][groundEi] * gA[Eind][groundEi]
+                stage_partition = float(
+                    np.squeeze(self.maker.sb.stage_partition(el, np.array([temperature]), ion=ion))
+                )
+                stage_partition = max(stage_partition, np.finfo(float).eps)
+                ground_weight = (
+                    gA[Eind][groundEi]
+                    * np.exp(-Ek[Eind][groundEi] / kT)
+                    / stage_partition
+                )
 
-                if len(groundEk) > 0 and np.max(groundEk) > 0:
-                    groundT = groundgA * groundEk
+                if len(ground_weight) > 0 and np.max(ground_weight) > 0:
                     groundEkprob = np.divide(
-                        groundT,
-                        np.max(groundgA * groundEk),
-                        out=np.zeros_like(groundEk),
-                        where=groundEk > 0,
+                        ground_weight,
+                        np.max(ground_weight),
+                        out=np.zeros_like(ground_weight),
+                        where=ground_weight > 0,
                     ) > threshold
                     self.ground_states[el][str(ion)] = (
                         groundpeak[groundEkprob],
-                        groundT[groundEkprob],
+                        ground_weight[groundEkprob],
                     )
 
     def anchor_peaks(
@@ -574,7 +587,14 @@ class PeakyIndexer():
         result : dict
             Dictionary with fields:
                 - "status": MILP solver status string (e.g. "Optimal").
-                - "c": array, shape (M,), estimated component fractions.
+                - "reference_scales": array, shape (M,), solver-estimated
+                  scale parameters for each internally normalized reference.
+                - "normalized_reference_scales": array, shape (M,), the same
+                  scale parameters normalized to sum to one when the total
+                  scale is positive. These are relative solver weights, not
+                  composition fractions.
+                - "c": deprecated backwards-compatible alias of
+                  ``"reference_scales"``.
                 - "assignments": list of length n.
                   For each observed peak i, either None (noise) or a dict:
                     {
@@ -756,6 +776,8 @@ class PeakyIndexer():
         peak_id_list = []  # local index within that reference
         ref_elements = []
         ref_ions = []
+        ref_element_list = []
+        ref_ion_list = []
         for m, ref in enumerate(refs):
             pos = np.asarray(ref["pos"], dtype=float)
             inten = np.asarray(ref["intensity"], dtype=float)
@@ -767,6 +789,8 @@ class PeakyIndexer():
             peak_id_list.append(np.arange(pos.shape[0], dtype=int))
             ref_elements.append(ref.get("element"))
             ref_ions.append(ref.get("ion"))
+            ref_element_list.append(np.full(pos.shape, ref.get("element"), dtype=object))
+            ref_ion_list.append(np.full(pos.shape, ref.get("ion"), dtype=object))
 
         if not q_list:
             raise ValueError("refs must contain at least one reference spectrum")
@@ -775,6 +799,8 @@ class PeakyIndexer():
         R = np.concatenate(R_list)            # shape (P,)
         ref_id = np.concatenate(ref_id_list)  # shape (P,)
         peak_id = np.concatenate(peak_id_list)  # shape (P,)
+        ref_element = np.concatenate(ref_element_list)  # shape (P,)
+        ref_ion = np.concatenate(ref_ion_list)  # shape (P,)
         P = q.shape[0]
 
         # --- Vectorized construction of candidate matches based on position tolerance ---
@@ -818,8 +844,8 @@ class PeakyIndexer():
         u_vars = [pulp.LpVariable(f"u_{i}", lowBound=0, upBound=1, cat="Binary") for i in range(n)]
         # v_f: binary hidden indicator for reference peaks
         v_vars = [pulp.LpVariable(f"v_{f}", lowBound=0, upBound=1, cat="Binary") for f in range(P)]
-        # c_m: nonnegative component fractions
-        c_vars = [pulp.LpVariable(f"c_{m}", lowBound=0, cat="Continuous") for m in range(M)]
+        # scale_m: nonnegative scale parameter for normalized reference m
+        scale_vars = [pulp.LpVariable(f"scale_{m}", lowBound=0, cat="Continuous") for m in range(M)]
 
         # --- Constraints ---
 
@@ -845,16 +871,16 @@ class PeakyIndexer():
             I_i = float(I_obs[i])
             R_f = float(R[f])
 
-            # s_e >= I_i - c_m * R_f - M*(1 - x_e)
+            # s_e >= I_i - scale_m * R_f - M*(1 - x_e)
             prob += (
                 s_vars[e]
-                >= I_i - c_vars[m] * R_f - M_big * (1 - x_vars[e]),
+                >= I_i - scale_vars[m] * R_f - M_big * (1 - x_vars[e]),
                 f"s_pos_{e}",
             )
-            # s_e >= c_m * R_f - I_i - M*(1 - x_e)
+            # s_e >= scale_m * R_f - I_i - M*(1 - x_e)
             prob += (
                 s_vars[e]
-                >= c_vars[m] * R_f - I_i - M_big * (1 - x_vars[e]),
+                >= scale_vars[m] * R_f - I_i - M_big * (1 - x_vars[e]),
                 f"s_neg_{e}",
             )
 
@@ -864,9 +890,9 @@ class PeakyIndexer():
             R_f = float(R[f])
             edges_f = edges_by_ref_peak[f]
 
-            # c_m * R_f <= L + M * (v_f + sum_e x_e)
+            # scale_m * R_f <= L + M * (v_f + sum_e x_e)
             prob += (
-                c_vars[m] * R_f
+                scale_vars[m] * R_f
                 <= detection_limit
                 + M_big * (v_vars[f] + pulp.lpSum(x_vars[e] for e in edges_f)),
                 f"det_limit_{f}",
@@ -908,7 +934,12 @@ class PeakyIndexer():
             val = pulp.value(var)
             return float(val) if val is not None and np.isfinite(val) else 0.0
 
-        c_est = np.array([_safe_val(c_vars[m]) for m in range(M)], dtype=float)
+        reference_scales = np.array([_safe_val(scale_vars[m]) for m in range(M)], dtype=float)
+        reference_scale_sum = float(np.sum(reference_scales))
+        if reference_scale_sum > 0:
+            normalized_reference_scales = reference_scales / reference_scale_sum
+        else:
+            normalized_reference_scales = np.zeros_like(reference_scales)
         noise_mask = np.array([_safe_val(u_vars[i]) > 0.5 for i in range(n)], dtype=bool)
         hidden_ref_mask = np.array([_safe_val(v_vars[f]) > 0.5 for f in range(P)], dtype=bool)
 
@@ -933,20 +964,37 @@ class PeakyIndexer():
                     "ref_peak_global_index": f,
                 }
 
+        references_summary = []
+        for m, ref in enumerate(refs):
+            references_summary.append(
+                {
+                    "ref_index": m,
+                    "element": ref.get("element"),
+                    "ion": ref.get("ion"),
+                    "n_peaks": int(np.asarray(ref["pos"]).size),
+                    "scale": float(reference_scales[m]),
+                    "normalized_scale": float(normalized_reference_scales[m]),
+                }
+            )
+
         result = {
             "status": status,
-            "c": c_est,
+            "reference_scales": reference_scales,
+            "normalized_reference_scales": normalized_reference_scales,
+            "reference_scale_sum": reference_scale_sum,
+            "c": reference_scales,
             "assignments": assignments,
             "noise_mask": noise_mask,
             "hidden_ref_mask": hidden_ref_mask,
             "objective_value": float(pulp.value(prob.objective)),
+            "references": references_summary,
             "flattened_reference": {
                 "pos": q,
                 "intensity": R,
                 "ref_index": ref_id,
                 "ref_peak_index": peak_id,
-                "ref_element": np.asarray(ref_elements, dtype=object),
-                "ref_ion": np.asarray(ref_ions, dtype=object),
+                "ref_element": ref_element,
+                "ref_ion": ref_ion,
             },
             "elements": element_matches,
         }

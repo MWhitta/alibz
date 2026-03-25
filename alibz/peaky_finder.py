@@ -1,5 +1,6 @@
 
 import numpy as np
+from numbers import Integral
 
 from matplotlib import pyplot as plt
 
@@ -97,6 +98,61 @@ class PeakyFinder():
             Difference ``y - func(x, params)``.
         """
         return y - func(x, params)
+
+    @staticmethod
+    def _parameter_array(peak_dictionary):
+        """Convert a peak-parameter mapping to a stable ``(n, 4)`` array."""
+        if len(peak_dictionary) == 0:
+            return np.empty((0, 4), dtype=float)
+
+        parameters = np.asarray(list(peak_dictionary.values()), dtype=float)
+        return np.atleast_2d(parameters).reshape(-1, 4)
+
+    @staticmethod
+    def _safe_power_transform(transformer, y):
+        """Return a monotonic transformed intensity even for constant inputs."""
+        y = np.asarray(y, dtype=float).reshape(-1)
+        if y.size == 0:
+            transformer.lambdas_ = np.array([np.nan], dtype=float)
+            return y.copy(), transformer.lambdas_
+
+        if np.allclose(y, y[0]):
+            transformer.lambdas_ = np.array([1.0], dtype=float)
+            return y.copy(), transformer.lambdas_
+
+        transformed = transformer.fit_transform(y.reshape(-1, 1))[:, 0]
+        return transformed, np.asarray(transformer.lambdas_, dtype=float)
+
+    def _empty_fit_result(self, x, y, y_bgsub, bg, n_sigma, plot, skip_profile):
+        """Return a stable empty-fit structure for spectra without usable peaks."""
+        transformer = PowerTransformer()
+        yj_data, power_lambda = self._safe_power_transform(transformer, y_bgsub)
+        fit_dict = {
+            'peak_dictionary': {},
+            'spectrum_dictionary': {},
+            'profile': None if skip_profile else np.zeros_like(y_bgsub),
+            'residual_data': None if skip_profile else np.asarray(y_bgsub, dtype=float).copy(),
+            'background': bg,
+            'sorted_parameter_array': np.empty((0, 4), dtype=float),
+            'n_sigma': n_sigma,
+        }
+
+        if plot:
+            self.plot(
+                "spectrum",
+                x=x,
+                y=y,
+                y_bgsub=y_bgsub,
+                peak_indices=np.array([], dtype=int),
+                profile=fit_dict['profile'],
+                yj_data=yj_data,
+                residual_data=fit_dict['residual_data'],
+                new_peak_indices=np.array([], dtype=int),
+                bg=bg,
+                power_lambda=power_lambda,
+            )
+
+        return fit_dict
 
 
 # Find peaks and peak properties -----------------------------------------------------------------------------------------------------------------
@@ -248,10 +304,8 @@ class PeakyFinder():
         peaks, minima = self.find_peaks(y)
 
         transformer = PowerTransformer()
-        transformed = transformer.fit_transform(np.asarray(y).reshape(-1, 1))[:, 0]
+        transformed, _ = self._safe_power_transform(transformer, y)
         transformed = np.clip(transformed, transformed[0], np.inf)
-
-        power_lambda = transformer.lambdas_
 
         if len(peaks) == 0:
             return peaks, minima, transformer
@@ -853,15 +907,35 @@ class PeakyFinder():
             Additional keyword arguments to pass to the background subtraction or
             fitting methods.
         """
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+
+        if y.size == 0:
+            return self._empty_fit_result(x, y, y, np.zeros_like(y), n_sigma, plot, skip_profile)
+
+        if np.allclose(y, y[0]):
+            bg = y.copy() if subtract_background else np.zeros_like(y)
+            y_bgsub = y - bg
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
+
         if subtract_background:
-            bg = self.find_background(x, y, *kwargs)
+            try:
+                bg = self.find_background(x, y, *kwargs)
+            except (IndexError, RuntimeError, TypeError, ValueError):
+                bg = np.zeros_like(y)
             y_bgsub = y - bg
         else:
             bg = np.zeros_like(y)
             y_bgsub = y
 
+        if np.asarray(y_bgsub).size == 0 or np.allclose(y_bgsub, y_bgsub[0]):
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
+
         # find peaks and profile parameters
-        peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
+        try:
+            peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
+        except (IndexError, RuntimeError, TypeError, ValueError):
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
         if verbose:
             print('fourier peaks done')
         peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot, fast=True)
@@ -869,7 +943,8 @@ class PeakyFinder():
             print('fit peaks done')
         
         # filter and sort fit parameters
-        parameters = np.array(list(peak_dictionary.values()))
+        parameters = self._parameter_array(peak_dictionary)
+        new_peak_indices = np.array([], dtype=int)
 
         if skip_profile:
             # Fast path: skip full-spectrum Voigt evaluation, shoulder
@@ -877,23 +952,33 @@ class PeakyFinder():
             # fit_peaks already provide good peak parameters.
             residual_data = None
         else:
-            profile = self.multi_voigt(x, np.ravel(parameters))
-            profile_outliers = profile > 1.5 * np.max(y)
-            profile[profile_outliers] = 0
-            residual_data = y_bgsub - profile
+            if parameters.size == 0:
+                residual_data = np.asarray(y_bgsub, dtype=float).copy()
+            else:
+                profile = self.multi_voigt(x, np.ravel(parameters))
+                profile_outliers = profile > 1.5 * np.max(y)
+                profile[profile_outliers] = 0
+                residual_data = y_bgsub - profile
 
-            peak_dictionary, new_peak_indices = self.fit_shoulders(x, y_bgsub, peak_indices, residual_data, peak_dictionary)
-            if verbose:
-                print('fit shoulders done')
-            peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
-            if verbose:
-                print('fit all done')
+                peak_dictionary, new_peak_indices = self.fit_shoulders(
+                    x, y_bgsub, peak_indices, residual_data, peak_dictionary
+                )
+                if verbose:
+                    print('fit shoulders done')
+                peak_dictionary = self.fit_all(x, y_bgsub, peak_dictionary)
+                if verbose:
+                    print('fit all done')
 
         spectrum_dictionary = {}
         inc = np.median(np.diff(x))
-        sigmas, gammas = np.array(list(peak_dictionary.values()))[:, 2:4].T
-        widths = self.voigt_width(sigmas, gammas)
-        median_fwhm = np.median(widths) * inc
+        peak_parameters = self._parameter_array(peak_dictionary)
+        if peak_parameters.size == 0:
+            median_fwhm = 0.0
+        else:
+            sigmas, gammas = peak_parameters[:, 2:4].T
+            widths = self.voigt_width(sigmas, gammas)
+            median_fwhm = float(np.median(widths) * inc)
+
         for key, value in peak_dictionary.items():
             if value[2] < inc / 2:
                 value[2] = 0
@@ -910,13 +995,21 @@ class PeakyFinder():
             if value[0] >= 1:
                 spectrum_dictionary.update({key: value})
 
-        parameters = np.array(list(spectrum_dictionary.values()))
+        parameters = self._parameter_array(spectrum_dictionary)
         if skip_profile:
             profile = None
         else:
-            profile = self.multi_voigt(x, np.ravel(parameters))
-        p_sort = np.argsort(parameters[:, 0])
-        sorted_parameter_array = parameters[p_sort][::-1] # descending order
+            if parameters.size == 0:
+                profile = np.zeros_like(y_bgsub)
+            else:
+                profile = self.multi_voigt(x, np.ravel(parameters))
+            residual_data = y_bgsub - profile
+
+        if parameters.size == 0:
+            sorted_parameter_array = parameters
+        else:
+            p_sort = np.argsort(parameters[:, 0])
+            sorted_parameter_array = parameters[p_sort][::-1] # descending order
 
         fit_dict = {'peak_dictionary': peak_dictionary,
                     'spectrum_dictionary': spectrum_dictionary,
@@ -926,8 +1019,7 @@ class PeakyFinder():
                     'sorted_parameter_array': sorted_parameter_array,
                     'n_sigma': n_sigma}
 
-        yj_data = transformer.fit_transform(y_bgsub.reshape(-1,1))[:,0]
-        power_lambda = transformer.lambdas_
+        yj_data, power_lambda = self._safe_power_transform(transformer, y_bgsub)
 
         if plot:
             self.plot(
@@ -965,14 +1057,11 @@ class PeakyFinder():
             Additional keyword arguments to pass to the background subtraction or
             fitting methods.
         """
-        if self.data.data is None:
-            data = self.data.load_data()
-        else:
-            data = self.data.data
+        data = self.data.get_data()
 
         data = data[s]
 
-        if isinstance(s, int):
+        if isinstance(s, Integral):
             x = data[0]
             y = data[1]
             fit_dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
@@ -988,6 +1077,8 @@ class PeakyFinder():
                 y = data[d][1]
                 result = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
                 fit_dict['spectrum_' + str(d)] = result
+        else:
+            raise TypeError("s must be an integer index or a slice")
 
         return fit_dict
     

@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -24,93 +24,175 @@ class SahaBoltzmann():
         self.ne_array = 10**np.arange(ne_lo, ne_hi, ne_step)
 
 
+    @staticmethod
+    def _temperature_array(temperature: ArrayLike) -> NDArray[np.float64]:
+        """Return *temperature* as a 1-D positive float array."""
+        temperature = np.atleast_1d(np.asarray(temperature, dtype=float)).reshape(-1)
+        if temperature.size == 0:
+            raise ValueError("temperature must contain at least one value")
+        if np.any(temperature <= 0):
+            raise ValueError("temperature must be strictly positive")
+        return temperature
+
+
+    @staticmethod
+    def _resolve_ion_index(ion, ions: NDArray[np.float64]) -> int:
+        """Resolve either a zero-based ion index or a database ion label."""
+        ion_value = float(ion)
+        exact_match = np.nonzero(np.isclose(ions, ion_value))[0]
+        if exact_match.size:
+            return int(exact_match[0])
+
+        ion_index = int(ion_value)
+        if np.isclose(ion_value, ion_index) and 0 <= ion_index < len(ions):
+            return ion_index
+
+        raise ValueError(f"Unknown ion specifier {ion!r}; expected one of {ions.tolist()} or a zero-based index")
+
+
+    @staticmethod
+    def _stage_levels(
+        Ei: NDArray[np.float64],
+        Ek: NDArray[np.float64],
+        gi: NDArray[np.float64],
+        gk: NDArray[np.float64],
+        mask: NDArray[np.bool_],
+    ) -> NDArray[np.float64]:
+        """Build a deduplicated level table ``[energy_eV, degeneracy]`` for one ion stage."""
+        energies = np.concatenate((Ei[mask], Ek[mask]))
+        degeneracies = np.concatenate((gi[mask], gk[mask]))
+
+        if energies.size == 0:
+            return np.empty((0, 2), dtype=float)
+
+        levels = np.column_stack((np.round(energies, 8), np.round(np.clip(degeneracies, 1e-30, None), 8)))
+        return np.unique(levels, axis=0)
+
+
     def partition(self, element, temperature, ion=None):
-        """ `partition` calculates the parition functions for an element
+        """Return stage partition functions derived from the line database.
+
+        The partition function is built from the union of lower and upper
+        levels present in the line list for each ion stage:
+
+        ``U_i(T) = sum_k g_k exp(-E_k / kT)``
+
+        Parameters
+        ----------
+        element : str
+            Element symbol.
+        temperature : ArrayLike
+            One or more temperatures in kelvin.
+        ion : float or int, optional
+            Either a database ion label (e.g. ``1`` for the first stage) or a
+            zero-based ion index. When omitted, partitions for all ion stages
+            are returned.
+
+        Returns
+        -------
+        tuple
+            ``(Zi, level_weights)`` where ``Zi`` is either ``(n_temp, n_ions)``
+            or ``(n_temp,)`` and ``level_weights`` contains the corresponding
+            per-level Boltzmann factors.
         """
-        temperature = np.array(temperature)
-        if np.shape(temperature)[0] == 1:
-            temperature = temperature[:, None]
+        temperature = self._temperature_array(temperature)
         kT = self.boltzmann_constant * temperature[:, None]
 
-        # line data from database
-        ionization, Ek, gi, gk = self.db.lines(element)[:, [0, 5, 12, 13]].T.astype(float)
+        lines = np.asarray(self.db.lines(element))
+        if lines.size == 0:
+            empty = np.zeros((len(temperature), 0), dtype=float)
+            if ion is None:
+                return empty, []
+            return np.zeros(len(temperature), dtype=float), np.empty((len(temperature), 0), dtype=float)
+
+        ionization, Ei, Ek, gi, gk = lines[:, [0, 4, 5, 12, 13]].T.astype(float)
         ions = np.sort(np.unique(ionization))
 
-        # filter elements without lines data
-        if len(ions) == 0:
-            return 0
+        Zi = np.zeros((len(temperature), len(ions)), dtype=float)
+        level_weights: List[NDArray[np.float64]] = []
 
-        # preallocate partition function array
-        Zi = np.ones((len(temperature), len(ions)))  # Partition function for ionization state i
-        
-        # calculate partition functions
-        if len(ions) == 1:  # Hydrogen
-            Eion = self.db.ionization_energy(element)
-            Zi = (938.272**(3/2) / (2 * self.me**(3/2))) * np.exp(-Eion[0][-1] / kT)
+        for ii, ion_stage in enumerate(ions):
+            Zind = ionization == ion_stage
+            levels = self._stage_levels(Ei, Ek, gi, gk, Zind)
+            if levels.size == 0:
+                level_weights.append(np.empty((len(temperature), 0), dtype=float))
+                continue
 
-        else: # Non-hydrogen elements
-            if ion == None:
-                for ii, ion in enumerate(ions):
-                    Zind = (ionization == ion)
-                    Zie = (gk[Zind] / gi[Zind]) * np.exp(-Ek[Zind] / kT[:, None])
-                    Zi[:, ii] = np.squeeze(np.sum(Zie, axis=-1))
-                return Zi, Zie
-            else:
-                Zind = (ionization == ions[ion])
-                Zie = (gk[Zind] / gi[Zind]) * np.exp(-Ek[Zind] / kT[:, None])
-                Zi = np.sum(Zie, axis=-1)
-                return Zi, Zie
+            level_energy = levels[:, 0]
+            level_degeneracy = levels[:, 1]
+            Zie = level_degeneracy[None, :] * np.exp(-level_energy[None, :] / kT)
+            Zi[:, ii] = np.sum(Zie, axis=-1)
+            level_weights.append(Zie)
+
+        if ion is None:
+            return Zi, level_weights
+
+        ion_index = self._resolve_ion_index(ion, ions)
+        return Zi[:, ion_index], level_weights[ion_index]
+
+
+    def stage_partition(self, element, temperature, ion) -> NDArray[np.float64]:
+        """Return the partition function of a single ion stage as a 1-D array."""
+        Zi, _ = self.partition(element, temperature, ion=ion)
+        return np.asarray(Zi, dtype=float).reshape(-1)
 
 
     def ionization_distribution(self, element, temperature, ne, decimal_precision=10):
-        """ `ionization_ distribution` method determines the distribution of ionization states
-        """
-        temperature = np.asarray(temperature)
+        """Determine the ionization-state distribution for one element.
 
-        # Broadcasting kT calculation
+        Parameters
+        ----------
+        element : str
+            Element symbol.
+        temperature : ArrayLike
+            One or more temperatures in kelvin.
+        ne : float
+            Base-10 logarithm of the electron density in ``cm**-3``.
+        decimal_precision : int, optional
+            Rounding precision for the ion fractions.
+        """
+        temperature = self._temperature_array(temperature)
+        ne_log10 = float(ne)
+        ne_cm3 = 10**ne_log10
+
         kT = self.boltzmann_constant * temperature[:, None]
         lamb = self.plank_constant / np.sqrt(2 * np.pi * self.me * kT / self.speed_c**2)
-        loglamb = np.log(lamb)
 
-        # ionization data from database
-        ionization = self.db.lines(element)[:, 0].astype(float)
-        Eion = self.db.ionization_energy(element)
-        
+        lines = np.asarray(self.db.lines(element))
+        if lines.size == 0:
+            empty = np.zeros((len(temperature), 0), dtype=float)
+            return empty, empty
+
+        ionization = lines[:, 0].astype(float)
+        Eion = np.asarray(self.db.ionization_energy(element), dtype=float)
+
         ions = np.sort(np.unique(ionization))
-        if len(ions) == 0:
-            return np.array([]), np.array([])
+        Zi, _ = self.partition(element, temperature)
+        ci = np.ones((len(temperature), len(ions)), dtype=float)
 
-        # preallocate ionization energy and ionization fraction arrays
-        Ei = np.ones((len(temperature), len(ions)))  # Ionization energy for ionization state i
-        ci = np.ones((len(temperature), len(ions)))  # Weighting constant for ionization state i
-        
-        if len(ions) == 1:  # Hydrogen
-            Zi, _ = self.partition(element, temperature)
-            ci = 1 / (1 + (Zi / 10**ne))
+        if len(ions) == 1:
+            return ci, Zi
 
-        else: # Non-hydrogen elements
-            for ii, ion in enumerate(ions):
-                Eind = Eion[:, 1] == ion - 1 # ionization energies are 0 indexed, ionization lines are 1 indexed
-                if np.any(Eind):
-                    Ei[:, ii] = Eion[Eind, -1][0]
+        # Ionization energies connect stage i -> i+1. Missing values simply
+        # suppress that transition in the ratio chain.
+        Ei = np.full((len(temperature), len(ions) - 1), np.inf, dtype=float)
+        for ii, ion_stage in enumerate(ions[:-1]):
+            Eind = Eion[:, 1] == ion_stage - 1
+            if np.any(Eind):
+                Ei[:, ii] = Eion[Eind, -1][0]
 
-            Zi, _ = self.partition(element, temperature)
-            for iii in range(len(ions) - 1):
-                if np.any(Zi[:, iii] == 0):
-                    a = np.zeros_like(Zi[:, iii]).astype(float)
-                    Zz = np.divide(Zi[:, iii + 1], Zi[:, iii], where=Zi[:, iii]>0, out=a)
-                    a = 2 * Zz * lamb**-3 * np.exp(-Ei[:, iii] / kT)
-                    print(f'a Zi==0 {a}')
-    
-                elif np.any(Zi[:, iii] < 10**-decimal_precision):
-                    loga = (np.log(2) + np.log(Zi[:, iii + 1]) - np.log(Zi[:, iii]) + loglamb[:, 0] - Ei[:,iii] / kT[:, 0])
-                    a = np.exp(loga)
-                else:
-                    a = 2 * (Zi[:, iii + 1] / Zi[:, iii]) * lamb[:, 0]**-3 * np.exp(-Ei[:, iii] / kT[:, 0])
-                ci[:, iii + 1] = a * ci[:, iii] / 10**ne # NIST makes some arbitrary choice for N? solid angle? that changes ne by 10**6
-            
-            ci /= np.sum(ci, axis=1, keepdims=True)
-            ci = np.round(ci, decimal_precision)
+        saha_prefactor = 2.0 * lamb[:, 0]**-3 / ne_cm3
+        min_partition = 10.0 ** (-decimal_precision)
+
+        for iii in range(len(ions) - 1):
+            Zi_i = np.clip(Zi[:, iii], min_partition, None)
+            Zi_ip1 = np.clip(Zi[:, iii + 1], min_partition, None)
+            a = saha_prefactor * (Zi_ip1 / Zi_i) * np.exp(-Ei[:, iii] / kT[:, 0])
+            ci[:, iii + 1] = a * ci[:, iii]
+
+        ci_sum = np.sum(ci, axis=1, keepdims=True)
+        ci = np.divide(ci, np.clip(ci_sum, min_partition, None))
+        ci = np.round(ci, decimal_precision)
 
         return ci, Zi
     
@@ -177,7 +259,7 @@ class SahaBoltzmann():
         temperature : ArrayLike
             Electron temperature values in kelvin.
         ne : float
-            Electron density.
+            Base-10 logarithm of the electron density in ``cm**-3``.
         decimal_precision : int, optional
             Rounding precision for the ionization fraction, by default 10.
         gsra : bool, optional
@@ -198,7 +280,7 @@ class SahaBoltzmann():
         y : NDArray[np.float64]
             Corresponding intensities.
         """
-        temperature = np.atleast_1d(np.asarray(temperature, dtype=float))
+        temperature = self._temperature_array(temperature)
 
         # Broadcasting kT calculation
         kT = self.boltzmann_constant * temperature[:, None]
@@ -220,20 +302,20 @@ class SahaBoltzmann():
         location = []
         spectra = []
 
-        if len(ions) == 1:  # Hydrogen
-            Zind = (ionization == ions[0])
-            peak_intensity = intensity_constant * peak_loc[Zind][None,:]**-1 * gA[Zind][None,:] * np.exp(-Ek[Zind][None,:] / kT)
-            overall_intensity = ci[:, None] * peak_intensity
+        for iv, ion in enumerate(ions):
+            Zind = (ionization == ion)
+            stage_partition = np.clip(Zi[:, [iv]], 10.0 ** (-decimal_precision), None)
+            boltzmann_weight = np.exp(-Ek[Zind][None, :] / kT)
+            peak_intensity = (
+                intensity_constant
+                * peak_loc[Zind][None, :]**-1
+                * gA[Zind][None, :]
+                * boltzmann_weight
+                / stage_partition
+            )
+            overall_intensity = ci[:, [iv]] * peak_intensity
             spectra.append(overall_intensity)
             location.append(np.tile(peak_loc[Zind], (len(temperature), 1)))
-
-        else: # Non-hydrogen elements
-            for iv, ion in enumerate(ions):
-                Zind = (ionization == ion)
-                peak_intensity = intensity_constant * peak_loc[Zind][None,:]**-1 * gA[Zind][None,:] * np.exp(-Ek[Zind][None,:] / kT)
-                overall_intensity = ci[:, iv, None] * peak_intensity
-                spectra.append(overall_intensity)
-                location.append(np.tile(peak_loc[Zind], (len(temperature), 1)))
 
         x = np.concatenate(location, axis=-1)
         y = np.concatenate(spectra, axis=-1)

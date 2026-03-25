@@ -15,7 +15,7 @@ This installs `alibz` as an editable package with all dependencies (numpy, scipy
 | Module | Description |
 |---|---|
 | `alibz.peaky_finder` | Peak detection, FFT background removal, multi-Voigt fitting |
-| `alibz.peaky_indexer` | Peak-to-element matching, MILP composition solver |
+| `alibz.peaky_indexer` | Peak-to-element matching and MILP spectrum/reference scaling |
 | `alibz.peaky_fitter` | Extended fitting with temperature estimation |
 | `alibz.peaky_maker` | Forward spectral synthesis via Saha-Boltzmann |
 | `alibz.peaky_corpus` | Batch loading, standardization, width statistics |
@@ -29,7 +29,6 @@ from alibz import PeakyFinder, PeakyIndexer
 
 # Load data and fit spectra
 finder = PeakyFinder("path/to/raw/data")
-finder.data.load_data()
 results = finder.fit_spectrum_data(sample_index, n_sigma=1)
 
 # Match peaks to elemental database entries

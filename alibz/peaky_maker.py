@@ -1,5 +1,6 @@
 import pickle
 import datetime
+import os
 import numpy as np
 from scipy.special import voigt_profile as voigt
 
@@ -30,6 +31,33 @@ class PeakyMaker():
         self.speed_c = SPEED_OF_LIGHT
         self.me = ELECTRON_MASS
 
+    def _normalize_focus_elements(self, focus_el):
+        """Validate and de-duplicate the public element-selection input."""
+        if focus_el is None:
+            return list(self.db.elements)
+
+        if isinstance(focus_el, str):
+            focus_list = [focus_el]
+        else:
+            focus_list = list(focus_el)
+
+        if len(focus_list) == 0:
+            raise ValueError("focus_el must contain at least one element when provided")
+
+        # Preserve order while removing duplicates.
+        focus_list = list(dict.fromkeys(focus_list))
+        invalid = [el for el in focus_list if el not in self.db.elements]
+        if invalid:
+            raise ValueError(f"Unknown element symbols: {invalid}")
+
+        return focus_list
+
+
+    def _abundance_array(self):
+        """Return natural abundances in the database element order."""
+        return np.array([self.db.elem_abund[el] for el in self.db.elements], dtype=float)
+
+
     def K2eV(self, temperature):
         """Convert Kelvin to electronvolts.
 
@@ -43,8 +71,7 @@ class PeakyMaker():
         float
             Temperature in electronvolts.
         """
-
-        TeV = temperature / self.boltzmann_constant
+        TeV = np.asarray(temperature) * self.boltzmann_constant
         return TeV
 
     def eV2K(self, temperature):
@@ -60,8 +87,7 @@ class PeakyMaker():
         float
             Temperature in Kelvin.
         """
-
-        TK = temperature * self.boltzmann_constant
+        TK = np.asarray(temperature) / self.boltzmann_constant
         return TK
 
     def peak_maker(
@@ -171,7 +197,7 @@ class PeakyMaker():
         abund_scale=0.5,
         temp=10000,
         temp_vary=False,
-        ne=10**17,
+        ne=17,
         inc=1 / 30,
         w_lo=180,
         w_hi=961 + (1 / 30),
@@ -192,7 +218,8 @@ class PeakyMaker():
         n_delta : int, optional
             Allowed variation in the number of elements.
         abundance : str, optional
-            Method used to assign element abundances.
+            Method used to assign element abundances. Supported values are
+            ``"equal"``, ``"random"``, and ``"natural"``.
         abund_scale : float, optional
             Maximum variation factor applied to abundances.
         temp : float, optional
@@ -200,7 +227,7 @@ class PeakyMaker():
         temp_vary : bool, optional
             If ``True`` vary the temperature of each spectrum.
         ne : float, optional
-            Electron density in ``cm**-3``.
+            Base-10 logarithm of the electron density in ``cm**-3``.
         inc : float, optional
             Spectral wavelength resolution in nanometers.
         w_lo : float, optional
@@ -221,73 +248,100 @@ class PeakyMaker():
         Returns
         -------
         tuple
-            ``(elem_symb, fracs, wave, x_data, y_data)`` where ``elem_symb`` are
-            the element symbols used.
+            ``(elem_symb, fracs, wave, x_data, y_data)`` where:
+            - ``elem_symb`` is the element list corresponding to the returned
+              fractions and per-element spectra
+            - ``fracs`` has shape ``(batch, len(elem_symb))``
+            - ``x_data`` is the summed spectrum array with shape
+              ``(batch, len(wave))``
+            - ``y_data`` is the per-element spectrum array with shape
+              ``(batch, len(elem_symb), len(wave))``
         """
-        # Check element choices for consistency with the database
-        max_elem = self.max_z
-        if len(focus_el):
-            max_elem = len(focus_el)
-            if not all (x in self.elements for x in focus_el):
-                print(self.elements)
-                raise ValueError(f"Elements must be in the valid elements list")
-        else:
-            focus_el = self.elements
-            max_elem = len(focus_el)
+        elem_symb = self._normalize_focus_elements(focus_el)
+        max_elem = len(elem_symb)
+        if batch < 1:
+            raise ValueError("batch must be at least 1")
+        if n_elem < 1:
+            raise ValueError("n_elem must be at least 1")
         if n_elem + n_delta > max_elem:
             raise ValueError("n_elem + n_delta cannot exceed available elements") 
         if n_delta > n_elem-1:
             raise ValueError("n_delta must be less than n_elem to avoid empty samples")
         if abund_scale < 0 or abund_scale > 1:
             raise ValueError(f"abund_scale must lie on interval [0,1], {abund_scale} given")
+        if abundance not in {"equal", "random", "natural"}:
+            raise ValueError(f"Unsupported abundance mode {abundance!r}")
+        if inc <= 0:
+            raise ValueError("inc must be positive")
+        if w_hi <= w_lo:
+            raise ValueError("w_hi must be greater than w_lo")
+        if temp <= 0:
+            raise ValueError("temp must be positive")
+
+        all_elements = np.asarray(self.db.elements, dtype=object)
+        focus_indices = np.array([self.db.elements.index(el) for el in elem_symb], dtype=int)
         
         # Generate the element fractions
-        num_elem = (
-            n_elem
-            + np.round(2 * (n_delta + 0.5) * np.random.rand(batch) - (n_delta + 0.5))
-        ).astype(int)  # Number of elements drawn from possibilities
-        sample_el = [np.random.choice(focus_el, num_elem[i]) for i in range(batch)]  # List, not array
-        samp_mask = np.array(
-            [np.isin(self.elements, sample_el[i]) for i in range(batch)]
-        )  # Fraction arrays for ``peak_maker`` with shape ``(batch, max_z)``
+        min_elem = max(1, n_elem - n_delta)
+        max_draw = min(max_elem, n_elem + n_delta)
+        num_elem = np.random.randint(min_elem, max_draw + 1, size=batch)
+        sample_el = [
+            np.random.choice(elem_symb, num_elem[i], replace=False)
+            for i in range(batch)
+        ]
+        samp_mask_full = np.array(
+            [np.isin(all_elements, sample_el[i]) for i in range(batch)],
+            dtype=float,
+        )
         
         if abundance == "natural":  # Pull natural crustal element abundance data from .csv
-            sample_abund = self.elem_abund * samp_mask  # Rightmost dimension is ``max_z`` for broadcasting
-        else:  # Randomly assign element abundance
-            sample_abund = np.random.rand(len(self.elements)) * samp_mask  # Rightmost dimension is ``max_z`` for broadcasting
+            sample_abund = self._abundance_array()[None, :] * samp_mask_full
+        elif abundance == "equal":
+            sample_abund = samp_mask_full.copy()
+        else:
+            sample_abund = np.random.rand(batch, self.max_z) * samp_mask_full
         
-        sample_var = 2 * abund_scale * (np.random.rand(batch, len(self.elements)) - 0.5)  # Allowed variation in sample abundance
-        sample_fracs = sample_abund * (1 + sample_var)  # Varied fractions
-        fracs = sample_fracs / np.sum(sample_fracs, axis=1, keepdims=True)  # Normalize fractions to one
+        sample_var = 2 * abund_scale * (np.random.rand(batch, self.max_z) - 0.5)
+        sample_fracs_full = sample_abund * (1 + sample_var)
+
+        zero_rows = np.sum(sample_fracs_full, axis=1) <= 0
+        if np.any(zero_rows):
+            sample_fracs_full[zero_rows] = samp_mask_full[zero_rows]
+
+        fracs_full = sample_fracs_full / np.sum(sample_fracs_full, axis=1, keepdims=True)
+        fracs = fracs_full[:, focus_indices]
 
         wave = np.arange(w_lo, w_hi, inc)  # Only needed for correct length
-        x_data = np.zeros((batch, len(wave)))
-        y_data = np.zeros((batch, len(focus_el), len(wave)))
-        elem_symb = focus_el
+        x_data = np.zeros((batch, len(wave)), dtype=float)
+        y_data = np.zeros((batch, len(elem_symb), len(wave)), dtype=float)
         
-        if temp_vary==True:
-            temp = temp + 1000*(np.random.randint(-5,6,size=batch))
+        if temp_vary:
+            temperatures = float(temp) + 1000 * np.random.randint(-5, 6, size=batch)
         else:
-            temp = temp*np.ones(batch)
+            temperatures = float(temp) * np.ones(batch)
 
-        if voigt_vary==True:
-            voigt_sig = voigt_sig + (np.random.rand(batch) - voigt_range)
-            voigt_gam = voigt_gam + (np.random.rand(batch) - voigt_range)
+        if voigt_vary:
+            voigt_sig_arr = voigt_sig + np.random.uniform(-voigt_range, voigt_range, size=batch)
+            voigt_gam_arr = voigt_gam + np.random.uniform(-voigt_range, voigt_range, size=batch)
         else:
-            voigt_sig = voigt_sig*np.ones(batch)
-            voigt_gam = voigt_gam*np.ones(batch)
+            voigt_sig_arr = voigt_sig * np.ones(batch)
+            voigt_gam_arr = voigt_gam * np.ones(batch)
+
+        voigt_sig_arr = np.clip(voigt_sig_arr, np.finfo(float).eps, None)
+        voigt_gam_arr = np.clip(voigt_gam_arr, np.finfo(float).eps, None)
 
         for i in np.arange(batch):
-            wave, x_data[i], y_data[i] = self.peak_maker(
-                fracs=fracs[i],
+            wave, x_data[i], element_spectra = self.peak_maker(
+                fracs=fracs_full[i],
                 inc=inc,
-                temp=temp[i],
+                temperature=temperatures[i],
                 w_lo=w_lo,
                 w_hi=w_hi,
                 ne=ne,
-                voigt_sig=voigt_sig[i],  # Standard deviation of the Gaussian part of the Voigt profile
-                voigt_gam=voigt_gam[i],  # Half width at half maximum of the Lorentzian part
+                voigt_sig=voigt_sig_arr[i],
+                voigt_gam=voigt_gam_arr[i],
             )
+            y_data[i] = element_spectra[focus_indices]
 
         return elem_symb, fracs, wave, x_data, y_data
     
@@ -303,6 +357,7 @@ class PeakyMaker():
         n_delta=0,
         dtype="float16",
         keep_y=True,
+        out_dir="training",
     ):
         """Export a batch of spectra as a pickle file.
 
@@ -326,11 +381,18 @@ class PeakyMaker():
             Data type used when writing the file.
         keep_y : bool, optional
             When ``False`` omit the per-element spectra from the pickle file.
+        out_dir : str, optional
+            Directory used for the exported pickle file. Created if needed.
+
+        Returns
+        -------
+        str
+            Path to the written pickle file.
         """
         if els:
-            pass
+            focus_el = els
         else:
-            els = [
+            focus_el = [
                 'H', 'He',  # Row 1
                 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne',  # Row 2
                 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',  # Row 3
@@ -342,29 +404,42 @@ class PeakyMaker():
                 'Fr', 'Ra', 'Ac', 'Th', 'Pa', 'U',  # Th,Pa,U removed
             ]
         
-        elem_symb, fracs, wave, x_data, y_data = self.batch_maker(batch=batchnum,
-                                                         focus_el=els, 
-                                                         inc=1/30,
-                                                         w_lo=180,
-                                                         w_hi=962,
-                                                         n_elem=n_elem, 
-                                                         n_delta=n_delta,
-                                                         abund_scale=1,
-                                                         voigt_vary=voigt_vary,
-                                                         temp=temp,
-                                                         temp_vary=temp_vary,
-                                                         )
-        if keep_y == False:
-            y_data = None
+        elem_symb, fracs, wave, x_data, y_data = self.batch_maker(
+            batch=batchnum,
+            focus_el=focus_el,
+            inc=1 / 30,
+            w_lo=180,
+            w_hi=962,
+            n_elem=n_elem,
+            n_delta=n_delta,
+            abund_scale=1,
+            voigt_vary=voigt_vary,
+            temp=temp,
+            temp_vary=temp_vary,
+        )
 
-        elnum = np.sum(fracs>0)
+        dtype_np = np.dtype(dtype)
+        fracs = fracs.astype(dtype_np)
+        wave = wave.astype(dtype_np)
+        x_data = x_data.astype(dtype_np)
+
+        if keep_y is False:
+            y_data = None
+        else:
+            y_data = y_data.astype(dtype_np)
+
+        active_elements = int(np.count_nonzero(np.any(fracs > 0, axis=0)))
 
         now_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')  # Timestamp string
-        dname = f'{batchnum}spectra_{elnum}els_{int(temp/1000)}kK_Tvary{temp_vary}_{now_time}.pickle'
-        with open(f'training/' + dname, 'wb') as f:
+        dname = f'{batchnum}spectra_{active_elements}els_{int(float(temp)/1000)}kK_Tvary{temp_vary}_{now_time}.pickle'
+        os.makedirs(out_dir, exist_ok=True)
+        out_path = os.path.join(out_dir, dname)
+        with open(out_path, 'wb') as f:
             pickle.dump(fracs, f)
             pickle.dump(wave, f)
             pickle.dump(x_data, f)
             pickle.dump(y_data, f)
             pickle.dump(elem_symb, f)
             pickle.dump(temp, f)
+
+        return out_path
