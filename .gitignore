@@ -6,6 +6,7 @@ db/
 
 # Python bytecode
 __pycache__/
+.venv/
 
 # Build/install artifacts
 *.egg-info/
@@ -16,8 +17,9 @@ build/
 peaky_analyzer.ipynb
 peaky_tester.ipynb
 
-# Large result files
-jobs/*.pkl
+# Pickle files
+*.pickle
+*.pkl
 
 # Memory-mapped data
 corpus_raw.dat

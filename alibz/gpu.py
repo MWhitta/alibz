@@ -287,10 +287,12 @@ def extract_windows_gpu(spectra, wavelength, peak_params_list, half_window,
                                    len(int_win))
             int_win -= baseline
 
-            peak_max = float(cp.max(int_win))
-            if peak_max <= 0:
+            # Normalise to unit peak height (match CPU path in peaky_pca.py)
+            peak_range = float(cp.max(int_win) - cp.min(int_win))
+            if peak_range <= 0:
                 continue
-            int_win /= peak_max
+            int_win -= cp.min(int_win)
+            int_win /= peak_range
 
             # Resample to fixed grid (transfer to CPU for interp1d)
             wl_np = cp.asnumpy(wl_win)

@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -46,6 +47,39 @@ class TestPeakyFinderFast(unittest.TestCase):
         finder.data.get_data.assert_called_once_with()
         mock_fit.assert_called_once()
         self.assertIs(result, expected)
+
+    def test_fit_peaks_handles_upper_edge_window_bounds(self) -> None:
+        finder = PeakyFinder.__new__(PeakyFinder)
+
+        x = np.linspace(0.0, 1.0, 8)
+        y = np.array([0.0, 0.2, 0.4, 0.8, 1.6, 2.5, 3.0, 2.7], dtype=float)
+        peak_indices = np.array([6], dtype=int)
+
+        def fake_peak_parameter_guess(data, idx):
+            idx_arr = np.asarray(idx)
+            if idx_arr.ndim == 0:
+                return 3.0, 2.0, 1.0, len(data), 1
+
+            shape = idx_arr.shape
+            return (
+                np.full(shape, 3.0),
+                np.full(shape, 2.0),
+                np.full(shape, 1.0),
+                np.full(shape, len(data)),
+                np.full(shape, 1),
+            )
+
+        finder.peak_parameter_guess = fake_peak_parameter_guess
+        finder.find_peaks = lambda arr: (np.array([5], dtype=int), np.array([], dtype=int))
+
+        with patch(
+            "alibz.peaky_finder.least_squares",
+            return_value=SimpleNamespace(x=np.array([1.0, x[6], 0.05, 0.02])),
+        ) as mock_least_squares:
+            result = finder.fit_peaks(x, y, peak_indices, fast=False)
+
+        self.assertTrue(mock_least_squares.called)
+        self.assertIn(6, result)
 
     def test_fit_spectrum_handles_empty_peak_dictionary(self) -> None:
         finder = PeakyFinder.__new__(PeakyFinder)

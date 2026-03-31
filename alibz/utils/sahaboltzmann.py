@@ -289,7 +289,7 @@ class SahaBoltzmann():
         ionization, peak_loc, gA, Ek = self.db.lines(element)[:, [0, 1, 3, 5]].T.astype(float)
 
         if time_gated:
-            gA = self.time_gated(element, time_0=time_0, time_f=time_f, t_step=t_step)
+            gA = gA * self.time_gated(element, time_0=time_0, time_f=time_f, t_step=t_step)
         
         if gsra:
             gA = gA * self.ground_state_resonant_absorption(element)

@@ -374,7 +374,10 @@ class PeakyFinder():
             args=(x_autokernel, autokernel_norm, self.multi_voigt),
         )
         params = result.x
-        pcov = np.linalg.inv(result.jac.T.dot(result.jac))
+        try:
+            pcov = np.linalg.inv(result.jac.T.dot(result.jac))
+        except np.linalg.LinAlgError:
+            pcov = np.full((len(params), len(params)), np.inf)
 
         if plot:
             plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
@@ -661,8 +664,9 @@ class PeakyFinder():
                             continue
 
                     # define fit bounds
+                    right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
                     lower_bounds = np.array([0, x[node_left], 0, 0] * window_peak_num )
-                    upper_bounds = np.array([1, x[node_right], fwhm_limit, fwhm_limit] * window_peak_num )
+                    upper_bounds = np.array([1, x[right_bound_idx], fwhm_limit, fwhm_limit] * window_peak_num )
 
                     # define initial parameter guesses
                     x0 = np.zeros((window_peak_num, 4))
@@ -763,8 +767,9 @@ class PeakyFinder():
             
             # define fit bounds
             dx = inc * (node_right - node_left)
+            right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
             lower_bounds = [0, x[node_left], 0, 0] * window_shoulders_num
-            upper_bounds = [0, x[node_right], dx, dx] * window_shoulders_num
+            upper_bounds = [0, x[right_bound_idx], dx, dx] * window_shoulders_num
             
             # define initial parameter guesses
             x0 = np.zeros((window_shoulders_num, 4))
@@ -846,43 +851,47 @@ class PeakyFinder():
 
         _, _, _, node_right_arr, node_left_arr = self.peak_parameter_guess(y, idxs)
 
-        for idx, node_right, node_left in zip(idxs, node_right_arr, node_left_arr):
-            if idx > 0:
-                idx_left_range, idx_right_range = idx - node_left, node_right - idx
-                if idx_left_range > 50:
-                    node_left = idx - 50
-                if idx_right_range > 50:
-                    node_right = idx + 50
-                x_window = x[node_left:node_right]
-                y_window = y[node_left:node_right]
-                known_peaks_inrange = idxs[(idxs >= node_left) & (idxs <= node_right)]
-                refit_peak_num = len(known_peaks_inrange)
-                
-                x0 = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
-                lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
+        processed = np.zeros(len(idxs), dtype=bool)
 
-                lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
-                bounds = (lower_bounds, upper_bounds)
+        for ii, (idx, node_right, node_left) in enumerate(zip(idxs, node_right_arr, node_left_arr)):
+            if processed[ii]:
+                continue
+            idx_left_range, idx_right_range = idx - node_left, node_right - idx
+            if idx_left_range > 50:
+                node_left = idx - 50
+            if idx_right_range > 50:
+                node_right = idx + 50
+            x_window = x[node_left:node_right]
+            y_window = y[node_left:node_right]
+            known_peaks_inrange = idxs[(idxs >= node_left) & (idxs <= node_right)]
+            refit_peak_num = len(known_peaks_inrange)
 
-                try:
-                    popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')            
+            x0 = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
+            lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
 
-                    if refit_peak_num > 1:
-                        popt = np.reshape(popt.x, (refit_peak_num, 4))
-                        for k, v in zip(known_peaks_inrange, popt):
-                            peak_dictionary.update({k : v})
-                    else:
-                        peak_dictionary.update({known_peaks_inrange[0] : popt.x})
-                            
-                except (RuntimeError, TypeError, ValueError) as e:
-                    print(f"An error occurred during full fitting: {e}")
+            lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+            bounds = (lower_bounds, upper_bounds)
 
-                idxs *= idxs > node_right
+            try:
+                popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')
+
+                if refit_peak_num > 1:
+                    popt = np.reshape(popt.x, (refit_peak_num, 4))
+                    for k, v in zip(known_peaks_inrange, popt):
+                        peak_dictionary.update({k : v})
+                else:
+                    peak_dictionary.update({known_peaks_inrange[0] : popt.x})
+
+            except (RuntimeError, TypeError, ValueError) as e:
+                print(f"An error occurred during full fitting: {e}")
+
+            # Mark all peaks in this window as processed
+            processed |= (idxs >= node_left) & (idxs <= node_right)
 
         return peak_dictionary
 
 
-    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, skip_profile=False, *kwargs):
+    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, skip_profile=False, **kwargs):
         """Fit a LIBS spectrum.
 
         Uses :meth:`fourier_peaks`, :meth:`fit_peaks`, :meth:`fit_shoulders`,
@@ -903,7 +912,7 @@ class PeakyFinder():
             If ``True``, plot the intermediate and final results.
         verbose : bool, optional
             If ``True``, print progress messages.
-        *kwargs : dict
+        **kwargs : dict
             Additional keyword arguments to pass to the background subtraction or
             fitting methods.
         """
@@ -977,7 +986,7 @@ class PeakyFinder():
         else:
             sigmas, gammas = peak_parameters[:, 2:4].T
             widths = self.voigt_width(sigmas, gammas)
-            median_fwhm = float(np.median(widths) * inc)
+            median_fwhm = float(np.median(widths))
 
         for key, value in peak_dictionary.items():
             if value[2] < inc / 2:
@@ -1039,7 +1048,7 @@ class PeakyFinder():
         return fit_dict
     
 
-    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=True, *kwargs):
+    def fit_spectrum_data(self, s, n_sigma=0, subtract_background=True, plot=True, **kwargs):
         """Fit a LIBS spectrum using the :meth:`fit_spectrum` method with data loaded from a :class:`~utils.dataloader.Data` object.
 
         Parameters
@@ -1053,7 +1062,7 @@ class PeakyFinder():
             If ``True``, subtract the background from the spectrum before fitting.
         plot : bool, optional
             If ``True``, plot the intermediate and final results.
-        *kwargs : dict
+        **kwargs : dict
             Additional keyword arguments to pass to the background subtraction or
             fitting methods.
         """
@@ -1064,7 +1073,7 @@ class PeakyFinder():
         if isinstance(s, Integral):
             x = data[0]
             y = data[1]
-            fit_dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+            fit_dict = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, **kwargs)
 
         elif isinstance(s, slice):
             data_length = len(data)
@@ -1075,7 +1084,7 @@ class PeakyFinder():
             for d in range(data_length):
                 x = data[d][0]
                 y = data[d][1]
-                result = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, *kwargs)
+                result = self.fit_spectrum(x, y, n_sigma=n_sigma, subtract_background=subtract_background, plot=plot, **kwargs)
                 fit_dict['spectrum_' + str(d)] = result
         else:
             raise TypeError("s must be an integer index or a slice")

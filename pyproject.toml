@@ -12,6 +12,7 @@ dependencies = [
     "numpy",
     "scipy",
     "scikit-learn",
+    "scikit-optimize",
     "matplotlib",
     "pulp",
 ]
@@ -26,6 +27,7 @@ gpu = [
 
 [project.scripts]
 run-corpus-pca = "alibz.run_corpus_pca:main"
+background-pca = "alibz.background_pca:main"
 
 [tool.setuptools.packages.find]
 include = ["alibz*"]
