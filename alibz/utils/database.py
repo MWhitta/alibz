@@ -62,7 +62,8 @@ class Database():
     def ionization_energy(self, el, ion=0):
         ionization_array = self.ion[el]
         if ion:
-            ion_mask = ionization_array[:, 0].astype(float).astype(int) == ion
+            ion_stage = int(ion)
+            ion_mask = ionization_array[:, 1].astype(float).astype(int) == ion_stage - 1
             ionization_array = ionization_array[ion_mask]
         return ionization_array
     

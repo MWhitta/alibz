@@ -164,10 +164,9 @@ elemental concentrations, plasma temperature, and electron density.
 
 ### Current status: experimental research prototype
 
-The legacy `peaky_indexer.py` and `peaky_indexer_v2.py` paths have been
-retired as active development targets and remain only as deprecated
-compatibility shims. The v3 whole-pattern solver is the single indexing
-path going forward, but it is not yet reliable enough for quantitative use.
+The legacy pre-v3 indexer paths have been removed. The v3 whole-pattern
+solver is the single indexing path going forward, but it is not yet
+reliable enough for quantitative use.
 
 ### What needs to happen next
 
@@ -246,7 +245,7 @@ coordinates, timestamps) and returns comprehensive chemometrics:
 
 ### Current status: ~30% — research prototype only
 
-The `run_corpus_pca.py` CLI can batch-process a corpus of spectra through
+The `run-corpus-pca` CLI can batch-process a corpus of spectra through
 the peak-fitting and PCA pipeline, but there is no inference pathway for
 new spectra and no spatial/temporal analysis.
 

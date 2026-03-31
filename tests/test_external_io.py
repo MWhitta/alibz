@@ -69,6 +69,18 @@ class TestExternalIO(unittest.TestCase):
         self.assertIn("H", db.elements)
         self.assertTrue(len(db.no_lines) > 0)
 
+    def test_database_ionization_energy_filters_by_ion_stage(self) -> None:
+        db = Database("db")
+
+        stage_1 = db.ionization_energy("Fe", ion=1)
+        stage_2 = db.ionization_energy("Fe", ion=2)
+
+        self.assertEqual(stage_1.shape, (1, 3))
+        self.assertEqual(stage_2.shape, (1, 3))
+        self.assertEqual(int(float(stage_1[0, 1])), 0)
+        self.assertEqual(int(float(stage_2[0, 1])), 1)
+        self.assertLess(float(stage_1[0, 2]), float(stage_2[0, 2]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -163,7 +163,7 @@ EOF
 # Launch a run:
 export LD_LIBRARY_PATH=~/anaconda3/envs/peakyfinder/lib/python3.11/site-packages/nvidia/cuda_nvrtc/lib
 cd ~/src/alibz
-~/anaconda3/envs/peakyfinder/bin/python -u alibz/run_corpus_pca.py \
+~/anaconda3/envs/peakyfinder/bin/python -u scripts/run_corpus_pca.py \
   /media/mwhittaker/Corpus_One/All_LIBS_Till_20260319 \
-  --gpu --out corpus_pca_all_libs.pkl
+  --gpu --out data/corpus_pca_all_libs.pkl
 ```

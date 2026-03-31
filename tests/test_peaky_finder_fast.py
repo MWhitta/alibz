@@ -136,6 +136,46 @@ class TestPeakyFinderFast(unittest.TestCase):
         np.testing.assert_allclose(result['background'], y)
         np.testing.assert_allclose(result['profile'], np.zeros_like(y))
 
+    def test_fit_spectrum_forwards_background_kwargs(self) -> None:
+        finder = PeakyFinder.__new__(PeakyFinder)
+
+        class _Transformer:
+            lambdas_ = np.array([1.0])
+
+            def fit_transform(self, arr):
+                return np.asarray(arr, dtype=float)
+
+        x = np.linspace(400.0, 401.0, 32)
+        y = np.sin(np.linspace(0.0, 2.0 * np.pi, x.size)) ** 2 + 1.0
+        bg = np.linspace(0.0, 0.1, x.size)
+
+        with patch.object(PeakyFinder, 'find_background', return_value=bg) as mock_bg:
+            with patch.object(
+                PeakyFinder,
+                'fourier_peaks',
+                return_value=(
+                    np.array([], dtype=int),
+                    _Transformer(),
+                    np.array([], dtype=int),
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
+            ):
+                with patch.object(PeakyFinder, 'fit_peaks', return_value={}):
+                    result = finder.fit_spectrum(
+                        x,
+                        y,
+                        subtract_background=True,
+                        plot=False,
+                        range=9,
+                    )
+
+        mock_bg.assert_called_once_with(x, y, range=9)
+        np.testing.assert_allclose(result['background'], bg)
+
 
 if __name__ == "__main__":
     unittest.main()

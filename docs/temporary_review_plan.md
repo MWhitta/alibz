@@ -47,7 +47,7 @@ Observed issues:
 Relevant files:
 - [alibz/peaky_fitter.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_fitter.py)
 - [alibz/peaky_finder.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_finder.py)
-- [alibz/peaky_indexer.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer.py)
+- [alibz/peaky_indexer_v3.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer_v3.py)
 - [alibz/peaky_maker.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_maker.py)
 
 Fix:
@@ -143,7 +143,7 @@ Problem:
   values are scale factors, not defensible abundances.
 
 Relevant files:
-- [alibz/peaky_indexer.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer.py)
+- [alibz/peaky_indexer_v3.py](/Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer_v3.py)
 
 Fix:
 - In the short term, rename outputs and documentation so the solver is not

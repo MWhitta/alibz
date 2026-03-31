@@ -14,12 +14,13 @@ dist/
 build/
 
 # Jupyter notebooks (if you don’t want them tracked)
-peaky_analyzer.ipynb
-peaky_tester.ipynb
+notebooks/peaky_analyzer.ipynb
+notebooks/peaky_tester.ipynb
 
 # Pickle files
 *.pickle
 *.pkl
+data/
 
 # Memory-mapped data
 corpus_raw.dat

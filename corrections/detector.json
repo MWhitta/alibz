@@ -1,0 +1,13 @@
+{
+    "instrument": "SciAps Z-300",
+    "detector_segments": 3,
+    "junctions_nm": [365.0, 620.0],
+    "junction_zone_half_width_nm": 5.0,
+    "blend_width_nm": 2.0,
+    "segments": [
+        {"index": 0, "wl_lo_nm": null, "wl_hi_nm": 365.0, "label": "UV"},
+        {"index": 1, "wl_lo_nm": 365.0, "wl_hi_nm": 620.0, "label": "VIS"},
+        {"index": 2, "wl_lo_nm": 620.0, "wl_hi_nm": null, "label": "NIR"}
+    ],
+    "notes": "Junction wavelengths determined empirically from corpus PCA noise-level analysis. UV/VIS boundary at 365 nm, VIS/NIR boundary at 620 nm."
+}

@@ -153,7 +153,9 @@ class SahaBoltzmann():
         """
         temperature = self._temperature_array(temperature)
         ne_log10 = float(ne)
-        ne_cm3 = 10**ne_log10
+        # The public API takes log10(ne / cm^-3), but the thermal de Broglie
+        # wavelength below is computed in meters, so convert density to m^-3.
+        ne_m3 = 10**ne_log10 * 1e6
 
         kT = self.boltzmann_constant * temperature[:, None]
         lamb = self.plank_constant / np.sqrt(2 * np.pi * self.me * kT / self.speed_c**2)
@@ -181,7 +183,7 @@ class SahaBoltzmann():
             if np.any(Eind):
                 Ei[:, ii] = Eion[Eind, -1][0]
 
-        saha_prefactor = 2.0 * lamb[:, 0]**-3 / ne_cm3
+        saha_prefactor = 2.0 * lamb[:, 0]**-3 / ne_m3
         min_partition = 10.0 ** (-decimal_precision)
 
         for iii in range(len(ions) - 1):

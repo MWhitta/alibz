@@ -26,10 +26,10 @@ pip install -e ".[gpu]"
 | `alibz.peaky_corpus` | Batch loading, standardisation, parallel fitting, width statistics |
 | `alibz.peaky_pca` | PCA peak-shape decomposition and broadening classification |
 | `alibz.background_pca` | Corpus-level PCA for detector artifact and baseline removal |
+| `alibz.detector` | Three-segment detector model: junction detection, artifact removal, segmented background subtraction |
 | `alibz.utils` | Physical constants, Voigt utilities, NIST database interface, Saha-Boltzmann solver |
 
-Legacy `alibz.peaky_indexer` and `alibz.peaky_indexer_v2` are deprecated
-compatibility shims that route to v3. `PeakyFitter` has been removed.
+`alibz.peaky_indexer_v3` is the only indexer module. `PeakyFitter` has been removed.
 
 ## Quick Start
 
@@ -61,8 +61,8 @@ run-corpus-pca /path/to/libs/data \
     --n-components 5 \
     --workers 4 \
     --timeout 120 \
-    --fit-checkpoint fits.pkl \
-    --out results.pkl
+    --fit-checkpoint data/fits.pkl \
+    --out data/results.pkl
 ```
 
 ### Background / artifact PCA
@@ -71,15 +71,18 @@ run-corpus-pca /path/to/libs/data \
 background-pca /path/to/libs/data \
     --n-components 20 \
     --batch-size 200 \
-    --out bg_pca.pkl
+    --out data/bg_pca.pkl
 ```
 
 Both commands accept `--gpu` / `--no-gpu` flags and support multiple input directories.
 
 ## Notebooks
 
-- `peaky_demo_v1.ipynb` -- Peak finding, fitting, and elemental indexing workflow
-- `peaky_pca_demo.ipynb` -- PCA peak-shape analysis and broadening mechanism classification
+- `notebooks/peaky_demo_v1.ipynb` -- Peak finding, fitting, and elemental indexing workflow
+- `notebooks/peaky_data.ipynb` -- Corpus-level PCA, peak width statistics, peak-shape decomposition, and PC-based peak characterisation
+- `notebooks/peaky_syndexer.ipynb` -- End-to-end synthetic spectrum generation, fitting, and indexing stress tests
+- `notebooks/peaky_analyzer.ipynb` -- Interactive peak-shape and PCA analysis scratchpad
+- `notebooks/peaky_tester.ipynb` -- Interactive exploratory testing notebook
 
 ## Tests
 

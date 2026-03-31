@@ -913,8 +913,7 @@ class PeakyFinder():
         verbose : bool, optional
             If ``True``, print progress messages.
         **kwargs : dict
-            Additional keyword arguments to pass to the background subtraction or
-            fitting methods.
+            Additional keyword arguments passed to :meth:`find_background`.
         """
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
@@ -929,7 +928,7 @@ class PeakyFinder():
 
         if subtract_background:
             try:
-                bg = self.find_background(x, y, *kwargs)
+                bg = self.find_background(x, y, **kwargs)
             except (IndexError, RuntimeError, TypeError, ValueError):
                 bg = np.zeros_like(y)
             y_bgsub = y - bg
