@@ -995,14 +995,22 @@ class PeakyIndexerV3:
                 A_pseudo_norm *= pseudo_species_weights[np.newaxis, :]
                 pseudo_scale = np.sqrt(self._pseudo_obs_weight)
                 A_aug = np.vstack([A_aug, pseudo_scale * A_pseudo_norm[:, active]])
+                # Append pseudo zero-rows to the EXISTING augmented target, not to
+                # a fresh copy of _obs_amp: A_aug may already carry evidence-penalty
+                # rows (missing-mass / missing-count) whose matching zero entries in
+                # y_aug must be preserved, or nnls sees mismatched row counts.
                 y_aug = np.concatenate(
-                    [self._obs_amp, np.zeros(A_pseudo_norm.shape[0], dtype=float)]
+                    [y_aug, np.zeros(A_pseudo_norm.shape[0], dtype=float)]
                 )
             else:
                 A_pseudo_norm = np.empty((0, A.shape[1]), dtype=float)
         else:
             A_pseudo_norm = np.empty((0, A.shape[1]), dtype=float)
 
+        assert A_aug.shape[0] == y_aug.shape[0], (
+            f"augmented system row mismatch: A_aug has {A_aug.shape[0]} rows, "
+            f"y_aug has {y_aug.shape[0]}"
+        )
         c_norm, _residual = nnls(A_aug, y_aug)
 
         # Un-normalise: c_real = c_norm / col_max

@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+from scipy.signal import find_peaks
 
 from alibz import PeakyFinder, PeakyIndexer, PeakyMaker
 
@@ -91,6 +92,51 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         self.assertGreater(result.r_squared, 0.99)
         self.assertAlmostEqual(result.temperature, self.temperature, delta=1_200.0)
         self.assertAlmostEqual(result.ne, self.ne, delta=0.35)
+
+    def test_broadband_multielement_run_completes_with_evidence_and_pseudo(self) -> None:
+        """Regression: broadband multi-element fit must not crash under the
+        DEFAULT evidence + pseudo-observation kwargs.
+
+        When several species stay active, the evidence prefilter appends
+        missing-mass / missing-count penalty rows to the augmented design
+        matrix; the pseudo-observation branch previously rebuilt the target
+        vector from ``_obs_amp`` alone, dropping those rows and handing
+        ``nnls`` mismatched dimensions. Narrow-window tests never triggered it
+        because too few species remained active. This synthesises a wide
+        180-961 nm, six-element spectrum where the two branches co-fire.
+        """
+        fracs = np.zeros(self.maker.max_z, dtype=float)
+        composition = {"Ca": 0.30, "Fe": 0.25, "Na": 0.15, "Mg": 0.15, "Ti": 0.10, "Si": 0.05}
+        for element, fraction in composition.items():
+            fracs[self.maker.db.elements.index(element)] = fraction
+
+        wave, spec, _ = self.maker.peak_maker(
+            fracs,
+            temperature=9_000.0,
+            ne=16.5,
+            voigt_sig=0.09,
+            voigt_gam=0.09,
+        )
+        wave = np.asarray(wave, dtype=float)
+        pk, _ = find_peaks(spec, height=spec.max() * 1e-3, distance=4)
+        self.assertGreater(pk.size, 50)  # need a rich multi-species peak table
+        peaks = np.column_stack(
+            [spec[pk], wave[pk], np.full(pk.size, 0.09), np.full(pk.size, 0.09)]
+        )
+        peaks = peaks[np.argsort(peaks[:, 0])[::-1]]
+
+        # DEFAULT run() kwargs (pseudo_obs_weight=1.0, evidence penalties on).
+        result = PeakyIndexer(peaks).run(n_calls=10, verbose=False)
+
+        # Completed without ValueError and produced a sensible multi-species fit.
+        self.assertGreater(result.r_squared, 0.9)
+        self.assertGreaterEqual(int(np.sum(result.concentrations > 0)), 3)
+        top = [
+            result.species[idx].element
+            for idx in np.argsort(result.concentrations)[::-1]
+            if result.concentrations[idx] > 0
+        ]
+        self.assertIn("Ca", top[:6])
 
     def test_false_positive_suppression_reduces_active_species_on_vis_blend(self) -> None:
         fracs = np.zeros(self.maker.max_z, dtype=float)

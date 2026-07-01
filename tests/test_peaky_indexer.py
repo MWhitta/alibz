@@ -262,6 +262,42 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
 
         self.assertGreater(concentrations[0], concentrations[1])
 
+    def test_solve_concentrations_keeps_rows_aligned_when_evidence_and_pseudo_cofire(self):
+        """Regression (unit level): evidence-penalty rows and pseudo rows must
+        both extend y_aug; rebuilding y_aug from _obs_amp at the pseudo step
+        hands nnls mismatched dimensions."""
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        idx._evidence_top_k = 4
+        idx._evidence_strong_line_rel_threshold = 0.5
+        idx._evidence_presence_threshold = 0.25
+        idx._evidence_missing_mass_weight = 0.25
+        idx._evidence_missing_count_weight = 0.1
+        idx._pseudo_obs_weight = 1.0
+        idx.line_table = _FakeLineTable(
+            [
+                Species("Ca", 1, 20, 1.0, 0, 2),
+                Species("Nd", 2, 60, 1.0, 2, 6),
+            ],
+            wavelengths=[500.0, 510.0, 500.0, 520.0, 530.0, 540.0],
+            species_idx=[0, 0, 1, 1, 1, 1],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 0], [0, 2])),
+            shape=(1, 6),
+        )
+        idx.pseudo_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 1], [1, 3])),
+            shape=(2, 6),
+        )
+        idx._line_weights = lambda _temperature, _log_ne: np.ones(6, dtype=float)
+
+        concentrations, cost = idx._solve_concentrations(10_000.0, 17.0)
+
+        self.assertEqual(concentrations.shape, (2,))
+        self.assertTrue(np.all(np.isfinite(concentrations)))
+        self.assertTrue(np.all(concentrations >= 0.0))
+        self.assertTrue(np.isfinite(cost))
+
     def test_postfit_prune_refit_removes_bad_active_species(self):
         idx = PeakyIndexer(
             np.array(
