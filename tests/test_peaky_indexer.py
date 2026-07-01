@@ -358,6 +358,105 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         self.assertTrue(np.all(concentrations >= 0.0))
         self.assertTrue(np.isfinite(cost))
 
+    def test_degenerate_solve_cost_is_sum_of_squares(self):
+        """When every species column is numerically inactive the returned
+        cost must be the SSE of the all-zero model (squared units), not the
+        L2 norm — otherwise degenerate (T, ne, sigma, gamma) trials look
+        spuriously good to the outer optimiser."""
+        idx = PeakyIndexer(
+            np.array(
+                [
+                    [2.0, 500.0, 0.05, 0.05],
+                    [3.0, 510.0, 0.05, 0.05],
+                ]
+            )
+        )
+        idx.line_table = _FakeLineTable(
+            [Species("Ca", 1, 20, 1.0, 0, 1)],
+            wavelengths=[500.0],
+            species_idx=[0],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0], ([0], [0])),
+            shape=(2, 1),
+        )
+        idx._line_weights = lambda _temperature, _log_ne: np.zeros(1, dtype=float)
+
+        concentrations, cost = idx._solve_concentrations(10_000.0, 17.0)
+
+        np.testing.assert_array_equal(concentrations, [0.0])
+        self.assertAlmostEqual(cost, 2.0 ** 2 + 3.0 ** 2)
+
+    def test_returned_cost_matches_full_inner_objective(self):
+        """The cost handed to the outer optimiser must equal the functional
+        the NNLS minimised: data SSE + evidence ridge + pseudo cost."""
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        idx._evidence_top_k = 4
+        idx._evidence_strong_line_rel_threshold = 0.5
+        idx._evidence_presence_threshold = 0.25
+        idx._evidence_missing_mass_weight = 0.25
+        idx._evidence_missing_count_weight = 0.1
+        idx._pseudo_obs_weight = 1.0
+        idx.line_table = _FakeLineTable(
+            [
+                Species("Ca", 1, 20, 1.0, 0, 2),
+                Species("Nd", 2, 60, 1.0, 2, 6),
+            ],
+            wavelengths=[500.0, 510.0, 500.0, 520.0, 530.0, 540.0],
+            species_idx=[0, 0, 1, 1, 1, 1],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 0], [0, 2])),
+            shape=(1, 6),
+        )
+        idx.pseudo_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 1], [1, 3])),
+            shape=(2, 6),
+        )
+        idx._line_weights = lambda _temperature, _log_ne: np.ones(6, dtype=float)
+
+        concentrations, cost = idx._solve_concentrations(10_000.0, 17.0)
+
+        data_sse = float(np.sum((idx._obs_amp - idx._last_A @ concentrations) ** 2))
+        evidence = idx._last_species_evidence
+        c_norm = concentrations * idx._last_col_max
+        ridge = float(
+            np.sum(
+                idx._evidence_missing_mass_weight
+                * np.maximum(evidence["missing_mass"], 0.0)
+                * c_norm ** 2
+            )
+        ) + float(
+            np.sum(
+                idx._evidence_missing_count_weight
+                * np.maximum(evidence["strong_missing_count"], 0.0)
+                * c_norm ** 2
+            )
+        )
+        self.assertGreater(ridge, 0.0)
+        self.assertGreater(idx._last_pseudo_cost, 0.0)
+        self.assertAlmostEqual(cost, data_sse + ridge + idx._last_pseudo_cost, places=10)
+
+    def test_fit_handles_empty_species_table(self):
+        idx = PeakyIndexer(np.array([[2.0, 500.0, 0.05, 0.05]]))
+        idx.line_table = _FakeLineTable([], wavelengths=[], species_idx=[])
+        idx.peak_line_map = scipy.sparse.csr_matrix((1, 0))
+        idx._line_weights = lambda _temperature, _log_ne: np.empty(0, dtype=float)
+        idx._rebuild_overlap = lambda _sigma, _gamma: None
+
+        with patch(
+            "skopt.gp_minimize",
+            return_value=SimpleNamespace(
+                x=[10_000.0, 17.0, 0.05, 0.05],
+                func_vals=np.array([4.0]),
+            ),
+        ):
+            result = idx.fit(n_calls=3, verbose=False)
+
+        self.assertEqual(result.concentrations.size, 0)
+        self.assertIsNone(result.peak_assignments[0]["element"])
+        self.assertEqual(result.element_fractions, {})
+
     def test_postfit_prune_refit_removes_bad_active_species(self):
         idx = PeakyIndexer(
             np.array(

@@ -932,12 +932,17 @@ class PeakyIndexerV3:
     ) -> Tuple[np.ndarray, float]:
         """NNLS solve for concentrations at fixed (T, nₑ).
 
-        Columns of the design matrix are normalised so that
-        concentrations are on a comparable scale.  This prevents
-        species with a single weak line from getting absurd
-        concentrations.
+        Columns of the design matrix are normalised for the solve so that
+        concentrations are on a comparable scale (this prevents species
+        with a single weak line from getting absurd concentrations), then
+        un-normalised so the returned concentrations are physical.
 
-        Returns (concentrations, residual_norm).
+        Returns ``(concentrations, cost)`` where *cost* is the full
+        objective value the NNLS minimised — data SSE plus the evidence
+        ridge penalties plus the pseudo-observation cost — so the outer
+        optimiser ranks (T, nₑ, σ, γ) by the same functional as the
+        inner solve.  Degenerate branches return the SSE of the all-zero
+        model in the same squared units.
         """
         lw = self._line_weights(temperature, log_ne)
         A = self._build_design_matrix(lw)
@@ -947,7 +952,8 @@ class PeakyIndexerV3:
             self._last_A_norm = A
             self._last_col_max = np.empty(0, dtype=float)
             self._last_species_evidence = None
-            return c, float(np.linalg.norm(self._obs_amp))
+            self._last_pseudo_cost = 0.0
+            return c, float(np.sum(self._obs_amp ** 2))
 
         raw_col_max = np.max(A, axis=0)
         active = raw_col_max > 1e-30
@@ -961,7 +967,8 @@ class PeakyIndexerV3:
             self._last_A_norm = A_norm
             self._last_col_max = col_max
             self._last_species_evidence = None
-            return c, float(np.linalg.norm(self._obs_amp))
+            self._last_pseudo_cost = 0.0
+            return c, float(np.sum(self._obs_amp ** 2))
 
         A_aug = A_norm[:, active]
         y_aug = self._obs_amp
@@ -1006,8 +1013,14 @@ class PeakyIndexerV3:
                     self._pseudo_species_weights,
                     dtype=float,
                 ).reshape(-1)
-                if pseudo_species_weights.shape != (A.shape[1],):
+                if pseudo_species_weights.size == 0:
+                    # Default unset state: no truncation reweighting.
                     pseudo_species_weights = np.ones(A.shape[1], dtype=float)
+                assert pseudo_species_weights.shape == (A.shape[1],), (
+                    f"pseudo species weights shape {pseudo_species_weights.shape} "
+                    f"does not match n_species ({A.shape[1]}); "
+                    "_select_pseudo_wavelengths must be re-run after species filtering"
+                )
                 A_pseudo_norm *= pseudo_species_weights[np.newaxis, :]
                 pseudo_scale = np.sqrt(self._pseudo_obs_weight)
                 A_aug = np.vstack([A_aug, pseudo_scale * A_pseudo_norm[:, active]])
@@ -1037,6 +1050,13 @@ class PeakyIndexerV3:
 
         predicted = A_norm[:, active] @ c_norm
         cost = float(np.sum((self._obs_amp - predicted) ** 2))
+        # Charge the evidence ridge terms that the NNLS minimised to the
+        # returned cost as well, so the outer (T, ne, sigma, gamma) search
+        # cannot hide misfit in penalties it is never billed for.
+        if missing_mass_rows.shape[0] > 0:
+            cost += float(np.sum((missing_mass_rows @ c_norm) ** 2))
+        if missing_count_rows.shape[0] > 0:
+            cost += float(np.sum((missing_count_rows @ c_norm) ** 2))
         if A_pseudo_norm.shape[0] > 0:
             pseudo_predicted = A_pseudo_norm[:, active] @ c_norm
             pseudo_cost = float(self._pseudo_obs_weight * np.sum(pseudo_predicted ** 2))
@@ -1272,7 +1292,7 @@ class PeakyIndexerV3:
         peak_assignments = []
         for i in range(self.n_peaks):
             contributions = A[i, :] * concentrations
-            if np.max(contributions) > 0:
+            if contributions.size and np.max(contributions) > 0:
                 best_s = int(np.argmax(contributions))
                 sp = self.line_table.species[best_s]
                 peak_assignments.append({
