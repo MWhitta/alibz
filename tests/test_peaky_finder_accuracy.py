@@ -15,11 +15,13 @@ from scipy.special import voigt_profile
 from alibz import PeakyFinder
 
 
-def _synth(lines, w_lo=390.0, w_hi=510.0, inc=0.01):
+def _synth(lines, w_lo=390.0, w_hi=510.0, inc=0.01, noise=0.0, seed=7):
     x = np.arange(w_lo, w_hi + inc, inc)
     y = np.zeros_like(x)
     for area, mu, sig, gam in lines:
         y += area * voigt_profile(x - mu, sig, gam)
+    if noise > 0:
+        y = y + np.random.default_rng(seed).normal(0.0, noise, size=y.size)
     return x, y
 
 
@@ -117,6 +119,65 @@ class TestFastPathAccuracy(unittest.TestCase):
             self.assertLess(row[2], 0.1, f"sigma sanity at {mu} nm")
             if abs(mu - 450.0) >= 1.0 or area == 1e6:
                 self.assertLess(abs(row[0] - area) / area, 0.25, f"area at {mu} nm")
+            else:
+                # Near-wing satellites (<1 nm from the 500x line) are the
+                # regime the pedestal repair mattered most for (+330-385%
+                # before); seed-quality wing shapes still limit them, but a
+                # regression back to flank-inherited amplitudes must fail.
+                self.assertLess(abs(row[0] - area) / area, 1.0, f"area at {mu} nm")
+
+
+class TestNoiseReferencedSignificance(unittest.TestCase):
+    """The noise machinery must work OUTSIDE the zero-noise limit, and the
+    noise scale must survive the corpus path's linear-interpolation
+    upsampling (lag-1 differences deflate by the upsampling factor)."""
+
+    def test_noise_scale_survives_interpolation_upsampling(self):
+        rng = np.random.default_rng(3)
+        sigma = 20.0
+        x_native = np.arange(200.0, 400.0, 0.0333)
+        y_native = rng.normal(0.0, sigma, size=x_native.size)
+        x_up = np.arange(200.0, 399.9, 0.01)
+        y_up = np.interp(x_up, x_native, y_native)
+
+        finder = PeakyFinder.__new__(PeakyFinder)
+        est_native = finder._noise_scale(y_native)
+        est_up = finder._noise_scale(y_up)
+        self.assertLess(abs(est_native - sigma) / sigma, 0.15)
+        self.assertLess(abs(est_up - sigma) / sigma, 0.35)
+
+    def test_noise_scale_nonzero_on_quantised_sparse_counts(self):
+        rng = np.random.default_rng(4)
+        y = np.zeros(4000)
+        spikes = rng.choice(4000, size=600, replace=False)
+        y[spikes] = rng.integers(1, 3, size=600).astype(float)
+        finder = PeakyFinder.__new__(PeakyFinder)
+        self.assertGreater(finder._noise_scale(y), 0.0)
+
+    def test_detection_on_noisy_spectrum_keeps_lines_rejects_noise(self):
+        lines = [(a, m, 0.03, 0.02) for a, m in zip([2e3, 8e3, 4e4, 2e5], np.linspace(400.0, 500.0, 4))]
+        x, y = _synth(lines, noise=5.0)
+        finder = PeakyFinder.__new__(PeakyFinder)
+        fit = finder.fit_spectrum(x, y, subtract_background=False, plot=False,
+                                  n_sigma=0, skip_profile=True)
+        peaks = fit["sorted_parameter_array"]
+        for area, mu, _s, _g in lines:
+            self.assertIsNotNone(_match(peaks, mu, tol=0.05), f"line at {mu} nm lost in noise")
+        # thousands of noise maxima exist; the significance gates must
+        # reject nearly all of them
+        self.assertLess(peaks.shape[0], 60)
+
+    def test_n_sigma_is_monotone(self):
+        lines = [(a, m, 0.03, 0.02) for a, m in zip([1e3, 5e3, 2e4, 1e5], np.linspace(400.0, 500.0, 4))]
+        x, y = _synth(lines, noise=5.0)
+        finder = PeakyFinder.__new__(PeakyFinder)
+        kept = []
+        for n_sigma in (0, 1, 5, 20):
+            fit = finder.fit_spectrum(x, y, subtract_background=False, plot=False,
+                                      n_sigma=n_sigma, skip_profile=True)
+            kept.append(fit["sorted_parameter_array"].shape[0])
+        for a, b in zip(kept, kept[1:]):
+            self.assertGreaterEqual(a, b, f"n_sigma not monotone: {kept}")
 
 
 if __name__ == "__main__":

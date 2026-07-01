@@ -124,11 +124,32 @@ class PeakyFinder():
 
     @staticmethod
     def _noise_scale(y):
-        """Robust point-noise estimate: 1.4826 * median|diff| / sqrt(2)."""
+        """Robust point-noise estimate from multi-lag differences.
+
+        ``1.4826 * median|y[i+k] - y[i]| / sqrt(2)`` evaluated at lags
+        k = 1, 2, 4, 8, taking the maximum.  A single-lag (k=1) estimate is
+        deflated by exactly the upsampling factor on linearly interpolated
+        spectra (the corpus path resamples native ~0.02-0.10 nm data onto a
+        0.01 nm grid, deflating lag-1 diffs 2-10x); the multi-lag maximum
+        recovers the native-noise plateau while the median keeps line signal
+        (<~50% channel occupancy) out of the estimate.  When a lag's median
+        difference is exactly zero (quantised counts with sparse dark
+        channels), the 75th percentile is used so the significance gates are
+        never silently disabled on data with any real variation.
+        """
         y = np.asarray(y, dtype=float)
         if y.size < 2:
             return 0.0
-        return float(1.4826 * np.median(np.abs(np.diff(y))) / np.sqrt(2.0))
+        estimates = []
+        for lag in (1, 2, 4, 8):
+            if y.size <= lag:
+                break
+            d = np.abs(y[lag:] - y[:-lag])
+            med = float(np.median(d))
+            if med == 0.0:
+                med = float(np.percentile(d, 75))
+            estimates.append(1.4826 * med / np.sqrt(2.0))
+        return float(max(estimates)) if estimates else 0.0
 
     @staticmethod
     def _parameter_array(peak_dictionary):
@@ -329,7 +350,8 @@ class PeakyFinder():
             Intensity values of a spectrum (ideally background-subtracted).
         n_sigma : float, optional
             Multiples of the noise scale a peak must exceed to be kept.
-            Values <= 0 fall back to a 3-sigma floor.
+            Added to the 3-sigma floor (monotone: larger is stricter,
+            negative values are treated as 0).
 
         Returns
         -------
@@ -349,7 +371,10 @@ class PeakyFinder():
             return peaks, minima, transformer
 
         noise = self._noise_scale(y)
-        threshold_sigma = float(n_sigma) if n_sigma and n_sigma > 0 else 3.0
+        # Monotone significance mapping: n_sigma ADDS to a 3-sigma floor.
+        # (Mapping n_sigma<=0 to the floor but using positive values
+        # directly would make n_sigma=1 LOOSER than n_sigma=0.)
+        threshold_sigma = 3.0 + max(float(n_sigma), 0.0)
         valid = y[peaks] > threshold_sigma * noise
         filtered_peaks = peaks[valid]
 
@@ -532,10 +557,17 @@ class PeakyFinder():
         # neighbour-midpoint limit, inflating the width estimate by up to
         # the peak separation.  A strongly asymmetric crossing pair
         # (ratio > 3) on a nominally symmetric profile flags this — trust
-        # twice the cleaner side instead.
+        # twice the cleaner side instead.  The short side must itself have
+        # genuinely CROSSED the half level: at a data edge the short side
+        # is the corrupted one (clipped at the boundary), and collapsing to
+        # it would halve the width of edge-truncated lines.
         min_side = np.minimum(left_widths, right_widths)
         max_side = np.maximum(left_widths, right_widths)
-        contaminated = (min_side > 0) & (max_side > 3.0 * min_side)
+        left_clipped = left_crosses <= left_limits.astype(float)
+        right_clipped = right_crosses >= right_limits.astype(float)
+        short_is_left = left_widths <= right_widths
+        short_clipped = np.where(short_is_left, left_clipped, right_clipped)
+        contaminated = (min_side > 0) & (max_side > 3.0 * min_side) & ~short_clipped
         left_widths = np.where(contaminated, min_side, left_widths)
         right_widths = np.where(contaminated, min_side, right_widths)
 
@@ -688,14 +720,21 @@ class PeakyFinder():
                 
                 if new_peak_num > 0:
                     if fast:
-                        # peak_indices arrive strongest-first, so peaks
-                        # already seeded are the stronger ones: subtract
-                        # their modelled wings from the raw height before
-                        # seeding, or weak peaks riding a strong-line
-                        # pedestal inherit it as amplitude.
+                        # Seed strongest-first so the pedestal subtraction
+                        # below always sees the stronger peaks' modelled
+                        # wings before weaker ones are seeded.  This must
+                        # hold WITHIN the window too: window_peaks arrive in
+                        # ascending index order, so without the explicit
+                        # sort a satellite positioned left of a stronger
+                        # co-window peak would be seeded first with no
+                        # pedestal and inherit the full flank as amplitude.
                         estimation_failed = False
                         fast_results = {}
-                        for local_peak, is_new in zip(window_peaks, new_peaks):
+                        window_order = np.argsort(
+                            [y[int(np.clip(lp + node_left, 0, len(y) - 1))] for lp in window_peaks]
+                        )[::-1]
+                        for oi in window_order:
+                            local_peak, is_new = window_peaks[oi], new_peaks[oi]
                             if not is_new:
                                 continue
                             key = int(local_peak + node_left)
