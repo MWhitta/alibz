@@ -47,14 +47,22 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
             temperature_init=self.temperature,
             ne_init=self.ne,
         )
+        # T is searched over a deliberately wide range so the recovery
+        # assertions are falsifiable.  nₑ, by contrast, is only a PRIOR
+        # here: with ion stages as independent unknowns, each species'
+        # Saha factor is absorbed into its own concentration, so nₑ has
+        # no handle on the fitted amplitudes unless both stages of an
+        # element carry weight in the window (Ca I does not at 392-397.5
+        # nm) — the optimiser pins nₑ to a bound, and it must not be
+        # asserted as "recovered".
         result = indexer.run(
             shift_tolerance=0.05,
             max_ion_stage=2,
-            T_bounds=(9_000.0, 11_000.0),
+            T_bounds=(6_000.0, 16_000.0),
             ne_bounds=(16.7, 17.3),
             sigma_bounds=(0.02, 0.05),
             gamma_bounds=(0.01, 0.04),
-            n_calls=6,
+            n_calls=15,
             verbose=False,
         )
 
@@ -80,8 +88,9 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         self.assertEqual(ranked_species[0], ("Ca", 2))
         self.assertEqual(assigned_species, {("Ca", 2)})
         self.assertGreater(result.r_squared, 0.99)
-        self.assertAlmostEqual(result.temperature, self.temperature, delta=1_000.0)
-        self.assertAlmostEqual(result.ne, self.ne, delta=0.35)
+        # Falsifiable: the search spans 6-16 kK, so hitting 10 kK within
+        # 600 K requires the Boltzmann line ratios to carry real signal.
+        self.assertAlmostEqual(result.temperature, self.temperature, delta=600.0)
 
     def test_two_element_spectrum_recovers_ca_and_al_and_plasma_state(self) -> None:
         peaks, result, ranked_species, assigned_species = self._run_pipeline(
@@ -92,12 +101,11 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         self.assertEqual(set(ranked_species[:2]), {("Ca", 2), ("Al", 1)})
         self.assertEqual(assigned_species, {("Ca", 2), ("Al", 1)})
         self.assertGreater(result.r_squared, 0.99)
-        self.assertAlmostEqual(result.temperature, self.temperature, delta=1_200.0)
-        self.assertAlmostEqual(result.ne, self.ne, delta=0.35)
-        # Composition via precision-weighted stage aggregation.  The plasma
-        # state is only loosely constrained here (n_calls=6), and Al is seen
-        # through its minority neutral stage, so Saha amplification of the
-        # (T, ne) search error warrants a generous tolerance.
+        self.assertAlmostEqual(result.temperature, self.temperature, delta=800.0)
+        # Composition via precision-weighted stage aggregation.  nₑ sits at
+        # the edge of its prior bounds (unidentifiable, see _run_pipeline),
+        # and Al is seen through its minority neutral stage, so Saha
+        # amplification of that nₑ error warrants a generous tolerance.
         self.assertAlmostEqual(result.element_fractions["Ca"], 0.6, delta=0.2)
         self.assertAlmostEqual(result.element_fractions["Al"], 0.4, delta=0.2)
 
