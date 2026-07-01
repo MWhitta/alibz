@@ -293,33 +293,85 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         # A = [[4, 0], [0, 0.5]], y = [2, 10]  =>  c = [0.5, 20.0]
         np.testing.assert_allclose(concentrations, [0.5, 20.0], rtol=1e-10)
 
-    def test_element_aggregation_precision_weights_stages_never_sums(self):
-        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+    def _aggregation_fixture(self):
+        idx = PeakyIndexer(
+            np.array(
+                [
+                    [6.0, 500.0, 0.05, 0.05],
+                    [10.0, 510.0, 0.05, 0.05],
+                ]
+            )
+        )
         idx.line_table = _FakeLineTable(
             [
                 Species("Fe", 1, 26, 1.0, 0, 1),
                 Species("Fe", 2, 26, 1.0, 1, 2),
                 Species("Ca", 1, 20, 1.0, 2, 3),
             ],
-            wavelengths=[500.0, 510.0, 520.0],
+            wavelengths=[500.0, 500.0, 510.0],
             species_idx=[0, 1, 2],
         )
+        return idx
+
+    def test_element_aggregation_reduces_to_precision_weighted_average_when_disjoint(self):
+        idx = self._aggregation_fixture()
+        # Fe I and Fe II on disjoint peaks; per-stage estimates from the
+        # data are 2 and 1 (the passed concentrations are the exact NNLS
+        # solution of this system).
         A = np.array(
             [
-                [3.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+            ]
+        )
+        idx._obs_amp = np.array([2.0, 3.0])
+        concentrations = np.array([2.0, 1.0, 0.0])
+
+        element_c, _element_f, disagreement = idx._aggregate_elements(concentrations, A)
+
+        # Precision weights ||A[:,s]||^2 = 1 and 9: (1*2 + 9*1)/10 = 1.1
+        # (a sum of stages would give 3).
+        self.assertAlmostEqual(element_c["Fe"], 1.1)
+        self.assertAlmostEqual(disagreement["Fe"], (2.0 - 1.0) / 3.0)
+
+    def test_element_aggregation_is_stage_order_invariant_under_blends(self):
+        """When both Fe stages feed the same peak, NNLS returns an arbitrary
+        vertex (one stage exactly zero).  The tied re-solve must recover the
+        same element density from either vertex — averaging raw coefficients
+        would give 0.4 or 1.2 depending on species order."""
+        idx = self._aggregation_fixture()
+        A = np.array(
+            [
+                [1.0, 3.0, 0.0],
                 [0.0, 0.0, 2.0],
             ]
         )
-        concentrations = np.array([1.0, 3.0, 5.0])
+        # LTE-consistent truth: n_Fe = 1 (peak 0 amplitude 1*1 + 3*1 = 4)...
+        idx._obs_amp = np.array([4.0, 10.0])
+        for vertex in (np.array([4.0, 0.0, 5.0]), np.array([0.0, 4.0 / 3.0, 5.0])):
+            element_c, element_f, _ = idx._aggregate_elements(vertex, A)
+            self.assertAlmostEqual(element_c["Fe"], 1.0)
+            self.assertAlmostEqual(element_c["Ca"], 5.0)
+            self.assertAlmostEqual(element_f["Fe"], 1.0 / 6.0)
 
-        element_c, element_f, disagreement = idx._aggregate_elements(concentrations, A)
+    def test_stage_disagreement_ignores_solver_excluded_stages(self):
+        """A stage whose design column is below the solver's activity
+        threshold was never estimated; its placeholder zero must not fire
+        the non-LTE diagnostic."""
+        idx = self._aggregation_fixture()
+        A = np.array(
+            [
+                [5.0, 1e-32, 0.0],
+                [0.0, 0.0, 2.0],
+            ]
+        )
+        idx._obs_amp = np.array([5.0, 10.0])
+        concentrations = np.array([1.0, 0.0, 5.0])
 
-        # Fe: column weights 9 and 1 -> (9*1 + 1*3)/10 = 1.2 (a sum would give 4)
-        self.assertAlmostEqual(element_c["Fe"], 1.2)
-        self.assertAlmostEqual(element_c["Ca"], 5.0)
-        self.assertAlmostEqual(element_f["Fe"], 1.2 / 6.2)
-        self.assertAlmostEqual(element_f["Ca"], 5.0 / 6.2)
-        self.assertAlmostEqual(disagreement["Fe"], (3.0 - 1.0) / 4.0)
+        element_c, _element_f, disagreement = idx._aggregate_elements(concentrations, A)
+
+        self.assertAlmostEqual(element_c["Fe"], 1.0)
+        self.assertNotIn("Fe", disagreement)
         self.assertNotIn("Ca", disagreement)  # single stage: no diagnostic
 
     def test_solve_concentrations_keeps_rows_aligned_when_evidence_and_pseudo_cofire(self):

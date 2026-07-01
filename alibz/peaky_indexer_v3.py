@@ -84,7 +84,8 @@ class FitResult:
     ``forward_model()``.  Because the design columns already carry the Saha
     stage fractions, each ion stage of an element is an independent estimate
     of the TOTAL element density; ``element_concentrations`` combines them
-    by precision-weighted average (never summed) and ``element_fractions``
+    with a tied non-negative re-solve that reduces to the precision-weighted
+    average of the stage estimates (never their sum) and ``element_fractions``
     normalises those to sum to one.  ``stage_disagreement`` reports the
     relative spread between stage estimates per element (0 = LTE-consistent
     at the fitted T and nₑ).
@@ -1080,38 +1081,66 @@ class PeakyIndexerV3:
         Ion stages are deliberately independent unknowns in the solve (a
         robustness choice against LTE violations): because the design
         columns already carry the Saha stage fractions, each stage's lines
-        independently estimate the TOTAL element density.  Stage estimates
-        are therefore combined by precision-weighted average — never summed
-        — with weights ``||A[:, s]||^2``, the Gauss-Markov precision of each
-        stage's estimate at unit noise.
+        independently estimate the TOTAL element density.
+
+        The per-element value is the non-negative 1-D least-squares
+        solution for the element's density with its stages TIED, fitted
+        against the observed amplitudes minus every other species' fitted
+        contribution.  When the element's stages have disjoint peak
+        support this reduces exactly to the ``||A[:, s]||^2``
+        precision-weighted average of the per-stage estimates (their
+        Gauss-Markov weights at unit noise); when stages are blended into
+        the same peaks it remains well defined, whereas averaging the raw
+        NNLS coefficients would inherit an arbitrary vertex split (one
+        stage clipped to exactly zero) and depend on species ordering.
+        Stage estimates are never summed.
 
         Returns ``(element_concentrations, element_fractions,
         stage_disagreement)``.  The disagreement diagnostic is the relative
-        spread ``(max - min) / sum`` across an element's stage estimates:
-        0 means the stages agree (LTE-consistent at the fitted T, nₑ);
-        values near 1 flag non-LTE conditions or a wrong plasma state.
+        spread ``(max - min) / sum`` across the element's SOLVED stage
+        estimates — stages the solver excluded as unobservably faint
+        (column max <= 1e-30, matching ``_solve_concentrations``) carry no
+        measurement and do not participate.  0 means the stages agree
+        (LTE-consistent at the fitted T, nₑ); values near 1 flag non-LTE
+        conditions, a wrong plasma state, or a blend-degenerate split.
         """
         concentrations = np.asarray(concentrations, dtype=float)
-        col_weight = np.sum(np.asarray(A, dtype=float) ** 2, axis=0)
+        A = np.asarray(A, dtype=float)
+        if A.size == 0:
+            return {}, {}, {}
 
         by_element: Dict[str, List[int]] = {}
         for s_idx, sp in enumerate(self.line_table.species):
             by_element.setdefault(sp.element, []).append(s_idx)
 
+        # Match the solver's activity criterion: columns at or below the
+        # threshold were never estimated — their zeros are placeholders,
+        # not measurements.
+        col_max = np.max(A, axis=0)
+        predicted_total = A @ concentrations
+
         element_concentrations: Dict[str, float] = {}
         stage_disagreement: Dict[str, float] = {}
         for element, s_indices in by_element.items():
-            observable = [s for s in s_indices if col_weight[s] > 0.0]
-            if not observable:
+            solved = [s for s in s_indices if col_max[s] > 1e-30]
+            if not solved:
                 continue
-            c_stages = concentrations[observable]
+            c_stages = concentrations[solved]
             if not np.any(c_stages > 0.0):
                 continue
-            weights = col_weight[observable]
-            element_concentrations[element] = float(
-                np.sum(weights * c_stages) / np.sum(weights)
+            a_stages = A[:, solved]
+            a_tied = np.sum(a_stages, axis=1)
+            denom = float(np.dot(a_tied, a_tied))
+            if denom <= 0.0:
+                continue
+            # The element's own signal as measured: observations minus the
+            # other species' fitted contributions.
+            own = a_stages @ c_stages
+            residual_el = self._obs_amp - (predicted_total - own)
+            element_concentrations[element] = max(
+                0.0, float(np.dot(a_tied, residual_el) / denom)
             )
-            if len(observable) >= 2:
+            if len(solved) >= 2:
                 stage_disagreement[element] = float(
                     (np.max(c_stages) - np.min(c_stages)) / np.sum(c_stages)
                 )

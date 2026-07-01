@@ -102,12 +102,14 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         self.assertEqual(assigned_species, {("Ca", 2), ("Al", 1)})
         self.assertGreater(result.r_squared, 0.99)
         self.assertAlmostEqual(result.temperature, self.temperature, delta=800.0)
-        # Composition via precision-weighted stage aggregation.  nₑ sits at
-        # the edge of its prior bounds (unidentifiable, see _run_pipeline),
-        # and Al is seen through its minority neutral stage, so Saha
-        # amplification of that nₑ error warrants a generous tolerance.
-        self.assertAlmostEqual(result.element_fractions["Ca"], 0.6, delta=0.2)
-        self.assertAlmostEqual(result.element_fractions["Al"], 0.4, delta=0.2)
+        # Composition is deliberately NOT asserted here: nₑ pins to the
+        # edge of its prior bounds (unidentifiable, see _run_pipeline) and
+        # Al's minority-stage Saha amplification of that nₑ error dominates
+        # the fractions — any tolerance would either mask regressions or
+        # assert the artifact.  Composition recovery is pinned by
+        # test_composition_recovered_in_physical_units_at_true_plasma_state.
+        self.assertIn("Ca", result.element_fractions)
+        self.assertIn("Al", result.element_fractions)
 
     def test_composition_recovered_in_physical_units_at_true_plasma_state(self) -> None:
         """With (T, nₑ) pinned at the synthesis truth, physical
@@ -352,6 +354,39 @@ class TestLineWeightConventionConsistency(unittest.TestCase):
                 checked += 1
 
         self.assertGreaterEqual(checked, 4)
+
+        # Independent recomputation with literal constants — deliberately
+        # NOT via line_emissivity, so a convention regression in the shared
+        # function itself fails here (the cross-check above only proves the
+        # two callers share a function, not what that function computes).
+        h_ev_s = 4.135667696e-15
+        c_m_s = 2.99792458e8
+        kb_ev_k = 8.617333262e-5
+        checked_formula = 0
+        for sp in table.species:
+            if sp.element != "Ca":
+                continue
+            span = slice(sp.line_start, sp.line_end)
+            partition = float(
+                sb.stage_partition("Ca", np.array([temperature]), ion=sp.ion)[0]
+            )
+            ci, _ = sb.ionization_distribution(
+                "Ca", np.array([temperature]), log_ne
+            )
+            stage_fraction = float(ci[0, sp.ion - 1])
+            expected = (
+                (4.0 * np.pi) ** -1
+                * h_ev_s * c_m_s * 1e9 / table.wavelengths[span]
+                * table.gA[span]
+                * np.exp(-table.Ek[span] / (kb_ev_k * temperature))
+                / partition
+                * stage_fraction
+            )
+            np.testing.assert_allclose(
+                weights[span], expected, rtol=1e-9, err_msg=f"Ca ion {sp.ion}"
+            )
+            checked_formula += 1
+        self.assertGreaterEqual(checked_formula, 2)
 
 
 if __name__ == "__main__":
