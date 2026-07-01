@@ -87,8 +87,11 @@ class FitResult:
     with a tied non-negative re-solve that reduces to the precision-weighted
     average of the stage estimates (never their sum) and ``element_fractions``
     normalises those to sum to one.  ``stage_disagreement`` reports the
-    relative spread between stage estimates per element (0 = LTE-consistent
-    at the fitted T and nₑ).
+    relative spread between stage estimates per element (0 = consistent
+    with a single plasma at the fitted T and nₑ; large values flag a wrong
+    plasma state, non-LTE, or a phase-heterogeneous target where the same
+    element ionises differently per host mineral — see
+    ``_aggregate_elements``).
     """
     temperature: float
     ne: float
@@ -1101,8 +1104,13 @@ class PeakyIndexerV3:
         estimates — stages the solver excluded as unobservably faint
         (column max <= 1e-30, matching ``_solve_concentrations``) carry no
         measurement and do not participate.  0 means the stages agree
-        (LTE-consistent at the fitted T, nₑ); values near 1 flag non-LTE
-        conditions, a wrong plasma state, or a blend-degenerate split.
+        (consistent with a single plasma at the fitted T, nₑ); values near
+        1 flag a wrong plasma state, non-LTE conditions, a blend-degenerate
+        split, or PHASE HETEROGENEITY of the target: the same element
+        hosted in different minerals can ionise differently (e.g. Ca in one
+        phase emitting mainly Ca I, in another mainly Ca II), in which case
+        each stage estimate reflects a different subpopulation and the
+        single-plasma element aggregate here is a model-limited estimate.
         """
         concentrations = np.asarray(concentrations, dtype=float)
         A = np.asarray(A, dtype=float)
