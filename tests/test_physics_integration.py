@@ -115,10 +115,9 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         """With (T, nₑ) pinned at the synthesis truth, physical
         concentrations must recover the generating composition.
 
-        Ca II is measured essentially exactly.  Al I amplitudes carry the
-        known peak-finder bias on weak lines riding the Ca II Lorentzian
-        wings (~+20%), so its tolerance stays wider until the finder's
-        amplitude estimation is repaired.
+        Both elements are now recovered to a few tenths of a percent: the
+        finder subtracts modelled neighbour wings, so Al I lines riding
+        the Ca II Lorentzian tails no longer inherit the pedestal.
         """
         fracs = np.zeros(self.maker.max_z, dtype=float)
         for element, fraction in {"Ca": 0.6, "Al": 0.4}.items():
@@ -158,7 +157,7 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
             if result.concentrations[s] > 0
         }
         self.assertAlmostEqual(by_species[("Ca", 2)], 0.6, delta=0.02)
-        self.assertAlmostEqual(by_species[("Al", 1)], 0.4, delta=0.1)
+        self.assertAlmostEqual(by_species[("Al", 1)], 0.4, delta=0.02)
         self.assertAlmostEqual(sum(result.element_fractions.values()), 1.0, places=12)
 
     def test_broadband_multielement_run_completes_with_evidence_and_pseudo(self) -> None:

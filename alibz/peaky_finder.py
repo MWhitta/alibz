@@ -99,6 +99,37 @@ class PeakyFinder():
         """
         return y - func(x, params)
 
+    def _voigt_seed(self, x, peak_idx, height, fwhm_idx, min_inc):
+        """Physical Voigt seed from a peak height and FWHM estimate.
+
+        ``fwhm_idx`` is in index units.  The measured FWHM is treated as
+        the VOIGT width and partitioned into equal Gaussian and Lorentzian
+        FWHM contributions by inverting the Olivero-Longbothum
+        approximation at ``f_G == f_L``:
+        ``f_V = (0.5346 + sqrt(1.2166)) * f``.  ``multi_voigt`` amplitudes
+        are Voigt AREAS, so the area that reproduces the observed height
+        is ``height / V(0; sigma, gamma)`` — using the height itself (or
+        height/2) as the area overestimates narrow-line areas by the peak
+        value of the profile (~4x at typical LIBS widths).
+        """
+        peak_idx = int(np.clip(peak_idx, 0, len(x) - 1))
+        width = float(max(fwhm_idx, np.finfo(float).eps)) * min_inc
+        width = float(max(width, min_inc))
+        f_component = width / (0.5346 + np.sqrt(1.2166))
+        sigma = float(max(f_component / (2.0 * np.sqrt(2.0 * np.log(2.0))), np.finfo(float).eps))
+        gamma = float(max(f_component / 2.0, np.finfo(float).eps))
+        height = float(max(height, np.finfo(float).eps))
+        amp = height / float(voigt(0.0, sigma, gamma))
+        return np.array([amp, float(x[peak_idx]), sigma, gamma], dtype=float)
+
+    @staticmethod
+    def _noise_scale(y):
+        """Robust point-noise estimate: 1.4826 * median|diff| / sqrt(2)."""
+        y = np.asarray(y, dtype=float)
+        if y.size < 2:
+            return 0.0
+        return float(1.4826 * np.median(np.abs(np.diff(y))) / np.sqrt(2.0))
+
     @staticmethod
     def _parameter_array(peak_dictionary):
         """Convert a peak-parameter mapping to a stable ``(n, 4)`` array."""
@@ -286,13 +317,19 @@ class PeakyFinder():
     def filter_peaks(self, y, n_sigma: float = 2):
         """Detect and rank significant peaks.
 
+        Significance is measured against a robust estimate of the POINT
+        NOISE (``1.4826 * median|diff(y)| / sqrt(2)``), not against the
+        detected-peak population: a population threshold systematically
+        discards every below-average peak — exactly the weak lines that
+        calibration-free quantification depends on.
+
         Parameters
         ----------
         y : array_like
-            Intensity values of a spectrum.
+            Intensity values of a spectrum (ideally background-subtracted).
         n_sigma : float, optional
-            Number of standard deviations above the mean required for a peak to
-            be kept.
+            Multiples of the noise scale a peak must exceed to be kept.
+            Values <= 0 fall back to a 3-sigma floor.
 
         Returns
         -------
@@ -301,18 +338,19 @@ class PeakyFinder():
             are sorted from highest to lowest intensity.
         """
 
+        y = np.asarray(y, dtype=float)
         peaks, minima = self.find_peaks(y)
 
+        # Kept fitted for downstream diagnostic plotting.
         transformer = PowerTransformer()
-        transformed, _ = self._safe_power_transform(transformer, y)
-        transformed = np.clip(transformed, transformed[0], np.inf)
+        self._safe_power_transform(transformer, y)
 
         if len(peaks) == 0:
             return peaks, minima, transformer
 
-        peak_intensities = transformed[peaks]
-        threshold = np.mean(peak_intensities) + n_sigma * np.std(peak_intensities)
-        valid = peak_intensities > threshold
+        noise = self._noise_scale(y)
+        threshold_sigma = float(n_sigma) if n_sigma and n_sigma > 0 else 3.0
+        valid = y[peaks] > threshold_sigma * noise
         filtered_peaks = peaks[valid]
 
         order = np.argsort(y[filtered_peaks])[::-1]
@@ -488,6 +526,19 @@ class PeakyFinder():
         peak_positions_f = peak_positions.astype(float)
         left_widths = np.maximum(peak_positions_f - left_crosses, 0.0)
         right_widths = np.maximum(right_crosses - peak_positions_f, 0.0)
+
+        # One-sided contamination guard: when one half-max crossing runs up
+        # a neighbouring line's flank it never crosses and stops at the
+        # neighbour-midpoint limit, inflating the width estimate by up to
+        # the peak separation.  A strongly asymmetric crossing pair
+        # (ratio > 3) on a nominally symmetric profile flags this — trust
+        # twice the cleaner side instead.
+        min_side = np.minimum(left_widths, right_widths)
+        max_side = np.maximum(left_widths, right_widths)
+        contaminated = (min_side > 0) & (max_side > 3.0 * min_side)
+        left_widths = np.where(contaminated, min_side, left_widths)
+        right_widths = np.where(contaminated, min_side, right_widths)
+
         fwhm = left_widths + right_widths
         hwhm = fwhm / 2.0
 
@@ -603,15 +654,8 @@ class PeakyFinder():
         min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
         fwhm_limit = max(fwhm_limit, min_inc)
 
-        def build_voigt_guess(peak_idx: int, amplitude: float, fwhm_width: float) -> np.ndarray:
-            peak_idx = int(np.clip(peak_idx, 0, len(x) - 1))
-            amp = float(max(amplitude / 2.0, np.finfo(float).eps))
-            width = float(max(fwhm_width, np.finfo(float).eps)) * min_inc
-            width = float(max(width, min_inc))
-            sigma = float(max(width / (2.0 * np.sqrt(2.0 * np.log(2.0))), np.finfo(float).eps))
-            gamma = float(max(width / 2.0, sigma))
-            center = float(x[peak_idx])
-            return np.array([amp, center, sigma, gamma], dtype=float)
+        def build_voigt_guess(peak_idx: int, height: float, fwhm_width: float) -> np.ndarray:
+            return self._voigt_seed(x, peak_idx, height, fwhm_width, min_inc)
 
         peak_dictionary = {}
 
@@ -644,6 +688,11 @@ class PeakyFinder():
                 
                 if new_peak_num > 0:
                     if fast:
+                        # peak_indices arrive strongest-first, so peaks
+                        # already seeded are the stronger ones: subtract
+                        # their modelled wings from the raw height before
+                        # seeding, or weak peaks riding a strong-line
+                        # pedestal inherit it as amplitude.
                         estimation_failed = False
                         fast_results = {}
                         for local_peak, is_new in zip(window_peaks, new_peaks):
@@ -657,50 +706,73 @@ class PeakyFinder():
                             if (not np.isfinite(fwhm_fast)) or fwhm_fast <= 0.0:
                                 estimation_failed = True
                                 break
-                            fast_results[key] = build_voigt_guess(key, amp_fast, fwhm_fast)
+                            known_so_far = list(peak_dictionary.values()) + list(fast_results.values())
+                            pedestal = 0.0
+                            if known_so_far:
+                                pedestal = float(
+                                    self.multi_voigt(np.asarray([x[key]]), np.ravel(known_so_far))[0]
+                                )
+                            height = float(amp_fast) - pedestal
+                            if height <= 0.0:
+                                # Fully explained by known wings: not a peak.
+                                continue
+                            fast_results[key] = build_voigt_guess(key, height, fwhm_fast)
 
-                        if not estimation_failed and fast_results:
+                        if not estimation_failed:
                             peak_dictionary.update(fast_results)
                             continue
 
-                    # define fit bounds
+                    # Explicit ordered bookkeeping: ONE (key, seed) list
+                    # drives x0 construction, bounds, and result unpacking,
+                    # so rows can never permute or overrun.  (Previously a
+                    # known-but-not-redetected peak both overflowed x0 with
+                    # an IndexError and permuted the zip unpacking so keys
+                    # received other peaks' parameters.)
+                    entries = [
+                        (int(kk), np.asarray(peak_dictionary[kk], dtype=float))
+                        for kk in known_peaks_inrange
+                    ]
+                    seen = {key for key, _ in entries}
+                    for local_peak in window_peaks[new_peaks]:
+                        key = int(local_peak + node_left)
+                        if key in seen:
+                            continue
+                        amp_new, fwhm_new, _, _, _ = self.peak_parameter_guess(y, key)
+                        entries.append((key, build_voigt_guess(key, amp_new, fwhm_new)))
+                        seen.add(key)
+                    if not entries:
+                        entries = [(int(p), build_voigt_guess(p, full_max, fwhm))]
+                        seen = {int(p)}
+
+                    n_fit = len(entries)
+                    x0 = np.concatenate([seed for _, seed in entries])
+
                     right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
-                    lower_bounds = np.array([0, x[node_left], 0, 0] * window_peak_num )
-                    upper_bounds = np.array([1, x[right_bound_idx], fwhm_limit, fwhm_limit] * window_peak_num )
-
-                    # define initial parameter guesses
-                    x0 = np.zeros((window_peak_num, 4))
-                    x0[0] = build_voigt_guess(p, full_max, fwhm)
-
-                    if window_peak_num > 1:
-                        for i, pp in enumerate(window_peaks[new_peaks]):
-                            local_idx = int(pp)
-                            amp_local, fwhm_local, _, _, _ = self.peak_parameter_guess(y_window, local_idx)
-                            global_idx = node_left + local_idx
-                            x0[i + known_peak_num] = build_voigt_guess(global_idx, amp_local, fwhm_local)
-                        for i, ppp in enumerate(known_peaks_inrange):
-                            x0[i] = peak_dictionary[ppp]
-                    
-                    x0 = np.ravel(x0) # flatten to pass to least squares fit
-                    upper_bounds[::4] = 2 * x0[::4]
+                    lower_bounds = np.array([0.0, x[node_left], 0.0, 0.0] * n_fit)
+                    upper_bounds = np.array(
+                        [np.inf, x[right_bound_idx], fwhm_limit, fwhm_limit] * n_fit
+                    )
                     lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
                     bounds = (lower_bounds, upper_bounds)
-                    
+
+                    # Subtract the modelled contribution of peaks fitted in
+                    # OTHER windows so strong-line wings do not enter this
+                    # window as an unmodelled pedestal.
+                    outside = [
+                        np.asarray(v, dtype=float)
+                        for k, v in peak_dictionary.items()
+                        if int(k) not in seen
+                    ]
+                    y_target = y_window
+                    if outside:
+                        y_target = y_window - self.multi_voigt(x_window, np.ravel(outside))
+
                     try:
-                        popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')            
+                        popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_target, self.multi_voigt), x_scale='jac', loss='linear')
 
-                        if window_peak_num > 1:
-                            popt = np.reshape(popt.x, (window_peak_num, 4))
-                            for k, v in zip(window_peaks, popt):
-                                key = k + node_left
-                                peak_dictionary.update({key : v})
-                        else:
-                            popt = popt.x
-                            peak_dictionary.update({p : popt})
+                        for (key, _), fitted in zip(entries, popt.x.reshape(n_fit, 4)):
+                            peak_dictionary[key] = fitted
 
-                        if window_peak_num > 1:
-                            popt = np.ravel(popt)
-                            
                     except (RuntimeError, TypeError, ValueError) as e:
                         print(f"An error occurred during initial fitting: {e}")
         
@@ -739,8 +811,24 @@ class PeakyFinder():
         large_residual = residuals > residual_mean + 2 * residual_std
         residual_masked = residuals * large_residual
         residual_peaks, _ = self.find_peaks(residual_masked)
-        offsets = np.array(np.arange(-rng//2, rng//2, 1))
-        near_peak_indices = (peak_indices[:, None] + offsets).ravel()
+
+        # Exclusion radius: a residual maximum within one fitted linewidth
+        # of a known peak is that peak's own fit error, not a new line —
+        # seeding it creates near-duplicate components that split the
+        # parent's area in the global refit.  Scale the radius with the
+        # fitted FWHM instead of a fixed +/-2 px.
+        params = self._parameter_array(peak_dictionary)
+        exclusion = max(rng // 2, 1)
+        if params.size and np.isfinite(inc) and inc > 0:
+            widths_nm = self.voigt_width(params[:, 2], params[:, 3])
+            widths_nm = widths_nm[np.isfinite(widths_nm) & (widths_nm > 0)]
+            if widths_nm.size:
+                exclusion = max(exclusion, int(np.ceil(np.median(widths_nm) / inc)))
+        offsets = np.arange(-exclusion, exclusion + 1)
+
+        known_keys = np.array(sorted(peak_dictionary.keys()), dtype=int)
+        reference = known_keys if known_keys.size else np.asarray(peak_indices, dtype=int)
+        near_peak_indices = (reference[:, None] + offsets).ravel()
         new_peak_indices = residual_peaks[~np.isin(residual_peaks, near_peak_indices)]
 
         if len(new_peak_indices) == 0:
@@ -784,10 +872,10 @@ class PeakyFinder():
                     fwhm_ws = np.array([fwhm_ws])
                     hwhm_ws = np.array([hwhm_ws])
 
+                min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
                 for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
                     full_max = float(np.asarray(full_max).reshape(-1)[0])
                     fwhm = float(np.asarray(fwhm).reshape(-1)[0])
-                    hwhm = float(np.asarray(hwhm).reshape(-1)[0])
                     if not np.isfinite(full_max):
                         full_max = 0.0
                     full_max = float(np.abs(full_max))
@@ -795,9 +883,7 @@ class PeakyFinder():
                         full_max = np.finfo(float).eps
                     if not np.isfinite(fwhm) or fwhm <= 0.0:
                         fwhm = max(fallback_fwhm, np.finfo(float).eps)
-                    if not np.isfinite(hwhm) or hwhm <= 0.0:
-                        hwhm = fwhm / 2.0
-                    x0[i] = np.array([full_max, x[node_left + pp], inc * fwhm, inc * hwhm])
+                    x0[i] = self._voigt_seed(x, node_left + pp, full_max, fwhm, min_inc)
                     
             x0 = np.ravel(x0) # flatten to pass to least squares fit
             upper_bounds[::4] = 5 * x0[::4]
@@ -845,9 +931,16 @@ class PeakyFinder():
             Updated peak parameters after the global fit.
         """
         inc = np.median(np.diff(x))
-        idxs = np.sort(np.array(list(peak_dictionary.keys())))
+        idxs = np.array(list(peak_dictionary.keys()))
         if len(idxs) == 0:
             return peak_dictionary
+
+        # Refit strongest peaks FIRST: weaker windows subtract the modelled
+        # wings of peaks outside them, so the strong neighbours must already
+        # be refined (seed-quality wing shapes over-/under-subtract the
+        # pedestal under nearby weak peaks).
+        seed_amps = np.array([float(peak_dictionary[k][0]) for k in idxs])
+        idxs = idxs[np.argsort(seed_amps)[::-1]]
 
         _, _, _, node_right_arr, node_left_arr = self.peak_parameter_guess(y, idxs)
 
@@ -872,8 +965,19 @@ class PeakyFinder():
             lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
             bounds = (lower_bounds, upper_bounds)
 
+            # Subtract the modelled wings of every peak OUTSIDE this window:
+            # without this, a strong neighbour's Lorentzian tail enters the
+            # window as an unmodelled pedestal and biases weak-peak
+            # amplitudes high (measured at +10-50% within 1-2 nm of a
+            # 100x stronger line).
+            outside_keys = idxs[(idxs < node_left) | (idxs > node_right)]
+            y_target = y_window
+            if outside_keys.size:
+                outside = np.ravel([peak_dictionary[k] for k in outside_keys])
+                y_target = y_window - self.multi_voigt(x_window, outside)
+
             try:
-                popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_window, self.multi_voigt), x_scale='jac', loss='linear')
+                popt = least_squares(self.residual, x0=x0, bounds=bounds, args=(x_window, y_target, self.multi_voigt), x_scale='jac', loss='linear')
 
                 if refit_peak_num > 1:
                     popt = np.reshape(popt.x, (refit_peak_num, 4))
@@ -939,9 +1043,11 @@ class PeakyFinder():
         if np.asarray(y_bgsub).size == 0 or np.allclose(y_bgsub, y_bgsub[0]):
             return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
 
-        # find peaks and profile parameters
+        # find peaks and profile parameters (on the background-subtracted
+        # spectrum: detection and fitting must see the same signal, and the
+        # noise-referenced significance threshold assumes no baseline)
         try:
-            peak_indices, transformer, *rest = self.fourier_peaks(y, n_sigma=n_sigma)
+            peak_indices, transformer, *rest = self.fourier_peaks(y_bgsub, n_sigma=n_sigma)
         except (IndexError, RuntimeError, TypeError, ValueError):
             return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
         if verbose:
@@ -987,6 +1093,12 @@ class PeakyFinder():
             widths = self.voigt_width(sigmas, gammas)
             median_fwhm = float(np.median(widths))
 
+        # Noise-referenced significance: a peak survives if the HEIGHT its
+        # fitted area implies exceeds 2x the point noise.  (The previous
+        # absolute cut `amp < 1` silently zeroed all peaks on normalized or
+        # low-count spectra — the threshold must not carry intensity units.)
+        noise = self._noise_scale(y_bgsub)
+        min_height = 2.0 * noise
         for key, value in peak_dictionary.items():
             if value[2] < inc / 2:
                 value[2] = 0
@@ -998,9 +1110,11 @@ class PeakyFinder():
                 value[0] = 0
             if value[2]==value[3]==0:
                 value[0] = 0
-            if value[0] < 1:
-                value[0] = 0
-            if value[0] >= 1:
+            if value[0] > 0 and min_height > 0:
+                peak_value = voigt(0.0, max(value[2], inc / 2), max(value[3], inc / 2))
+                if value[0] * peak_value < min_height:
+                    value[0] = 0
+            if value[0] > 0:
                 spectrum_dictionary.update({key: value})
 
         parameters = self._parameter_array(spectrum_dictionary)
