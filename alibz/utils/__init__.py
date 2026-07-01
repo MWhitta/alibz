@@ -2,7 +2,7 @@
 
 from alibz.utils.constants import BOLTZMANN, PLANCK, SPEED_OF_LIGHT, ELECTRON_MASS
 from alibz.utils.database import Database
-from alibz.utils.sahaboltzmann import SahaBoltzmann
+from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
 from alibz.utils.voigt import voigt_width, multi_voigt
 from alibz.utils.dataloader import Data
 
@@ -13,6 +13,7 @@ __all__ = [
     "ELECTRON_MASS",
     "Database",
     "SahaBoltzmann",
+    "line_emissivity",
     "voigt_width",
     "multi_voigt",
     "Data",

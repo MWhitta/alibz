@@ -22,9 +22,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from alibz.utils.database import Database
-from alibz.utils.constants import BOLTZMANN
 from alibz.utils.voigt import voigt_width as _voigt_width
-from alibz.utils.sahaboltzmann import SahaBoltzmann
+from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
 
 
 # ---------------------------------------------------------------------------
@@ -852,23 +851,24 @@ class PeakyIndexerV3:
         temperature: float,
         log_ne: float,
     ) -> np.ndarray:
-        """Per-line intensity at unit concentration.  Shape (n_lines,)."""
+        """Per-line intensity at unit concentration.  Shape (n_lines,).
+
+        Delegates to the shared :func:`line_emissivity` so the inverse
+        model ranks relative line intensities with exactly the same
+        convention (including the hc/lambda photon-energy factor) as the
+        forward synthesis in :meth:`SahaBoltzmann.calculate`.
+        """
         lt = self.line_table
-        kT = BOLTZMANN * temperature
-
-        # Boltzmann factor
-        boltz = lt.gA * np.exp(-lt.Ek / kT)
-
-        # Partition functions
         Z = lt.compute_partition_functions(temperature)
-        Z_per_line = Z[lt.species_idx]
-        boltz /= Z_per_line
-
-        # Saha fractions
         saha = lt.compute_saha_fractions(temperature, log_ne)
-        boltz *= saha[lt.species_idx]
-
-        return boltz
+        return line_emissivity(
+            lt.wavelengths,
+            lt.gA,
+            lt.Ek,
+            temperature,
+            Z[lt.species_idx],
+            saha[lt.species_idx],
+        )
 
     def _build_design_matrix(
         self,

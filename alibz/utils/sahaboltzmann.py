@@ -6,6 +6,43 @@ from numpy.typing import ArrayLike, NDArray
 from alibz.utils.database import Database
 from alibz.utils.constants import BOLTZMANN, PLANCK, SPEED_OF_LIGHT, ELECTRON_MASS
 
+
+def line_emissivity(
+    wavelength_nm: ArrayLike,
+    gA: ArrayLike,
+    Ek_eV: ArrayLike,
+    temperature: ArrayLike,
+    partition: ArrayLike,
+    stage_fraction: ArrayLike,
+) -> NDArray[np.float64]:
+    """Per-line emissivity at unit element number density.
+
+    This is the single intensity convention shared by the forward model
+    (:meth:`SahaBoltzmann.calculate`) and the inverse model
+    (``PeakyIndexerV3._line_weights``) — energy flux, in eV per steradian
+    per emitter:
+
+        eps_j = (4*pi)**-1 * (h*c / lambda_j) * gA_j * exp(-E_k,j / k_B T)
+                / Z_stage(T) * f_stage(T, n_e)
+
+    Wavelengths are in nm, energies in eV, temperature in kelvin.  All
+    arguments broadcast against each other, so callers may pass either
+    flat per-line arrays with a scalar temperature or ``(n_temp, 1)`` /
+    ``(1, n_lines)`` shaped inputs.
+    """
+    wavelength_nm = np.asarray(wavelength_nm, dtype=float)
+    kT = BOLTZMANN * np.asarray(temperature, dtype=float)
+    photon_energy_eV = PLANCK * SPEED_OF_LIGHT * 1e9 / wavelength_nm
+    return (
+        (4 * np.pi) ** -1
+        * photon_energy_eV
+        * np.asarray(gA, dtype=float)
+        * np.exp(-np.asarray(Ek_eV, dtype=float) / kT)
+        / np.asarray(partition, dtype=float)
+        * np.asarray(stage_fraction, dtype=float)
+    )
+
+
 class SahaBoltzmann():
     """ Calculate ionization distribution and partition functions using the Saha-Boltzmann equation
     """
@@ -284,10 +321,6 @@ class SahaBoltzmann():
         """
         temperature = self._temperature_array(temperature)
 
-        # Broadcasting kT calculation
-        kT = self.boltzmann_constant * temperature[:, None]
-        intensity_constant = (4 * np.pi) ** -1 * self.plank_constant * self.speed_c * 10**9
-
         ionization, peak_loc, gA, Ek = self.db.lines(element)[:, [0, 1, 3, 5]].T.astype(float)
 
         if time_gated:
@@ -307,15 +340,14 @@ class SahaBoltzmann():
         for iv, ion in enumerate(ions):
             Zind = (ionization == ion)
             stage_partition = np.clip(Zi[:, [iv]], 10.0 ** (-decimal_precision), None)
-            boltzmann_weight = np.exp(-Ek[Zind][None, :] / kT)
-            peak_intensity = (
-                intensity_constant
-                * peak_loc[Zind][None, :]**-1
-                * gA[Zind][None, :]
-                * boltzmann_weight
-                / stage_partition
+            overall_intensity = line_emissivity(
+                peak_loc[Zind][None, :],
+                gA[Zind][None, :],
+                Ek[Zind][None, :],
+                temperature[:, None],
+                stage_partition,
+                ci[:, [iv]],
             )
-            overall_intensity = ci[:, [iv]] * peak_intensity
             spectra.append(overall_intensity)
             location.append(np.tile(peak_loc[Zind], (len(temperature), 1)))
 

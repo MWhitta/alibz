@@ -4,6 +4,8 @@ import numpy as np
 from scipy.signal import find_peaks
 
 from alibz import PeakyFinder, PeakyIndexer, PeakyMaker
+from alibz.peaky_indexer_v3 import LineTable
+from alibz.utils.sahaboltzmann import SahaBoltzmann
 
 
 class TestSyntheticPhysicsPipeline(unittest.TestCase):
@@ -226,6 +228,66 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         self.assertLess(int(np.sum(suppressed.concentrations > 0)), int(np.sum(loose.concentrations > 0)))
         self.assertLess(len(suppressed_assigned), len(loose_assigned))
         self.assertGreater(suppressed.r_squared, 0.99)
+
+
+class TestLineWeightConventionConsistency(unittest.TestCase):
+    """The inverse model must weight lines with exactly the same physics as
+    the forward synthesis — one shared emissivity convention, including the
+    hc/lambda photon-energy factor."""
+
+    def test_indexer_line_weights_match_forward_emissivity(self) -> None:
+        wl_lo, wl_hi, min_gA = 390.0, 800.0, 100.0
+        temperature, log_ne = 11_000.0, 17.0
+
+        sb = SahaBoltzmann("db")
+        table = LineTable(
+            sb.db,
+            sb,
+            wl_range=(wl_lo, wl_hi),
+            max_ion_stage=2,
+            min_gA=min_gA,
+        )
+        indexer = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        indexer.line_table = table
+        weights = indexer._line_weights(temperature, log_ne)
+
+        checked = 0
+        for element in ("Ca", "Fe", "Na"):
+            lines = sb.db.lines(element)
+            ionization = lines[:, 0].astype(float)
+            wavelength = lines[:, 1].astype(float)
+            gA = lines[:, 3].astype(float)
+
+            # calculate() concatenates stages in sorted order, each stage in
+            # database row order — invert that to index intensities by db row.
+            _, intensity = sb.calculate(element, np.array([temperature]), log_ne)
+            order = np.concatenate(
+                [
+                    np.flatnonzero(ionization == stage)
+                    for stage in np.sort(np.unique(ionization))
+                ]
+            )
+            intensity_by_db_row = np.empty(wavelength.size, dtype=float)
+            intensity_by_db_row[order] = intensity[0]
+
+            for sp in table.species:
+                if sp.element != element:
+                    continue
+                mask = (
+                    (ionization == float(sp.ion))
+                    & (wavelength >= wl_lo)
+                    & (wavelength <= wl_hi)
+                    & (gA >= min_gA)
+                )
+                np.testing.assert_allclose(
+                    weights[sp.line_start : sp.line_end],
+                    intensity_by_db_row[mask],
+                    rtol=1e-9,
+                    err_msg=f"{element} ion {sp.ion}",
+                )
+                checked += 1
+
+        self.assertGreaterEqual(checked, 4)
 
 
 if __name__ == "__main__":
