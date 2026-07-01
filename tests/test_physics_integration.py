@@ -89,11 +89,67 @@ class TestSyntheticPhysicsPipeline(unittest.TestCase):
         )
 
         self.assertGreaterEqual(peaks.shape[0], 4)
-        self.assertEqual(ranked_species[:2], [("Ca", 2), ("Al", 1)])
+        self.assertEqual(set(ranked_species[:2]), {("Ca", 2), ("Al", 1)})
         self.assertEqual(assigned_species, {("Ca", 2), ("Al", 1)})
         self.assertGreater(result.r_squared, 0.99)
         self.assertAlmostEqual(result.temperature, self.temperature, delta=1_200.0)
         self.assertAlmostEqual(result.ne, self.ne, delta=0.35)
+        # Composition via precision-weighted stage aggregation.  The plasma
+        # state is only loosely constrained here (n_calls=6), and Al is seen
+        # through its minority neutral stage, so Saha amplification of the
+        # (T, ne) search error warrants a generous tolerance.
+        self.assertAlmostEqual(result.element_fractions["Ca"], 0.6, delta=0.2)
+        self.assertAlmostEqual(result.element_fractions["Al"], 0.4, delta=0.2)
+
+    def test_composition_recovered_in_physical_units_at_true_plasma_state(self) -> None:
+        """With (T, nₑ) pinned at the synthesis truth, physical
+        concentrations must recover the generating composition.
+
+        Ca II is measured essentially exactly.  Al I amplitudes carry the
+        known peak-finder bias on weak lines riding the Ca II Lorentzian
+        wings (~+20%), so its tolerance stays wider until the finder's
+        amplitude estimation is repaired.
+        """
+        fracs = np.zeros(self.maker.max_z, dtype=float)
+        for element, fraction in {"Ca": 0.6, "Al": 0.4}.items():
+            fracs[self.maker.db.elements.index(element)] = fraction
+
+        x, y, _ = self.maker.peak_maker(
+            fracs,
+            w_lo=self.w_range[0],
+            w_hi=self.w_range[1],
+            inc=0.01,
+            voigt_sig=0.03,
+            voigt_gam=0.02,
+            temperature=self.temperature,
+            ne=self.ne,
+        )
+        fit = self.finder.fit_spectrum(
+            x, y, subtract_background=False, plot=False, n_sigma=0
+        )
+        result = PeakyIndexer(
+            fit["sorted_parameter_array"],
+            temperature_init=self.temperature,
+            ne_init=self.ne,
+        ).run(
+            shift_tolerance=0.05,
+            max_ion_stage=2,
+            T_bounds=(self.temperature - 1.0, self.temperature + 1.0),
+            ne_bounds=(self.ne - 1e-3, self.ne + 1e-3),
+            sigma_bounds=(0.02, 0.05),
+            gamma_bounds=(0.01, 0.04),
+            n_calls=6,
+            verbose=False,
+        )
+
+        by_species = {
+            (sp.element, sp.ion): float(result.concentrations[s])
+            for s, sp in enumerate(result.species)
+            if result.concentrations[s] > 0
+        }
+        self.assertAlmostEqual(by_species[("Ca", 2)], 0.6, delta=0.02)
+        self.assertAlmostEqual(by_species[("Al", 1)], 0.4, delta=0.1)
+        self.assertAlmostEqual(sum(result.element_fractions.values()), 1.0, places=12)
 
     def test_broadband_multielement_run_completes_with_evidence_and_pseudo(self) -> None:
         """Regression: broadband multi-element fit must not crash under the

@@ -18,7 +18,7 @@ import numpy as np
 import scipy.sparse
 from scipy.optimize import nnls
 from scipy.special import voigt_profile as voigt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from alibz.utils.database import Database
@@ -77,7 +77,18 @@ class Species:
 
 @dataclass
 class FitResult:
-    """Output of the v3 fitting pipeline."""
+    """Output of the v3 fitting pipeline.
+
+    ``concentrations`` are physical per-(element, ion) scale factors in the
+    shared :func:`line_emissivity` units — directly usable with
+    ``forward_model()``.  Because the design columns already carry the Saha
+    stage fractions, each ion stage of an element is an independent estimate
+    of the TOTAL element density; ``element_concentrations`` combines them
+    by precision-weighted average (never summed) and ``element_fractions``
+    normalises those to sum to one.  ``stage_disagreement`` reports the
+    relative spread between stage estimates per element (0 = LTE-consistent
+    at the fitted T and nₑ).
+    """
     temperature: float
     ne: float
     sigma: float
@@ -92,6 +103,9 @@ class FitResult:
     peak_assignments: List[dict]
     unexplained_peaks: List[int]
     convergence_info: dict
+    element_concentrations: Dict[str, float] = field(default_factory=dict)
+    element_fractions: Dict[str, float] = field(default_factory=dict)
+    stage_disagreement: Dict[str, float] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -929,6 +943,7 @@ class PeakyIndexerV3:
         A = self._build_design_matrix(lw)
         if A.size == 0:
             c = np.zeros(self.line_table.n_species, dtype=float)
+            self._last_A = A
             self._last_A_norm = A
             self._last_col_max = np.empty(0, dtype=float)
             self._last_species_evidence = None
@@ -942,6 +957,7 @@ class PeakyIndexerV3:
 
         if not np.any(active):
             c = np.zeros(A.shape[1])
+            self._last_A = A
             self._last_A_norm = A_norm
             self._last_col_max = col_max
             self._last_species_evidence = None
@@ -1013,11 +1029,11 @@ class PeakyIndexerV3:
         )
         c_norm, _residual = nnls(A_aug, y_aug)
 
-        # Un-normalise: c_real = c_norm / col_max
-        # (but we keep c_norm for interpretability — it's the
-        # "relative concentration" in normalised units)
+        # Un-normalise the column scaling: the NNLS ran on A / col_max, so
+        # c_real = c_norm / col_max recovers physical concentrations (in the
+        # shared line_emissivity units), directly usable with forward_model().
         c = np.zeros(A.shape[1])
-        c[active] = c_norm
+        c[active] = c_norm / col_max[active]
 
         predicted = A_norm[:, active] @ c_norm
         cost = float(np.sum((self._obs_amp - predicted) ** 2))
@@ -1026,12 +1042,67 @@ class PeakyIndexerV3:
             pseudo_cost = float(self._pseudo_obs_weight * np.sum(pseudo_predicted ** 2))
             cost += pseudo_cost
 
-        # Store the normalised design matrix for later use
+        # Store the design matrices for later use
+        self._last_A = A
         self._last_A_norm = A_norm
         self._last_col_max = col_max
         self._last_pseudo_cost = pseudo_cost
 
         return c, cost
+
+    def _aggregate_elements(
+        self,
+        concentrations: np.ndarray,
+        A: np.ndarray,
+    ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
+        """Combine per-(element, ion) concentrations into per-element values.
+
+        Ion stages are deliberately independent unknowns in the solve (a
+        robustness choice against LTE violations): because the design
+        columns already carry the Saha stage fractions, each stage's lines
+        independently estimate the TOTAL element density.  Stage estimates
+        are therefore combined by precision-weighted average — never summed
+        — with weights ``||A[:, s]||^2``, the Gauss-Markov precision of each
+        stage's estimate at unit noise.
+
+        Returns ``(element_concentrations, element_fractions,
+        stage_disagreement)``.  The disagreement diagnostic is the relative
+        spread ``(max - min) / sum`` across an element's stage estimates:
+        0 means the stages agree (LTE-consistent at the fitted T, nₑ);
+        values near 1 flag non-LTE conditions or a wrong plasma state.
+        """
+        concentrations = np.asarray(concentrations, dtype=float)
+        col_weight = np.sum(np.asarray(A, dtype=float) ** 2, axis=0)
+
+        by_element: Dict[str, List[int]] = {}
+        for s_idx, sp in enumerate(self.line_table.species):
+            by_element.setdefault(sp.element, []).append(s_idx)
+
+        element_concentrations: Dict[str, float] = {}
+        stage_disagreement: Dict[str, float] = {}
+        for element, s_indices in by_element.items():
+            observable = [s for s in s_indices if col_weight[s] > 0.0]
+            if not observable:
+                continue
+            c_stages = concentrations[observable]
+            if not np.any(c_stages > 0.0):
+                continue
+            weights = col_weight[observable]
+            element_concentrations[element] = float(
+                np.sum(weights * c_stages) / np.sum(weights)
+            )
+            if len(observable) >= 2:
+                stage_disagreement[element] = float(
+                    (np.max(c_stages) - np.min(c_stages)) / np.sum(c_stages)
+                )
+
+        total = sum(element_concentrations.values())
+        element_fractions = (
+            {el: c / total for el, c in element_concentrations.items()}
+            if total > 0.0
+            else {}
+        )
+        return element_concentrations, element_fractions, stage_disagreement
 
     def _prune_and_refit(
         self,
@@ -1049,7 +1120,9 @@ class PeakyIndexerV3:
         for _ in range(self._evidence_max_refits):
             lw = self._line_weights(temperature, log_ne)
             evidence = self._species_line_evidence(lw)
-            active = np.asarray(concentrations, dtype=float) > 1e-12
+            # NNLS returns exact zeros for inactive species, so a strict
+            # positivity test is scale-free (concentrations are physical now).
+            active = np.asarray(concentrations, dtype=float) > 0.0
             bad_active = active & ~self._species_evidence_keep_mask(
                 evidence,
                 require_net=True,
@@ -1185,8 +1258,9 @@ class PeakyIndexerV3:
             cost,
         )
 
-        # Compute predicted and residuals using normalised matrix
-        A = self._last_A_norm
+        # Predicted amplitudes from the physical design matrix and
+        # physical concentrations (identical to the normalised product).
+        A = self._last_A
         predicted = A @ concentrations
         residuals = self._obs_amp - predicted
 
@@ -1248,6 +1322,10 @@ class PeakyIndexerV3:
                       f"c={concentrations[s]:.4e}  "
                       f"({n_peaks_for} peaks)")
 
+        element_concentrations, element_fractions, stage_disagreement = (
+            self._aggregate_elements(concentrations, A)
+        )
+
         return FitResult(
             temperature=best_T,
             ne=best_ne,
@@ -1267,6 +1345,9 @@ class PeakyIndexerV3:
                 'best_params': result.x,
                 'all_costs': result.func_vals.tolist(),
             },
+            element_concentrations=element_concentrations,
+            element_fractions=element_fractions,
+            stage_disagreement=stage_disagreement,
         )
 
     # =================================================================

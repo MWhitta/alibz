@@ -45,11 +45,14 @@ indexer = PeakyIndexer(fit_dict["sorted_parameter_array"])
 result = indexer.run(shift_tolerance=0.1, max_ion_stage=2, n_calls=20, verbose=False)
 
 print(result.temperature, result.ne)       # plasma T and log10(ne)
-print(result.concentrations)               # per-species concentrations
+print(result.concentrations)               # physical per-(element, ion) concentrations
+print(result.element_fractions)            # per-element composition (sums to 1)
 ```
 
 The indexer returns a `FitResult` dataclass with temperature, electron density,
-per-species concentrations, residuals, R-squared, and peak assignments.
+physical per-species concentrations, per-element composition (ion stages
+combined by precision-weighted average, with a `stage_disagreement`
+LTE-consistency diagnostic), residuals, R-squared, and peak assignments.
 
 ## CLI
 

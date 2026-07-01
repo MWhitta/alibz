@@ -105,7 +105,7 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         idx.peak_line_map = scipy.sparse.csr_matrix(([1.0], ([0], [0])), shape=(1, 1))
 
         def fake_solve(_temperature, _log_ne):
-            idx._last_A_norm = np.array([[1.0]])
+            idx._last_A = np.array([[1.0]])
             return np.array([1.0]), 0.0
 
         idx._solve_concentrations = fake_solve
@@ -261,6 +261,66 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         concentrations, _cost = idx._solve_concentrations(10_000.0, 17.0)
 
         self.assertGreater(concentrations[0], concentrations[1])
+
+    def test_concentrations_are_physical_not_column_normalised(self):
+        """With disjoint single-line species of very different design scale,
+        the solution must satisfy A @ c = y in UN-normalised (physical)
+        units, not return the column-normalised NNLS coefficients."""
+        idx = PeakyIndexer(
+            np.array(
+                [
+                    [2.0, 500.0, 0.05, 0.05],
+                    [10.0, 600.0, 0.05, 0.05],
+                ]
+            )
+        )
+        idx.line_table = _FakeLineTable(
+            [
+                Species("Ca", 1, 20, 1.0, 0, 1),
+                Species("Fe", 1, 26, 1.0, 1, 2),
+            ],
+            wavelengths=[500.0, 600.0],
+            species_idx=[0, 1],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 1], [0, 1])),
+            shape=(2, 2),
+        )
+        idx._line_weights = lambda _temperature, _log_ne: np.array([4.0, 0.5])
+
+        concentrations, _cost = idx._solve_concentrations(10_000.0, 17.0)
+
+        # A = [[4, 0], [0, 0.5]], y = [2, 10]  =>  c = [0.5, 20.0]
+        np.testing.assert_allclose(concentrations, [0.5, 20.0], rtol=1e-10)
+
+    def test_element_aggregation_precision_weights_stages_never_sums(self):
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        idx.line_table = _FakeLineTable(
+            [
+                Species("Fe", 1, 26, 1.0, 0, 1),
+                Species("Fe", 2, 26, 1.0, 1, 2),
+                Species("Ca", 1, 20, 1.0, 2, 3),
+            ],
+            wavelengths=[500.0, 510.0, 520.0],
+            species_idx=[0, 1, 2],
+        )
+        A = np.array(
+            [
+                [3.0, 1.0, 0.0],
+                [0.0, 0.0, 2.0],
+            ]
+        )
+        concentrations = np.array([1.0, 3.0, 5.0])
+
+        element_c, element_f, disagreement = idx._aggregate_elements(concentrations, A)
+
+        # Fe: column weights 9 and 1 -> (9*1 + 1*3)/10 = 1.2 (a sum would give 4)
+        self.assertAlmostEqual(element_c["Fe"], 1.2)
+        self.assertAlmostEqual(element_c["Ca"], 5.0)
+        self.assertAlmostEqual(element_f["Fe"], 1.2 / 6.2)
+        self.assertAlmostEqual(element_f["Ca"], 5.0 / 6.2)
+        self.assertAlmostEqual(disagreement["Fe"], (3.0 - 1.0) / 4.0)
+        self.assertNotIn("Ca", disagreement)  # single stage: no diagnostic
 
     def test_solve_concentrations_keeps_rows_aligned_when_evidence_and_pseudo_cofire(self):
         """Regression (unit level): evidence-penalty rows and pseudo rows must
