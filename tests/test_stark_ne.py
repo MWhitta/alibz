@@ -15,7 +15,9 @@ from alibz.peaky_indexer_v3 import LineTable
 from alibz.utils.sahaboltzmann import SahaBoltzmann
 from alibz.utils.stark import (
     RYDBERG_EV,
+    calibrate_c4,
     effective_quantum_number_sq,
+    halpha_log_ne,
     stark_hwhm,
     stark_shape_factor,
 )
@@ -48,6 +50,55 @@ class TestStarkUtils(unittest.TestCase):
         w18 = float(stark_hwhm(1.0, 18.0, c4=1e-3, log_ne_ref=17.0))
         self.assertAlmostEqual(w17, 1e-3)
         self.assertAlmostEqual(w18 / w17, 10.0)
+
+    def test_halpha_anchor(self):
+        # GGC 2003 reference point: FWHM = 0.549 nm at exactly 1e17 cm^-3.
+        self.assertAlmostEqual(float(halpha_log_ne(0.549)), 17.0)
+        # ~ne^0.68 scaling: 10x density -> 10^0.68 wider.
+        ratio = 10.0 ** 0.67965
+        self.assertAlmostEqual(float(halpha_log_ne(0.549 * ratio)), 18.0, places=6)
+
+    def test_calibrate_c4_recovers_truth(self):
+        rng = np.random.default_rng(11)
+        shapes = rng.uniform(5.0, 400.0, size=40)
+        c4_true, gamma_inst_true, log_ne = 3e-4, 0.021, 17.4
+        gamma_obs = gamma_inst_true + stark_hwhm(shapes, log_ne, c4_true)
+        c4, gamma_inst = calibrate_c4(gamma_obs, shapes, log_ne)
+        self.assertAlmostEqual(c4, c4_true, places=10)
+        self.assertAlmostEqual(gamma_inst, gamma_inst_true, places=10)
+
+    def test_calibrate_c4_rejects_degenerate_input(self):
+        with self.assertRaises(ValueError):
+            calibrate_c4([0.02, 0.03], [10.0, 10.0], 17.0)
+        with self.assertRaises(ValueError):
+            calibrate_c4([0.02], [10.0], 17.0)
+
+    def test_halpha_ne_bounds(self):
+        from alibz.utils.stark import halpha_ne_bounds
+
+        # A Stark-broadened H-alpha peak yields bounds centred on its
+        # implied density.
+        peaks = np.array(
+            [
+                [100.0, 500.0, 0.03, 0.02],
+                [50.0, 656.30, 0.04, 0.25],
+            ]
+        )
+        bounds = halpha_ne_bounds(peaks)
+        self.assertIsNotNone(bounds)
+        lo, hi = bounds
+        centre = float(halpha_log_ne(0.5))
+        self.assertAlmostEqual((lo + hi) / 2.0, centre, places=10)
+        self.assertLess(lo, centre)
+        self.assertGreater(hi, centre)
+
+        # No peak near H-alpha -> None.
+        self.assertIsNone(halpha_ne_bounds(peaks[:1]))
+        # Narrow (instrumental) width -> None: no Stark information.
+        narrow = np.array([[50.0, 656.30, 0.04, 0.02]])
+        self.assertIsNone(halpha_ne_bounds(narrow))
+        # Empty table -> None.
+        self.assertIsNone(halpha_ne_bounds(np.empty((0, 4))))
 
 
 class TestLineTableStarkShape(unittest.TestCase):
