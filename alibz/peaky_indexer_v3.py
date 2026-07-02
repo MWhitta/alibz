@@ -172,11 +172,13 @@ class LineTable:
                 all_Ek.extend(subset[:, 4].tolist())
 
                 # Per-line Stark shape factor n_eff^4 / z^2 for the
-                # electron-density width coupling.  Hydrogen is excluded
-                # (linear-Stark dominated, different n_e scaling); lines
-                # with missing stage ionization energies get 0 and drop
-                # out of the width model.
-                if el == 'H':
+                # electron-density width coupling.  One-electron
+                # (hydrogenic) species — H I, He II, ... i.e. any stage
+                # with ion_stage >= Z — are excluded: they are
+                # linear-Stark dominated with a different n_e scaling.
+                # Lines with missing stage ionization energies get 0 and
+                # drop out of the width model.
+                if ion_stage >= Z:
                     shape = np.zeros(int(np.sum(mask)), dtype=float)
                 else:
                     ion_rows = np.asarray(db.ionization_energy(el, ion=ion_stage),

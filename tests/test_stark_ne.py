@@ -68,11 +68,27 @@ class TestLineTableStarkShape(unittest.TestCase):
         # ionization energy, so most shapes must be positive.
         self.assertGreater(np.mean(table.stark_shape > 0), 0.5)
 
-    def test_hydrogen_excluded(self):
+    def test_hydrogenic_species_excluded(self):
+        """One-electron systems (H I, He II, ...) are linear-Stark
+        dominated and must carry no quadratic-Stark shape factor."""
+        checked = 0
         for sp in self.table.species:
-            if sp.element == "H":
+            if sp.ion >= sp.Z:
                 span = slice(sp.line_start, sp.line_end)
-                self.assertTrue(np.all(self.table.stark_shape[span] == 0.0))
+                self.assertTrue(
+                    np.all(self.table.stark_shape[span] == 0.0),
+                    f"{sp.element} stage {sp.ion}",
+                )
+                checked += 1
+        # He II has optical lines (e.g. 468.6 nm region tables) — make sure
+        # the rule actually fired for at least one species when present.
+        sb = SahaBoltzmann("db")
+        wide = LineTable(sb.db, sb, wl_range=(180.0, 961.0), max_ion_stage=2)
+        hydrogenic = [sp for sp in wide.species if sp.ion >= sp.Z]
+        self.assertGreater(len(hydrogenic), 0)
+        for sp in hydrogenic:
+            span = slice(sp.line_start, sp.line_end)
+            self.assertTrue(np.all(wide.stark_shape[span] == 0.0))
 
     def test_filter_species_compacts_shape(self):
         sb = SahaBoltzmann("db")
