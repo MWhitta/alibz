@@ -1156,25 +1156,36 @@ class PeakyIndexerV3:
         lt = self.line_table
         if lt is None or lt.n_lines == 0:
             return
-        tol = float(self._shift_tolerance or 0.1)
+        # Strong resonance lines are often fit as SPLIT components
+        # (measured: K I 766.49 as 766.40 + 766.60), so matching uses a
+        # wider window and the amplitudes of all components within it are
+        # summed into one observable feature.
+        match_nm = max(float(self._shift_tolerance or 0.1), 0.12)
+        sum_nm = 0.2
         lw = self._line_weights(self.T_init, self.ne_init)
         kappa = self._kappa_raw(self.T_init, self.ne_init)
+
+        def feature_amplitude(wl_line):
+            near = np.abs(self._obs_wl - wl_line) <= sum_nm
+            if not np.any(near) or np.min(np.abs(self._obs_wl - wl_line)) > match_nm:
+                return None
+            return float(np.sum(self._obs_amp[near]))
 
         for sp in lt.species:
             jj = np.arange(sp.line_start, sp.line_end)
             res = jj[lt.Ei[jj] <= 0.2]
             matched = []
             for j in res:
-                k = int(np.argmin(np.abs(self._obs_wl - lt.wavelengths[j])))
-                if abs(self._obs_wl[k] - lt.wavelengths[j]) <= tol:
-                    matched.append((j, float(self._obs_amp[k])))
+                amp = feature_amplitude(lt.wavelengths[j])
+                if amp is not None and amp > 0:
+                    matched.append((j, amp))
             if len(matched) < 2:
                 continue
             matched.sort(key=lambda ja: -lw[ja[0]])
             j_a, amp_a = matched[0]
             pick = None
             for j_b, amp_b in matched[1:]:
-                if abs(lt.wavelengths[j_a] - lt.wavelengths[j_b]) >= 0.4:
+                if abs(lt.wavelengths[j_a] - lt.wavelengths[j_b]) >= 2 * sum_nm + 0.1:
                     pick = (j_b, amp_b)
                     break
             if pick is None:
@@ -1189,6 +1200,12 @@ class PeakyIndexerV3:
                 # grossly above thin: mismatched/blended peaks, not a doublet
                 continue
             tau_weak = invert_doublet_tau(measured, thin_ratio, strength_ratio)
+            if tau_weak >= 0.98 * 50.0:
+                # ratio at/beyond the saturated limit: a coincidence match
+                # (measured: Dy I pairs on a Li mineral), not a depth
+                # measurement — applying the cap would inflate the species
+                # ~50x. Leave the species un-anchored.
+                continue
             kT = 8.617333262e-5 * float(self.T_init)
             self._sa_doublet_info[(sp.element, sp.ion)] = {
                 "tau_weak": float(tau_weak),
