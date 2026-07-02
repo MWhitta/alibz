@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 
 from scipy.special     import voigt_profile as voigt
 from scipy.optimize    import least_squares
+import scipy.sparse
+import scipy.sparse.linalg
 from scipy.integrate   import cumulative_trapezoid
 from scipy.interpolate import interp1d
 
@@ -278,92 +280,100 @@ class PeakyFinder():
         return np.unique(peaks), minima
     
 
-    def find_background(self, x, y, range=5, n_sigma=1, plot=False):
-        """Estimate the background of a spectrum.
+    @staticmethod
+    def _arpls(y, lam=1e7, max_iter=20, ratio_tol=1e-3):
+        """Asymmetrically reweighted penalized least squares baseline.
+
+        Baek et al. (2015): minimise ``(y-z)' W (y-z) + lam * ||D2 z||^2``
+        where the weights are iteratively updated by a logistic function of
+        the residual referenced to the NEGATIVE-residual statistics — points
+        above the baseline (emission lines) are progressively zero-weighted
+        while the baseline is pinned by the noise floor.  ``lam`` sets the
+        baseline stiffness (smoothing length ~ lam**(1/4) pixels).
+        """
+        y = np.asarray(y, dtype=float)
+        n = y.size
+        if n < 5:
+            return np.zeros_like(y)
+
+        diag = scipy.sparse.eye(n, format="csc")
+        D2 = scipy.sparse.diags(
+            [1.0, -2.0, 1.0], [0, 1, 2], shape=(n - 2, n), format="csc"
+        )
+        H = lam * (D2.T @ D2)
+
+        w = np.ones(n)
+        z = y.copy()
+        for _ in range(int(max_iter)):
+            W = scipy.sparse.diags(w, 0, format="csc")
+            z = scipy.sparse.linalg.spsolve(W + H, w * y)
+            d = y - z
+            negative = d[d < 0]
+            if negative.size < 2:
+                break
+            m, s = float(np.mean(negative)), float(np.std(negative))
+            if s <= 0:
+                break
+            w_new = 1.0 / (1.0 + np.exp(np.clip(2.0 * (d - (2.0 * s - m)) / s, -500, 500)))
+            if np.linalg.norm(w - w_new) / max(np.linalg.norm(w), 1e-300) < ratio_tol:
+                w = w_new
+                break
+            w = w_new
+        return z
+
+    def find_background(self, x, y, lam=1e7, segment_edges=None, max_iter=20,
+                        plot=False, **_legacy):
+        """Estimate the background of a spectrum with per-segment arPLS.
+
+        Replaces the anchor/interpolation method, whose local-minima
+        anchors climbed the wings of exactly the analyte lines (Li 670.8:
+        +74 counts of excess baseline under the core and a 1.6 nm negative
+        run on its flank) and whose anchor-culling step — built on a
+        swapped ``cumulative_trapezoid`` call — removed precisely the
+        anchors pinning deep local dips (creating -220/-116/-59 count
+        over-subtraction artifacts on real data).  arPLS zero-weights
+        pixels above the baseline iteratively, so emission lines of any
+        width cannot attract the estimate.
 
         Parameters
         ----------
-        x : array_like
-            X values of the spectrum.
-        y : array_like
-            Intensity values.
-        range : int, optional
-            Window size for peak searching.
-        n_sigma : float, optional
-            Sigma multiplier for filtering background anchors.
+        x, y : array_like
+            Wavelengths and intensities.
+        lam : float, optional
+            Baseline stiffness (smoothing length ~ ``lam**(1/4)`` px).
+        segment_edges : sequence of float, optional
+            Detector junction wavelengths (e.g. ``(365, 620)`` for SciAps
+            three-segment spectrometers).  The baseline is estimated
+            independently per segment so the smoothness assumption never
+            spans a hardware step in gain or dark level.
+        max_iter : int, optional
+            Maximum reweighting iterations.
         plot : bool, optional
-            If ``True`` plot the intermediate and final background.
+            If ``True`` plot the estimated background.
 
-        Returns
-        -------
-        ndarray
-            Estimated background values.
+        Legacy keyword arguments of the retired anchor method (``range``,
+        ``n_sigma``) are accepted and ignored.
         """
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
 
-        # ------------------------------------------------------------------
-        # Step 1: locate peaks and minima
-        # ------------------------------------------------------------------
-        p_peaks, p_minima = self.find_peaks(y, window=range)
-
-        peak_values = np.zeros_like(y)
-        minima_values = np.zeros_like(y)
-        minima_values[p_minima] = y[p_minima]
-        peak_values[p_peaks] = y[p_peaks]
-
-        # ------------------------------------------------------------------
-        # Step 2: create a rough set of background anchors in frequency space
-        # ------------------------------------------------------------------
-        diff_extrema = np.fft.fft(peak_values) - np.fft.fft(minima_values)
-        extrema = np.abs(np.fft.ifft(diff_extrema))
-        anchors = np.nonzero(extrema > 1)[0]
-        anchors = anchors[~np.isin(anchors, p_peaks)]
-
-        # ------------------------------------------------------------------
-        # Step 3: remove spurious anchors associated with split peaks
-        # ------------------------------------------------------------------
-        cumint = cumulative_trapezoid(x[anchors], y[anchors], initial=0)
-        intdiff = np.diff(np.insert(cumint, 0, 0))
-        intmean, intstd = np.mean(intdiff), np.std(intdiff)
-        valid = np.abs(intdiff) <= intmean + 2 * n_sigma * intstd
-        anchors = anchors[valid]
-
-        # ------------------------------------------------------------------
-        # Step 4: interpolate to obtain a first pass background
-        # ------------------------------------------------------------------
-        interp = interp1d(x[anchors], y[anchors], bounds_error=False, fill_value=0)
-        rough_bg = interp(x)
-
-        # ------------------------------------------------------------------
-        # Step 5: remove high outliers and re-interpolate
-        # ------------------------------------------------------------------
-        overshoot = (y - rough_bg) < 0
-        nodes = (y - rough_bg) == 0
-        overnodes = np.cumsum(overshoot.astype(int) + 2 * nodes.astype(int))
-        diffnodes = np.diff(overnodes) > 1
-        diffnodes = np.pad(diffnodes, (1, 0), mode='constant', constant_values=1)
-        diffnodes = diffnodes.astype(bool)
-
-        y_nodes = y[diffnodes]
-        keep_nodes = np.argmax(
-            np.stack((y_nodes, np.roll(y_nodes, -1)), axis=-1), axis=1
-        ).astype(bool)
-        filtered_bg_anchors = np.arange(len(y))[diffnodes][keep_nodes]
-
-        interp = interp1d(
-            x[filtered_bg_anchors],
-            y[filtered_bg_anchors],
-            bounds_error=False,
-            fill_value=0,
-        )
-        filtered_bg = np.clip(interp(x), 0, np.inf)
+        bg = np.empty_like(y)
+        if segment_edges:
+            boundaries = [x[0] - 1.0, *sorted(float(e) for e in segment_edges), x[-1] + 1.0]
+            for lo, hi in zip(boundaries[:-1], boundaries[1:]):
+                mask = (x > lo) & (x <= hi)
+                if np.any(mask):
+                    bg[mask] = self._arpls(y[mask], lam=lam, max_iter=max_iter)
+        else:
+            bg[:] = self._arpls(y, lam=lam, max_iter=max_iter)
 
         if plot:
             plt.figure(figsize=(35, 5))
-            plt.plot(x, rough_bg, color="k")
-            plt.plot(x, filtered_bg, color="r")
+            plt.plot(x, y, color="k", lw=0.5)
+            plt.plot(x, bg, color="r")
             plt.show()
 
-        return filtered_bg
+        return bg
     
 
     def filter_peaks(self, y, n_sigma: float = 2):

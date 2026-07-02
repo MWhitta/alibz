@@ -167,6 +167,53 @@ def synth(lines, w_lo=390.0, w_hi=510.0, inc=0.01, noise=0.0, seed=7):
     return _synth(lines, w_lo=w_lo, w_hi=w_hi, inc=inc, noise=noise, seed=seed)
 
 
+class TestArplsBackground(unittest.TestCase):
+    """find_background is arPLS: emission lines must not attract the
+    baseline (the retired anchor method put +74 counts of excess baseline
+    under the Li analyte line), and per-segment estimation must keep a
+    hardware step from bleeding across a junction."""
+
+    def test_baseline_recovered_under_and_between_lines(self):
+        rng = np.random.default_rng(2)
+        x = np.arange(400.0, 500.0, 0.02)
+        true_bg = 120.0 + 60.0 * np.sin(x / 18.0)
+        y = true_bg + rng.normal(0.0, 3.0, x.size)
+        for area, mu in [(5e3, 420.0), (5e4, 450.0), (2e3, 470.0)]:
+            y += area * voigt_profile(x - mu, 0.03, 0.02)
+
+        finder = PeakyFinder.__new__(PeakyFinder)
+        bg = finder.find_background(x, y)
+
+        line_free = np.ones_like(x, dtype=bool)
+        for mu in (420.0, 450.0, 470.0):
+            line_free &= np.abs(x - mu) > 1.0
+        self.assertLess(np.median(np.abs((bg - true_bg)[line_free])), 3.0)
+        # under the strongest line the baseline must not climb the wings
+        j = int(np.argmin(np.abs(x - 450.0)))
+        self.assertLess(abs(bg[j] - true_bg[j]), 15.0)
+        # and must not dip below the baseline on the flanks
+        flank = (np.abs(x - 450.0) > 0.3) & (np.abs(x - 450.0) < 2.0)
+        self.assertGreater(np.min((bg - true_bg)[flank]), -15.0)
+
+    def test_segment_edges_isolate_hardware_steps(self):
+        rng = np.random.default_rng(3)
+        x = np.arange(300.0, 500.0, 0.05)
+        true_bg = np.where(x < 400.0, 30.0, 180.0)  # junction gain/dark step
+        y = true_bg + rng.normal(0.0, 2.0, x.size)
+
+        finder = PeakyFinder.__new__(PeakyFinder)
+        bg_seg = finder.find_background(x, y, segment_edges=(400.0,))
+        near = np.abs(x - 400.0) < 3.0
+        self.assertLess(np.median(np.abs((bg_seg - true_bg)[near])), 4.0)
+
+    def test_legacy_kwargs_accepted(self):
+        finder = PeakyFinder.__new__(PeakyFinder)
+        x = np.arange(400.0, 410.0, 0.02)
+        y = np.full_like(x, 50.0)
+        bg = finder.find_background(x, y, range=5, n_sigma=1)
+        self.assertEqual(bg.shape, y.shape)
+
+
 class TestNoiseReferencedSignificance(unittest.TestCase):
     """The noise machinery must work OUTSIDE the zero-noise limit, and the
     noise scale must survive the corpus path's linear-interpolation
