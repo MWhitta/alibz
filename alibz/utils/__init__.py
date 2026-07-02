@@ -11,6 +11,7 @@ from alibz.utils.stark import (
     stark_shape_factor,
 )
 from alibz.utils.voigt import voigt_width, multi_voigt
+from alibz.utils.wavelength import vacuum_to_air
 from alibz.utils.dataloader import Data
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     "calibrate_c4",
     "voigt_width",
     "multi_voigt",
+    "vacuum_to_air",
     "Data",
 ]

@@ -3,6 +3,8 @@ from pathlib import Path
 
 import numpy as np
 
+from alibz.utils.wavelength import vacuum_to_air
+
 class Database():
     """ class containing the lines and ionization states of an element imported from database
     """
@@ -42,6 +44,18 @@ class Database():
         
         with open(self.dbpath / "el_lines92.pickle", 'rb') as f:
             self.atom_dict = pickle.load(f)
+
+        # The pickled line lists hold Ritz VACUUM wavelengths, but observed
+        # spectra are air-calibrated (ASD convention: air above 200 nm).
+        # Convert once at load so every consumer — forward synthesis and
+        # inverse indexing alike — works in air wavelengths.  Unconverted,
+        # the 0.11-0.24 nm vacuum-air offset exceeds the indexer's matching
+        # tolerance and observed peaks silently match wrong lines.
+        for el, arr in self.atom_dict.items():
+            if arr.size == 0:
+                continue
+            air = vacuum_to_air(arr[:, 1].astype(float))
+            arr[:, 1] = np.char.mod('%.6f', air)
 
         # ionization energies
         with open(self.dbpath / "ionization" / "ionization.pickle", 'rb') as f:
