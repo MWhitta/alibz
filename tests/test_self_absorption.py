@@ -84,7 +84,10 @@ class TestSelfAbsorbedRecovery(unittest.TestCase):
         cls.wl_sel = table.wavelengths[np.array(sel)]
 
         dummy = cls._peaks(np.ones(len(cls.wl_sel)))
-        gen = cls._build(dummy)
+        gen = cls._build(dummy, sa_tau_scale=S_TAU_TRUE)
+        # Pin the concentration normalisation so generation and recovery
+        # share one tau convention (unit invariance is tested separately).
+        gen._sa_c_ref = 1.0
         amps = (
             gen._build_design_matrix(
                 gen._line_weights(T_TRUE, NE_TRUE)
@@ -116,17 +119,65 @@ class TestSelfAbsorbedRecovery(unittest.TestCase):
         return idx
 
     def test_thin_solve_is_biased_low(self):
+        # max Fe tau in this fixture is ~0.87 (kappa is normalised to the
+        # frozen reference line, a stronger non-Fe candidate), giving a
+        # measured thin bias of ~-25%.
         idx = self._build(self.peaks)
         c, _ = idx._solve_concentrations(T_TRUE, NE_TRUE)
-        self.assertLess(c[0], 0.6 * C_TRUE)
+        self.assertLess(c[0], 0.85 * C_TRUE)
+
+    def test_kappa_normalisation_survives_pruning(self):
+        """The tau normalisation is anchored to a FROZEN reference line
+        (here a spurious Nd II candidate) and must not re-anchor when
+        species are pruned — re-anchoring rescaled tau 3.5x mid-fit and
+        blew post-prune concentrations up 1000x."""
+        idx_full = PeakyIndexer(self.peaks, temperature_init=T_TRUE, ne_init=NE_TRUE)
+        idx_full.build_candidate_matrix(**BUILD_KW, sa_tau_scale=S_TAU_TRUE)
+        kappa_before = idx_full._absorption_strengths(T_TRUE, NE_TRUE)
+        fe_lines_before = {}
+        for s, sp in enumerate(idx_full.line_table.species):
+            if sp.element == "Fe" and sp.ion == 1:
+                for j in range(sp.line_start, sp.line_end):
+                    fe_lines_before[round(idx_full.line_table.wavelengths[j], 6)] = kappa_before[j]
+        self.assertEqual(idx_full._sa_ref_line["element"], "Nd")
+
+        keep = np.array([s.element == "Fe" and s.ion == 1
+                         for s in idx_full.line_table.species])
+        idx_full.line_table.filter_species(keep)
+        idx_full._rebuild_overlap(0.03, 0.02)
+        kappa_after = idx_full._absorption_strengths(T_TRUE, NE_TRUE)
+        for j in range(idx_full.line_table.n_lines):
+            wl = round(idx_full.line_table.wavelengths[j], 6)
+            self.assertAlmostEqual(
+                kappa_after[j], fe_lines_before[wl], places=12,
+                msg=f"kappa re-anchored after pruning at {wl} nm",
+            )
 
     def test_fixed_point_exact_at_true_scale(self):
         idx = self._build(self.peaks, sa_tau_scale=S_TAU_TRUE)
+        idx._sa_c_ref = 1.0
         c, _ = idx._solve_concentrations(T_TRUE, NE_TRUE)
+        self.assertTrue(idx._last_sa_converged)
         self.assertAlmostEqual(c[0], C_TRUE, delta=0.01)
+
+    def test_divergent_regime_is_flagged_invalid_not_silently_wrong(self):
+        """Deep in saturation the fixed-point map is not a contraction and
+        iterates grow geometrically while the plateau cost undercuts honest
+        fits; such solves must be flagged and billed as invalid trials."""
+        idx = self._build(self.peaks, sa_tau_scale=1e4)
+        idx._sa_c_ref = 1.0
+        c, cost = idx._solve_concentrations(T_TRUE, NE_TRUE)
+        if idx._last_sa_converged:
+            # if acceleration manages to converge it, the result must at
+            # least be finite and sane
+            self.assertTrue(np.all(np.isfinite(c)))
+        else:
+            np.testing.assert_array_equal(c, 0.0)
+            self.assertAlmostEqual(cost, float(np.sum(idx._obs_amp ** 2)))
 
     def test_fitted_tau_scale_recovers_concentration_and_depth(self):
         idx = self._build(self.peaks, sa_fit=True)
+        idx._sa_c_ref = 1.0
         result = idx.fit(
             T_bounds=(T_TRUE - 1.0, T_TRUE + 1.0),
             ne_bounds=(NE_TRUE - 1e-3, NE_TRUE + 1e-3),

@@ -421,8 +421,11 @@ class PeakyIndexerV3:
         self._stark_peak_shape = None
         self._last_gamma_inst = None
         self._sa_tau_scale = 0.0
-        self._sa_iterations = 30
+        self._sa_iterations = 150
         self._sa_fit = False
+        self._sa_ref_line = None
+        self._sa_c_ref = 0.0
+        self._last_sa_converged = None
         self._sa_log_tau_bounds = (-2.0, 3.0)
         self._last_species_evidence = None
 
@@ -478,7 +481,7 @@ class PeakyIndexerV3:
         stark_log_ne_ref: float = 17.0,
         sa_tau_scale: float = 0.0,
         sa_fit: bool = False,
-        sa_iterations: int = 30,
+        sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
@@ -546,6 +549,7 @@ class PeakyIndexerV3:
         self._prefilter_species_by_line_evidence(self.T_init, self.ne_init)
         self._select_pseudo_wavelengths(self.T_init, self.ne_init)
         self._freeze_stark_assignments()
+        self._freeze_sa_reference()
 
     def _freeze_stark_assignments(self) -> None:
         """Fix each peak's Stark shape factor ONCE, at the initial state.
@@ -1042,14 +1046,35 @@ class PeakyIndexerV3:
             / Z[lt.species_idx]
             * saha[lt.species_idx]
         )
-        # Normalise against the most absorbing line MATCHED to an observed
-        # peak (not the whole table): sa_tau_scale * concentration then
-        # reads directly as the optical depth of the most absorbed
-        # observed line, an O(0.1-30) quantity that sits comfortably in
-        # the default log-bounds regardless of what unmatched resonance
-        # lines exist elsewhere in the window.
-        peak = 0.0
-        if kappa.size:
+        # Normalise against a FROZEN reference line (chosen once at build
+        # time as the most absorbing line matched to an observed peak, and
+        # re-evaluated at the current T, nₑ).  Recomputing the "max
+        # matched" anchor per solve re-anchored the normalisation whenever
+        # pruning removed a high-kappa spurious candidate or a trial's
+        # kernel changed the matched set — measured 3.47x tau rescale at
+        # identical sa_tau_scale, blowing post-prune concentrations up by
+        # 1000x.  The frozen identity keeps sa_tau_scale meaning the same
+        # thing across every trial and refit.
+        ref = getattr(self, "_sa_ref_line", None)
+        if ref is not None:
+            try:
+                Z_ref = float(np.asarray(self.sb.stage_partition(
+                    ref["element"], np.array([float(temperature)]), ion=ref["ion"]
+                )).reshape(-1)[0])
+                ci_ref, _ = self.sb.ionization_distribution(
+                    ref["element"], np.array([float(temperature)]), log_ne
+                )
+                f_ref = float(ci_ref[0, ref["ion"] - 1])
+                peak = (
+                    ref["wavelength"] ** 2 * ref["gA"]
+                    * np.exp(-ref["Ei"] / kT) / max(Z_ref, 1e-300)
+                    * max(f_ref, 1e-300)
+                )
+            except (KeyError, IndexError, ValueError, TypeError):
+                peak = 0.0
+        else:
+            peak = 0.0
+        if peak <= 0.0 and kappa.size:
             if self.peak_line_map is not None and self.peak_line_map.nnz > 0:
                 matched = np.asarray(self.peak_line_map.getnnz(axis=0)).ravel() > 0
                 if np.any(matched):
@@ -1057,6 +1082,49 @@ class PeakyIndexerV3:
             if peak <= 0.0:
                 peak = float(np.max(kappa))
         return kappa / peak if peak > 0 else kappa
+
+    def _freeze_sa_reference(self) -> None:
+        """Fix the tau normalisation ONCE, at the initial state.
+
+        Stores (a) the physical identity of the most absorbing line
+        matched to an observed peak — so the denominator of the relative
+        absorption strengths survives pruning and per-trial kernel
+        changes — and (b) a concentration scale from the thin solve at
+        (T_init, nₑ_init), so ``tau = sa_tau_scale * (c / c_ref) * kappa``
+        is invariant to the intensity units of the observed amplitudes
+        (raw counts vs normalised spectra would otherwise shift the
+        fitted log-tau by the unit ratio against FIXED default bounds).
+        ``sa_tau_scale`` then reads as the optical depth of the most
+        absorbed observed line at the thin-solve dominant concentration.
+        """
+        self._sa_ref_line = None
+        self._sa_c_ref = 0.0
+        if self._sa_tau_scale <= 0.0 and not self._sa_fit:
+            return
+        lt = self.line_table
+        if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
+            return
+        kT = 8.617333262e-5 * float(self.T_init)
+        Z = lt.compute_partition_functions(self.T_init)
+        saha = lt.compute_saha_fractions(self.T_init, self.ne_init)
+        kappa = (
+            lt.wavelengths ** 2 * lt.gA * np.exp(-lt.Ei / kT)
+            / Z[lt.species_idx] * saha[lt.species_idx]
+        )
+        matched = np.asarray(self.peak_line_map.getnnz(axis=0)).ravel() > 0
+        if not np.any(matched):
+            return
+        j_ref = int(np.flatnonzero(matched)[np.argmax(kappa[matched])])
+        sp = lt.species[lt.species_idx[j_ref]]
+        self._sa_ref_line = {
+            "element": sp.element,
+            "ion": int(sp.ion),
+            "wavelength": float(lt.wavelengths[j_ref]),
+            "gA": float(lt.gA[j_ref]),
+            "Ei": float(lt.Ei[j_ref]),
+        }
+        c_thin, _ = self._solve_concentrations_thin(self.T_init, self.ne_init)
+        self._sa_c_ref = max(float(np.max(c_thin)) if c_thin.size else 0.0, 0.0)
 
     def _solve_concentrations(
         self,
@@ -1081,22 +1149,60 @@ class PeakyIndexerV3:
         kappa = self._absorption_strengths(temperature, log_ne)
         species_idx = self.line_table.species_idx
         c, cost = self._solve_concentrations_thin(temperature, log_ne)
+        c_ref = self._sa_c_ref if getattr(self, "_sa_c_ref", 0.0) > 0.0 else max(
+            float(np.max(c)) if c.size else 0.0, 1e-300
+        )
+        norm_thin = max(float(np.linalg.norm(c)), 1e-300)
         c_mix = c
-        for _ in range(int(max(self._sa_iterations, 1))):
-            tau = self._sa_tau_scale * c_mix[species_idx] * kappa
+        history = [c_mix]
+        converged = False
+        for it in range(int(max(self._sa_iterations, 1))):
+            tau = self._sa_tau_scale * (c_mix[species_idx] / c_ref) * kappa
             scale = escape_factor(tau)
             c_new, cost = self._solve_concentrations_thin(
                 temperature, log_ne, line_weight_scale=scale
             )
-            # Damped update: the map c -> solve(escape(tau(c))) is a
-            # monotone contraction from the thin start; damping guards the
-            # strongly saturated regime where an undamped step overshoots.
+            # Damped update; the plain iteration converges only linearly
+            # (per-step error ratio approaches ~0.97 near saturation, i.e.
+            # ~180 plain iterations), so Aitken acceleration is applied
+            # every 4th step.
             c_next = 0.5 * (c_new + c_mix)
-            converged = np.allclose(c_next, c_mix, rtol=1e-4, atol=1e-12)
+            history.append(c_next)
+            if len(history) >= 3 and (it + 1) % 4 == 0:
+                c0, c1, c2 = history[-3], history[-2], history[-1]
+                denom = c2 - 2.0 * c1 + c0
+                safe = np.abs(denom) > 1e-12 * np.maximum(np.abs(c2), 1e-300)
+                accel = np.where(
+                    safe, c2 - (c2 - c1) ** 2 / np.where(safe, denom, 1.0), c2
+                )
+                c_next = np.clip(accel, 0.0, None)
+                history[-1] = c_next
+            if np.allclose(c_next, c_mix, rtol=1e-4, atol=1e-12):
+                c_mix = c_next
+                c = c_new
+                converged = True
+                break
+            # Divergence guard: in deep saturation escape(tau) ~ 1/tau makes
+            # the model amplitude asymptotically independent of c — the map
+            # stops being a contraction and iterates grow geometrically
+            # (measured 1e31 after 500 steps at 3x the self-consistent
+            # scale) while the plateau cost UNDERCUTS honest fits.
+            if float(np.linalg.norm(c_next)) > 100.0 * norm_thin:
+                converged = False
+                break
             c_mix = c_next
             c = c_new
-            if converged:
-                break
+        self._last_sa_converged = converged
+
+        if not converged:
+            # A non-converged solve is an INVALID trial: mid-trajectory
+            # snapshots are not cost-comparable with converged solves, so
+            # the zero-model SSE is returned and the outer optimiser
+            # avoids the regime instead of silently selecting it.
+            return (
+                np.zeros(self.line_table.n_species, dtype=float),
+                float(np.sum(self._obs_amp ** 2)),
+            )
         return c, cost
 
     def _solve_concentrations_thin(
@@ -1654,6 +1760,14 @@ class PeakyIndexerV3:
                 'all_costs': result.func_vals.tolist(),
                 'gamma_inst': self._last_gamma_inst,
                 'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
+                'sa_converged': self._last_sa_converged,
+                'sa_tau_at_bound': (
+                    bool(self._sa_fit and self._sa_tau_scale > 0 and min(
+                        abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[0]),
+                        abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[1]),
+                    ) < 0.05 * (self._sa_log_tau_bounds[1] - self._sa_log_tau_bounds[0]))
+                    if self._sa_fit else None
+                ),
             },
             element_concentrations=element_concentrations,
             element_fractions=element_fractions,
@@ -1688,7 +1802,7 @@ class PeakyIndexerV3:
         stark_log_ne_ref: float = 17.0,
         sa_tau_scale: float = 0.0,
         sa_fit: bool = False,
-        sa_iterations: int = 30,
+        sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
