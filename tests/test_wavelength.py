@@ -78,5 +78,47 @@ class TestDatabaseServesAirWavelengths(unittest.TestCase):
         self.assertAlmostEqual(float(wl[np.argmin(np.abs(wl - 4.2456))]), 4.2456, places=4)
 
 
+class TestWavelengthShiftEstimation(unittest.TestCase):
+    """Instrument thermal drift produces a systematic line shift on top of
+    the steel-standard calibration; the estimator recovers it from bright
+    lines matched to a locally-dominant anchor catalog."""
+
+    # air positions of lines that are locally dominant in the database
+    REFS = [257.610, 421.552, 422.673, 455.404, 460.733, 588.995,
+            610.364, 670.781, 766.490, 769.896, 780.027, 794.760]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db = Database("db")
+
+    def _peaks(self, shift_nm):
+        n = len(self.REFS)
+        return np.column_stack([
+            np.linspace(1000.0, 300.0, n),
+            np.asarray(self.REFS) + shift_nm,
+            np.full(n, 0.08),
+            np.full(n, 0.02),
+        ])
+
+    def test_recovers_applied_shift(self):
+        from alibz.utils.wavelength import estimate_wavelength_shift
+
+        shift, n = estimate_wavelength_shift(self._peaks(-0.030), self.db)
+        self.assertGreaterEqual(n, 10)
+        self.assertAlmostEqual(shift, -0.030, delta=0.008)
+
+        shift0, n0 = estimate_wavelength_shift(self._peaks(0.0), self.db)
+        self.assertGreaterEqual(n0, 10)
+        self.assertLess(abs(shift0), 0.005)
+
+    def test_returns_zero_without_enough_matches(self):
+        from alibz.utils.wavelength import estimate_wavelength_shift
+
+        peaks = np.array([[100.0, 500.123, 0.08, 0.02]])
+        shift, n = estimate_wavelength_shift(peaks, self.db)
+        self.assertEqual(shift, 0.0)
+        self.assertLess(n, 5)
+
+
 if __name__ == "__main__":
     unittest.main()
