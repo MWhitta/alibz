@@ -152,6 +152,37 @@ class PeakyFinder():
         return float(max(estimates)) if estimates else 0.0
 
     @staticmethod
+    def _noise_scale_local(y, block=2048):
+        """Per-pixel noise scale from blockwise multi-lag estimates.
+
+        Real spectra are heteroscedastic across detector segments
+        (measured 1.8x spread between SciAps segments, and shot noise
+        rises with signal), so significance gates referenced to one
+        global scalar are simultaneously too loose in quiet segments and
+        too tight in noisy ones.  Computes the robust multi-lag scale
+        per block and linearly interpolates between block centres;
+        beyond the outermost centres the scale is held constant.
+        """
+        y = np.asarray(y, dtype=float)
+        n = y.size
+        if n < 2:
+            return np.zeros(n, dtype=float)
+        block = int(np.clip(block, 64, n))
+        centers, scales = [], []
+        for start in range(0, n, block):
+            seg = y[start : start + block]
+            if seg.size < block // 2 and scales:
+                # fold a short tail into the previous block's estimate
+                continue
+            centers.append(start + seg.size / 2.0)
+            scales.append(PeakyFinder._noise_scale(seg))
+        if not scales:
+            return np.full(n, PeakyFinder._noise_scale(y))
+        if len(scales) == 1:
+            return np.full(n, scales[0])
+        return np.interp(np.arange(n, dtype=float), centers, scales)
+
+    @staticmethod
     def _parameter_array(peak_dictionary):
         """Convert a peak-parameter mapping to a stable ``(n, 4)`` array."""
         if len(peak_dictionary) == 0:
@@ -370,12 +401,12 @@ class PeakyFinder():
         if len(peaks) == 0:
             return peaks, minima, transformer
 
-        noise = self._noise_scale(y)
+        noise = self._noise_scale_local(y)
         # Monotone significance mapping: n_sigma ADDS to a 3-sigma floor.
         # (Mapping n_sigma<=0 to the floor but using positive values
         # directly would make n_sigma=1 LOOSER than n_sigma=0.)
         threshold_sigma = 3.0 + max(float(n_sigma), 0.0)
-        valid = y[peaks] > threshold_sigma * noise
+        valid = y[peaks] > threshold_sigma * noise[peaks]
         filtered_peaks = peaks[valid]
 
         order = np.argsort(y[filtered_peaks])[::-1]
@@ -408,43 +439,56 @@ class PeakyFinder():
         """
 
         peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma)
-        
-        # ------------------------------------------------------------------
-        # Cepstral analysis to determine relevant Fourier domain region
-        # ------------------------------------------------------------------
-        fft = np.fft.fft(y)
-        log_amp = np.log(np.abs(fft))
-        cepstrum = np.abs(np.fft.ifft(log_amp))
-        log_cepstrum = np.nan_to_num(np.log(cepstrum))
 
-        peak_limit = np.argmax(log_cepstrum < np.mean(log_cepstrum))
-        cep_maxs, cep_mins = self.find_peaks(log_cepstrum[:peak_limit])
-
-        # ------------------------------------------------------------------
-        # Autocorrelation fitting in Fourier space
-        # ------------------------------------------------------------------
-        autokernel = np.log(np.real(np.fft.ifft(np.abs(fft) ** 2)))
-        autokernel_norm = autokernel[:peak_limit] - np.min(autokernel[peak_limit])
-        x_autokernel = np.arange(len(autokernel_norm))
-
-        x0 = (1, 0, cep_mins[0], cep_mins[0])
-        bounds = ([0] * 4, [np.inf] * 4)
-
-        result = least_squares(
-            self.residual,
-            x0=x0,
-            bounds=bounds,
-            args=(x_autokernel, autokernel_norm, self.multi_voigt),
-        )
-        params = result.x
+        # The cepstral/autocorrelation diagnostics below are NOT consumed
+        # by the fitting pipeline (fit_spectrum uses only peak_indices and
+        # transformer); they are fragile on real data (log of a negative
+        # autocorrelation, empty cepstral minima) and previously aborted
+        # the whole fit — fit_spectrum's catch-all turned the exception
+        # into a silent empty result.  Never let diagnostics kill
+        # detection.
+        peak_limit, cep_maxs, cep_mins = 0, np.array([]), np.array([])
+        params, pcov = None, None
         try:
-            pcov = np.linalg.inv(result.jac.T.dot(result.jac))
-        except np.linalg.LinAlgError:
-            pcov = np.full((len(params), len(params)), np.inf)
+            # --------------------------------------------------------------
+            # Cepstral analysis to determine relevant Fourier domain region
+            # --------------------------------------------------------------
+            with np.errstate(divide="ignore", invalid="ignore"):
+                fft = np.fft.fft(y)
+                log_amp = np.log(np.abs(fft))
+                cepstrum = np.abs(np.fft.ifft(log_amp))
+                log_cepstrum = np.nan_to_num(np.log(cepstrum))
 
-        if plot:
-            plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
-            plt.plot(x_autokernel, autokernel_norm)
+                peak_limit = np.argmax(log_cepstrum < np.mean(log_cepstrum))
+                cep_maxs, cep_mins = self.find_peaks(log_cepstrum[:peak_limit])
+
+                # ----------------------------------------------------------
+                # Autocorrelation fitting in Fourier space
+                # ----------------------------------------------------------
+                autokernel = np.log(np.real(np.fft.ifft(np.abs(fft) ** 2)))
+                autokernel_norm = autokernel[:peak_limit] - np.min(autokernel[peak_limit])
+                x_autokernel = np.arange(len(autokernel_norm))
+
+            x0 = (1, 0, cep_mins[0], cep_mins[0])
+            bounds = ([0] * 4, [np.inf] * 4)
+
+            result = least_squares(
+                self.residual,
+                x0=x0,
+                bounds=bounds,
+                args=(x_autokernel, autokernel_norm, self.multi_voigt),
+            )
+            params = result.x
+            try:
+                pcov = np.linalg.inv(result.jac.T.dot(result.jac))
+            except np.linalg.LinAlgError:
+                pcov = np.full((len(params), len(params)), np.inf)
+
+            if plot:
+                plt.plot(x_autokernel, self.multi_voigt(x_autokernel, params))
+                plt.plot(x_autokernel, autokernel_norm)
+        except (IndexError, RuntimeError, TypeError, ValueError):
+            pass
 
         return peak_indices, transformer, p_minima, peak_limit, cep_maxs, cep_mins, params, pcov
     
@@ -1156,12 +1200,14 @@ class PeakyFinder():
             median_fwhm = float(np.median(narrow)) if narrow.size else 0.0
 
         # Noise-referenced significance: a peak survives if the HEIGHT its
-        # fitted area implies exceeds 2x the point noise.  (The previous
-        # absolute cut `amp < 1` silently zeroed all peaks on normalized or
-        # low-count spectra — the threshold must not carry intensity units.)
-        noise = self._noise_scale(y_bgsub)
-        min_height = 2.0 * noise
+        # fitted area implies exceeds 2x the LOCAL point noise.  (The
+        # previous absolute cut `amp < 1` silently zeroed all peaks on
+        # normalized or low-count spectra, and a single global scale is
+        # too loose in quiet detector segments and too tight in noisy
+        # ones — measured 1.8x spread between segments on real data.)
+        noise_local = self._noise_scale_local(y_bgsub)
         for key, value in peak_dictionary.items():
+            min_height = 2.0 * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
             if value[2] < inc / 2:
                 value[2] = 0
             if value[2] > 100 * median_fwhm:

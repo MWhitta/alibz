@@ -207,6 +207,61 @@ class TestNoiseReferencedSignificance(unittest.TestCase):
         # reject nearly all of them
         self.assertLess(peaks.shape[0], 60)
 
+    def test_local_noise_scale_tracks_segment_steps(self):
+        """Detector segments have different noise floors (measured 1.8x
+        spread on real SciAps data); the local scale must track a step
+        while a single global scalar would be wrong on both sides."""
+        rng = np.random.default_rng(9)
+        y = np.concatenate([
+            rng.normal(0.0, 5.0, size=8000),
+            rng.normal(0.0, 25.0, size=8000),
+        ])
+        finder = PeakyFinder.__new__(PeakyFinder)
+        local = finder._noise_scale_local(y)
+        self.assertEqual(local.size, y.size)
+        self.assertLess(abs(np.median(local[:6000]) - 5.0) / 5.0, 0.3)
+        self.assertLess(abs(np.median(local[10000:]) - 25.0) / 25.0, 0.3)
+
+    def test_detection_adapts_to_local_noise(self):
+        """A line significant in the quiet segment must be kept even though
+        it would fail a global threshold inflated by the noisy segment."""
+        rng = np.random.default_rng(10)
+        inc = 0.01
+        x = np.arange(400.0, 560.0, inc)
+        y = np.where(x < 480.0,
+                     rng.normal(0.0, 2.0, size=x.size),
+                     rng.normal(0.0, 30.0, size=x.size))
+        # height 25 = 12.5 sigma locally, but only ~0.8 sigma of the noisy
+        # segment's scale (global scale ~21 -> 3*global = 64 would kill it)
+        from scipy.special import voigt_profile as _vp
+        area = 25.0 / float(_vp(0.0, 0.03, 0.02))
+        y += area * _vp(x - 440.0, 0.03, 0.02)
+
+        finder = PeakyFinder.__new__(PeakyFinder)
+        fit = finder.fit_spectrum(x, y, subtract_background=False, plot=False,
+                                  n_sigma=0, skip_profile=True)
+        peaks = fit["sorted_parameter_array"]
+        self.assertIsNotNone(_match(peaks, 440.0, tol=0.05), "quiet-segment line lost")
+
+    def test_segment_response_estimation_and_correction(self):
+        from alibz.detector import correct_segment_response, estimate_segment_response
+
+        x = np.arange(300.0, 700.0, 0.05)
+        continuum = 100.0 * np.exp(-0.5 * ((x - 500.0) / 400.0) ** 2)
+        response_true = np.where(x < 620.0, 1.0, 5.0)
+        bg = continuum * response_true
+
+        response = estimate_segment_response(x, bg, edges=(620.0,))
+        self.assertAlmostEqual(response[0], 1.0)
+        self.assertLess(abs(response[1] - 5.0) / 5.0, 0.15)
+
+        peaks = np.array([[100.0, 500.0, 0.03, 0.02], [500.0, 650.0, 0.03, 0.02]])
+        corrected = correct_segment_response(peaks, response, edges=(620.0,))
+        self.assertAlmostEqual(corrected[0, 0], 100.0)
+        self.assertLess(abs(corrected[1, 0] - 100.0) / 100.0, 0.15)
+        # original untouched
+        self.assertEqual(peaks[1, 0], 500.0)
+
     def test_n_sigma_is_monotone(self):
         lines = [(a, m, 0.03, 0.02) for a, m in zip([1e3, 5e3, 2e4, 1e5], np.linspace(400.0, 500.0, 4))]
         x, y = _synth(lines, noise=5.0)

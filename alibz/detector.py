@@ -429,3 +429,57 @@ def _blend_junction(
     y_out[idx] = (1 - bridge_weight) * y[idx] + bridge_weight * linear
 
     return y_out
+
+
+def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0)):
+    """Relative multiplicative response of detector segments from the
+    continuum step across each junction.
+
+    A physical plasma continuum cannot step by a factor of several within
+    a few nm; a discontinuity of the smooth background level across a
+    detector junction is therefore a throughput (gain) step between
+    segments (measured ~5x at the 620 nm junction on SciAps data).  The
+    same throughput multiplies LINE amplitudes, distorting exactly the
+    cross-segment relative intensities that Saha-Boltzmann inference
+    relies on.
+
+    For each junction the ratio of median background levels over the
+    flanking windows ``[edge + flank0, edge + flank1]`` versus
+    ``[edge - flank1, edge - flank0]`` estimates the step.  Returns
+    per-segment relative response normalised to the FIRST segment
+    (length ``len(edges) + 1``).
+
+    Caveat: only pass junctions whose step is MULTIPLICATIVE.  An
+    ADDITIVE baseline artifact also moves this ratio and would produce a
+    spurious gain: on SciAps data the 365 nm step is additive (~120
+    counts, background subtraction's job) while the 620 nm step is a
+    genuine ~5x throughput change — hence the default ``edges=(620.0,)``.
+    Prefer spectra with appreciable continuum.
+    """
+    x = np.asarray(x, dtype=float)
+    bg = np.asarray(background, dtype=float)
+    response = [1.0]
+    for edge in edges:
+        lo = (x >= edge - flank_nm[1]) & (x <= edge - flank_nm[0])
+        hi = (x >= edge + flank_nm[0]) & (x <= edge + flank_nm[1])
+        left = float(np.median(bg[lo])) if np.any(lo) else 0.0
+        right = float(np.median(bg[hi])) if np.any(hi) else 0.0
+        ratio = right / left if (left > 0.0 and right > 0.0) else 1.0
+        response.append(response[-1] * ratio)
+    return np.asarray(response, dtype=float)
+
+
+def correct_segment_response(peak_array, response, edges=(620.0,)):
+    """Divide peak amplitudes by their segment's relative response.
+
+    Makes cross-segment relative intensities comparable before physical
+    inference.  ``peak_array`` rows are ``[amplitude, center, sigma,
+    gamma]``; returns a corrected copy.
+    """
+    peaks = np.array(peak_array, dtype=float, copy=True)
+    if peaks.size == 0:
+        return peaks
+    response = np.asarray(response, dtype=float)
+    segment = np.searchsorted(np.asarray(edges, dtype=float), peaks[:, 1])
+    peaks[:, 0] = peaks[:, 0] / response[segment]
+    return peaks
