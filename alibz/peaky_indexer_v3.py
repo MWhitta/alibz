@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 from alibz.utils.database import Database
 from alibz.utils.voigt import voigt_width as _voigt_width
 from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
+from alibz.utils.stark import stark_hwhm, stark_shape_factor
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +138,7 @@ class LineTable:
         wl_min, wl_max = wl_range
         species_list: List[Species] = []
         all_wl, all_gA, all_Ei, all_Ek = [], [], [], []
+        all_stark_shape = []
         all_species_idx = []
 
         for el in db.elements:
@@ -169,6 +171,23 @@ class LineTable:
                 all_Ei.extend(subset[:, 3].tolist())
                 all_Ek.extend(subset[:, 4].tolist())
 
+                # Per-line Stark shape factor n_eff^4 / z^2 for the
+                # electron-density width coupling.  Hydrogen is excluded
+                # (linear-Stark dominated, different n_e scaling); lines
+                # with missing stage ionization energies get 0 and drop
+                # out of the width model.
+                if el == 'H':
+                    shape = np.zeros(int(np.sum(mask)), dtype=float)
+                else:
+                    ion_rows = np.asarray(db.ionization_energy(el, ion=ion_stage),
+                                          dtype=float)
+                    if ion_rows.size:
+                        e_ion = float(np.atleast_2d(ion_rows)[0, -1])
+                        shape = stark_shape_factor(e_ion, subset[:, 4], ion_stage)
+                    else:
+                        shape = np.zeros(int(np.sum(mask)), dtype=float)
+                all_stark_shape.extend(np.asarray(shape, dtype=float).tolist())
+
                 end = len(all_wl)
                 sp = Species(
                     element=el, ion=ion_stage, Z=Z,
@@ -182,6 +201,7 @@ class LineTable:
         self.gA = np.array(all_gA, dtype=np.float64)
         self.Ei = np.array(all_Ei, dtype=np.float64)
         self.Ek = np.array(all_Ek, dtype=np.float64)
+        self.stark_shape = np.array(all_stark_shape, dtype=np.float64)
         self.species_idx = np.array(all_species_idx, dtype=np.int32)
         self.species = species_list
 
@@ -202,6 +222,7 @@ class LineTable:
 
         species_list: List[Species] = []
         all_wl, all_gA, all_Ei, all_Ek = [], [], [], []
+        all_stark_shape = []
         all_species_idx = []
 
         for old_idx, keep in enumerate(keep_mask):
@@ -216,6 +237,7 @@ class LineTable:
             all_gA.extend(self.gA[span].tolist())
             all_Ei.extend(self.Ei[span].tolist())
             all_Ek.extend(self.Ek[span].tolist())
+            all_stark_shape.extend(self.stark_shape[span].tolist())
 
             end = len(all_wl)
             species_list.append(
@@ -234,6 +256,7 @@ class LineTable:
         self.gA = np.array(all_gA, dtype=np.float64)
         self.Ei = np.array(all_Ei, dtype=np.float64)
         self.Ek = np.array(all_Ek, dtype=np.float64)
+        self.stark_shape = np.array(all_stark_shape, dtype=np.float64)
         self.species_idx = np.array(all_species_idx, dtype=np.int32)
         self.species = species_list
         self.n_lines = len(self.wavelengths)
@@ -389,6 +412,10 @@ class PeakyIndexerV3:
         self._evidence_missing_count_weight = 0.0
         self._evidence_min_net = float("-inf")
         self._evidence_max_refits = 0
+        self._stark_width_weight = 0.0
+        self._stark_c4 = 0.0
+        self._stark_log_ne_ref = 17.0
+        self._last_gamma_inst = None
         self._last_species_evidence = None
 
     def _empty_result(self, reason: str) -> FitResult:
@@ -438,6 +465,9 @@ class PeakyIndexerV3:
         evidence_missing_count_weight: float = 0.1,
         evidence_min_net: float = 0.0,
         evidence_max_refits: int = 2,
+        stark_width_weight: float = 0.0,
+        stark_c4: float = 1e-4,
+        stark_log_ne_ref: float = 17.0,
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
 
@@ -455,6 +485,16 @@ class PeakyIndexerV3:
         would otherwise imply visible lines where no observed peak exists.
         When only a subset of unmatched lines is retained, the penalty is
         reweighted by the total unmatched strong-line mass for that species.
+
+        ``stark_width_weight > 0`` enables the Stark-width nₑ coupling: the
+        outer objective is charged an amplitude-weighted misfit between the
+        observed per-peak Lorentzian widths and
+        ``gamma_inst + c4 * (n_eff^4/z^2) * 10**(log_ne - stark_log_ne_ref)``
+        for each peak's dominant candidate line, so linewidths give nₑ a
+        direct gradient (with independent ion stages the fitted amplitudes
+        alone carry none).  The instrumental intercept ``gamma_inst`` is
+        profiled analytically per trial (exposed as ``_last_gamma_inst``);
+        the outer ``gamma`` parameter keeps its overlap-kernel role.
         """
         self._shift_tolerance = float(shift_tolerance)
         self._init_relative_intensity = float(max(min_init_relative_intensity, 0.0))
@@ -475,6 +515,9 @@ class PeakyIndexerV3:
         self._evidence_missing_count_weight = float(max(evidence_missing_count_weight, 0.0))
         self._evidence_min_net = float(evidence_min_net)
         self._evidence_max_refits = int(max(evidence_max_refits, 0))
+        self._stark_width_weight = float(max(stark_width_weight, 0.0))
+        self._stark_c4 = float(max(stark_c4, 0.0))
+        self._stark_log_ne_ref = float(stark_log_ne_ref)
         wl_range = (self._obs_wl.min() - 1.0, self._obs_wl.max() + 1.0)
         self.line_table = LineTable(
             self.db, self.sb, wl_range,
@@ -1200,18 +1243,91 @@ class PeakyIndexerV3:
 
         return concentrations, cost
 
+    def _width_cost(
+        self,
+        temperature: float,
+        log_ne: float,
+    ) -> float:
+        """Stark-width misfit charged to the outer objective.
+
+        For each observed peak, take its dominant candidate line (largest
+        kernel-times-emissivity entry of the overlap map at the trial
+        plasma state) and model the peak's Lorentzian HWHM as
+        ``gamma_inst + stark_hwhm(shape_j, log_ne)``.  The instrumental
+        intercept ``gamma_inst`` is PROFILED analytically (the
+        amplitude-weighted least-squares intercept at the trial nₑ,
+        clipped at 0) — searching it as a free outer parameter would leave
+        a flat (gamma_inst, nₑ) compensation valley, whereas profiling
+        makes the width cost one-dimensional in nₑ.  ``c4`` must stay
+        externally calibrated: it is exactly degenerate with
+        ``10**log_ne`` by construction.
+
+        The cost is the amplitude-weighted mean squared relative width
+        misfit, scaled by the zero-model SSE so it is commensurate with
+        the amplitude cost (the weight then expresses how many units of
+        fractional amplitude misfit one unit of fractional width misfit
+        is worth).
+
+        This is the nₑ measurement channel: with ion stages as independent
+        unknowns the fitted amplitudes are flat in nₑ, so linewidths are
+        the only in-spectrum handle.  Peaks whose dominant line has no
+        Stark shape factor (hydrogen, missing ionization data) are
+        excluded.
+        """
+        if self._stark_width_weight <= 0.0 or self._stark_c4 <= 0.0:
+            return 0.0
+        lt = self.line_table
+        if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
+            return 0.0
+        shape = getattr(lt, "stark_shape", None)
+        if shape is None:
+            return 0.0
+
+        lw = self._line_weights(temperature, log_ne)
+        weighted = self.peak_line_map.multiply(lw[np.newaxis, :]).tocsr()
+        j_star = np.asarray(weighted.argmax(axis=1)).ravel()
+        row_max = np.asarray(weighted.max(axis=1).todense()).ravel()
+
+        obs_gamma = np.asarray(self.peak_array[:, 3], dtype=float)
+        valid = (row_max > 0) & (shape[j_star] > 0) & np.isfinite(obs_gamma)
+        if not np.any(valid):
+            return 0.0
+
+        positive = obs_gamma[valid][obs_gamma[valid] > 0]
+        gamma_ref = float(np.median(positive)) if positive.size else 0.0
+        if gamma_ref <= 0.0:
+            return 0.0
+
+        stark = stark_hwhm(
+            shape[j_star[valid]], log_ne, self._stark_c4, self._stark_log_ne_ref
+        )
+        obs = obs_gamma[valid]
+        amp_weight = self._obs_amp[valid] / max(float(np.max(self._obs_amp)), 1e-300)
+        gamma_inst = max(
+            float(np.sum(amp_weight * (obs - stark)) / np.sum(amp_weight)), 0.0
+        )
+        self._last_gamma_inst = gamma_inst
+
+        rel_sq = ((obs - gamma_inst - stark) / gamma_ref) ** 2
+        mean_misfit = float(np.sum(amp_weight * rel_sq) / np.sum(amp_weight))
+        return self._stark_width_weight * float(np.sum(self._obs_amp ** 2)) * mean_misfit
+
     def _outer_objective(self, params: np.ndarray) -> float:
         """Objective for Bayesian optimisation over (T, nₑ, σ, γ).
 
         Rebuilds overlap matrix if broadening changed, then solves NNLS.
         Per-peak sigma/gamma are not modified; only the shared overlap
-        matrix is rebuilt with the trial broadening values.
+        matrix is rebuilt with the trial broadening values.  When the
+        Stark coupling is enabled the width misfit is charged as well
+        (its instrumental intercept is profiled analytically, so γ keeps
+        its kernel-width role).
         """
         T, log_ne, sigma, gamma = params
 
         self._rebuild_overlap(sigma, gamma)
 
         _, cost = self._solve_concentrations(T, log_ne)
+        cost += self._width_cost(T, log_ne)
         return cost
 
     def _rebuild_overlap(self, sigma: float, gamma: float):
@@ -1314,6 +1430,7 @@ class PeakyIndexerV3:
             concentrations,
             cost,
         )
+        cost += self._width_cost(best_T, best_ne)
 
         # Predicted amplitudes from the physical design matrix and
         # physical concentrations (identical to the normalised product).
@@ -1401,6 +1518,7 @@ class PeakyIndexerV3:
                 'n_evaluations': eval_count[0],
                 'best_params': result.x,
                 'all_costs': result.func_vals.tolist(),
+                'gamma_inst': self._last_gamma_inst,
             },
             element_concentrations=element_concentrations,
             element_fractions=element_fractions,
@@ -1430,6 +1548,9 @@ class PeakyIndexerV3:
         evidence_missing_count_weight: float = 0.1,
         evidence_min_net: float = 0.0,
         evidence_max_refits: int = 2,
+        stark_width_weight: float = 0.0,
+        stark_c4: float = 1e-4,
+        stark_log_ne_ref: float = 17.0,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
         sigma_bounds: Tuple[float, float] = (0.01, 0.3),
@@ -1476,6 +1597,9 @@ class PeakyIndexerV3:
             evidence_missing_count_weight=evidence_missing_count_weight,
             evidence_min_net=evidence_min_net,
             evidence_max_refits=evidence_max_refits,
+            stark_width_weight=stark_width_weight,
+            stark_c4=stark_c4,
+            stark_log_ne_ref=stark_log_ne_ref,
         )
 
         lt = self.line_table
