@@ -153,8 +153,16 @@ class PeakyFinder():
             estimates.append(1.4826 * med / np.sqrt(2.0))
         return float(max(estimates)) if estimates else 0.0
 
+    #: SciAps three-segment spectrometer junction wavelengths.  Used as the
+    #: default for per-segment background estimation and local noise
+    #: blocking; splitting a SMOOTH baseline at these points is harmless on
+    #: other instruments, while NOT splitting on SciAps data leaves a
+    #: junction ledge that spawns spurious peak clusters.  Pass
+    #: ``segment_edges=()`` to disable.
+    DEFAULT_SEGMENT_EDGES = (365.0, 620.0)
+
     @staticmethod
-    def _noise_scale_local(y, block=2048):
+    def _noise_scale_local(y, block=2048, segment_indices=None):
         """Per-pixel noise scale from blockwise multi-lag estimates.
 
         Real spectra are heteroscedastic across detector segments
@@ -162,27 +170,49 @@ class PeakyFinder():
         rises with signal), so significance gates referenced to one
         global scalar are simultaneously too loose in quiet segments and
         too tight in noisy ones.  Computes the robust multi-lag scale
-        per block and linearly interpolates between block centres;
-        beyond the outermost centres the scale is held constant.
+        per block and linearly interpolates between block centres,
+        holding the scale constant beyond the outermost centres.
+
+        ``segment_indices`` (sorted pixel indices of detector junctions)
+        restarts the blocking at each hardware boundary and interpolates
+        only WITHIN segments: a fixed block grid straddling a junction
+        would smear the noise step ~a block-width past it, mis-gating
+        detections near the junction by up to the segment noise ratio.
         """
         y = np.asarray(y, dtype=float)
         n = y.size
         if n < 2:
             return np.zeros(n, dtype=float)
-        block = int(np.clip(block, 64, n))
-        centers, scales = [], []
-        for start in range(0, n, block):
-            seg = y[start : start + block]
-            if seg.size < block // 2 and scales:
-                # fold a short tail into the previous block's estimate
+
+        boundaries = [0]
+        if segment_indices is not None:
+            boundaries += [int(i) for i in segment_indices if 0 < int(i) < n]
+        boundaries.append(n)
+
+        out = np.empty(n, dtype=float)
+        for seg_lo, seg_hi in zip(boundaries[:-1], boundaries[1:]):
+            ys = y[seg_lo:seg_hi]
+            m = ys.size
+            if m == 0:
                 continue
-            centers.append(start + seg.size / 2.0)
-            scales.append(PeakyFinder._noise_scale(seg))
-        if not scales:
-            return np.full(n, PeakyFinder._noise_scale(y))
-        if len(scales) == 1:
-            return np.full(n, scales[0])
-        return np.interp(np.arange(n, dtype=float), centers, scales)
+            blk = int(np.clip(block, 64, m)) if m >= 64 else m
+            centers, scales = [], []
+            for start in range(0, m, blk):
+                seg = ys[start : start + blk]
+                if seg.size < blk // 2 and scales:
+                    # fold a short tail into the previous block's estimate
+                    continue
+                centers.append(start + seg.size / 2.0)
+                scales.append(PeakyFinder._noise_scale(seg))
+            if not scales:
+                out[seg_lo:seg_hi] = PeakyFinder._noise_scale(ys)
+            elif len(scales) == 1:
+                out[seg_lo:seg_hi] = scales[0]
+            else:
+                out[seg_lo:seg_hi] = np.interp(
+                    np.arange(m, dtype=float), centers, scales
+                )
+        return out
 
     @staticmethod
     def _parameter_array(peak_dictionary):
@@ -321,8 +351,8 @@ class PeakyFinder():
             w = w_new
         return z
 
-    def find_background(self, x, y, lam=1e7, segment_edges=None, max_iter=20,
-                        plot=False, **_legacy):
+    def find_background(self, x, y, lam=None, smooth_nm=1.9, segment_edges=None,
+                        max_iter=20, plot=False, **_legacy):
         """Estimate the background of a spectrum with per-segment arPLS.
 
         Replaces the anchor/interpolation method, whose local-minima
@@ -340,12 +370,24 @@ class PeakyFinder():
         x, y : array_like
             Wavelengths and intensities.
         lam : float, optional
-            Baseline stiffness (smoothing length ~ ``lam**(1/4)`` px).
+            Baseline stiffness in PIXEL units (smoothing length
+            ~ ``lam**(1/4)`` px).  When ``None`` (default) it is derived
+            from ``smooth_nm`` and the grid pitch, so the PHYSICAL
+            stiffness is grid-independent — a fixed pixel-based lam would
+            be ~123x softer on the 0.01 nm corpus grid than on the
+            0.0333 nm native grid it was tuned on.
+        smooth_nm : float, optional
+            Physical smoothing length in nm used when ``lam`` is None.
+            The 1.9 nm default tracks detector-junction humps while
+            staying stiff under multi-FWHM lines.
         segment_edges : sequence of float, optional
-            Detector junction wavelengths (e.g. ``(365, 620)`` for SciAps
-            three-segment spectrometers).  The baseline is estimated
-            independently per segment so the smoothness assumption never
-            spans a hardware step in gain or dark level.
+            Detector junction wavelengths.  Defaults to
+            ``DEFAULT_SEGMENT_EDGES`` (SciAps 365/620 nm): the baseline is
+            estimated independently per segment so the smoothness
+            assumption never spans a hardware step (a spanned 620 nm
+            junction leaves a +54-count ledge that spawns spurious peak
+            clusters).  Pass ``()`` to disable, or your instrument's
+            junctions.
         max_iter : int, optional
             Maximum reweighting iterations.
         plot : bool, optional
@@ -357,8 +399,15 @@ class PeakyFinder():
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
 
+        if segment_edges is None:
+            segment_edges = self.DEFAULT_SEGMENT_EDGES
+        if lam is None:
+            pitch = float(np.median(np.diff(x))) if x.size > 1 else 1.0
+            pitch = pitch if np.isfinite(pitch) and pitch > 0 else 1.0
+            lam = (float(smooth_nm) / pitch) ** 4
+
         bg = np.empty_like(y)
-        if segment_edges:
+        if len(segment_edges) > 0:
             boundaries = [x[0] - 1.0, *sorted(float(e) for e in segment_edges), x[-1] + 1.0]
             for lo, hi in zip(boundaries[:-1], boundaries[1:]):
                 mask = (x > lo) & (x <= hi)
@@ -376,7 +425,7 @@ class PeakyFinder():
         return bg
     
 
-    def filter_peaks(self, y, n_sigma: float = 2):
+    def filter_peaks(self, y, n_sigma: float = 2, segment_indices=None):
         """Detect and rank significant peaks.
 
         Significance is measured against a robust estimate of the POINT
@@ -411,7 +460,7 @@ class PeakyFinder():
         if len(peaks) == 0:
             return peaks, minima, transformer
 
-        noise = self._noise_scale_local(y)
+        noise = self._noise_scale_local(y, segment_indices=segment_indices)
         # Monotone significance mapping: n_sigma ADDS to a 3-sigma floor.
         # (Mapping n_sigma<=0 to the floor but using positive values
         # directly would make n_sigma=1 LOOSER than n_sigma=0.)
@@ -425,7 +474,7 @@ class PeakyFinder():
         return peak_indices, minima, transformer
 
 
-    def fourier_peaks(self, y, n_sigma=0, plot=False):
+    def fourier_peaks(self, y, n_sigma=0, plot=False, segment_indices=None):
         """Return peak information using Fourier and cepstral analysis.
 
         Parameters
@@ -448,7 +497,9 @@ class PeakyFinder():
             matrix.
         """
 
-        peak_indices, p_minima, transformer = self.filter_peaks(y, n_sigma=n_sigma)
+        peak_indices, p_minima, transformer = self.filter_peaks(
+            y, n_sigma=n_sigma, segment_indices=segment_indices
+        )
 
         # The cepstral/autocorrelation diagnostics below are NOT consumed
         # by the fitting pipeline (fit_spectrum uses only peak_indices and
@@ -1099,7 +1150,7 @@ class PeakyFinder():
         return peak_dictionary
 
 
-    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, skip_profile=False, **kwargs):
+    def fit_spectrum(self, x, y, n_sigma=0, subtract_background=True, plot=False, verbose=False, skip_profile=False, segment_edges=None, **kwargs):
         """Fit a LIBS spectrum.
 
         Uses :meth:`fourier_peaks`, :meth:`fit_peaks`, :meth:`fit_shoulders`,
@@ -1126,6 +1177,15 @@ class PeakyFinder():
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
 
+        if segment_edges is None:
+            segment_edges = self.DEFAULT_SEGMENT_EDGES
+        segment_edges = tuple(float(e) for e in np.atleast_1d(np.asarray(segment_edges, dtype=float))) if len(np.atleast_1d(segment_edges)) else ()
+        segment_indices = (
+            np.searchsorted(x, np.sort(np.asarray(segment_edges, dtype=float)))
+            if len(segment_edges) and x.size
+            else None
+        )
+
         if y.size == 0:
             return self._empty_fit_result(x, y, y, np.zeros_like(y), n_sigma, plot, skip_profile)
 
@@ -1136,7 +1196,7 @@ class PeakyFinder():
 
         if subtract_background:
             try:
-                bg = self.find_background(x, y, **kwargs)
+                bg = self.find_background(x, y, segment_edges=segment_edges, **kwargs)
             except (IndexError, RuntimeError, TypeError, ValueError):
                 bg = np.zeros_like(y)
             y_bgsub = y - bg
@@ -1151,7 +1211,9 @@ class PeakyFinder():
         # spectrum: detection and fitting must see the same signal, and the
         # noise-referenced significance threshold assumes no baseline)
         try:
-            peak_indices, transformer, *rest = self.fourier_peaks(y_bgsub, n_sigma=n_sigma)
+            peak_indices, transformer, *rest = self.fourier_peaks(
+                y_bgsub, n_sigma=n_sigma, segment_indices=segment_indices
+            )
         except (IndexError, RuntimeError, TypeError, ValueError):
             return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
         if verbose:
@@ -1215,7 +1277,7 @@ class PeakyFinder():
         # normalized or low-count spectra, and a single global scale is
         # too loose in quiet detector segments and too tight in noisy
         # ones — measured 1.8x spread between segments on real data.)
-        noise_local = self._noise_scale_local(y_bgsub)
+        noise_local = self._noise_scale_local(y_bgsub, segment_indices=segment_indices)
         for key, value in peak_dictionary.items():
             min_height = 2.0 * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
             if value[2] < inc / 2:

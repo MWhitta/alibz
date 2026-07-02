@@ -431,7 +431,8 @@ def _blend_junction(
     return y_out
 
 
-def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0)):
+def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0),
+                              noise_scale=None, min_flank=None, max_ratio=20.0):
     """Relative multiplicative response of detector segments from the
     continuum step across each junction.
 
@@ -464,7 +465,17 @@ def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0
         hi = (x >= edge + flank_nm[0]) & (x <= edge + flank_nm[1])
         left = float(np.median(bg[lo])) if np.any(lo) else 0.0
         right = float(np.median(bg[hi])) if np.any(hi) else 0.0
-        ratio = right / left if (left > 0.0 and right > 0.0) else 1.0
+        # Significance guard: with weak continuum the ratio is dominated
+        # by additive offsets and noise (measured: a 21x estimate against
+        # a true 4.8x gain on offset-contaminated flanks), so both flanks
+        # must clear the significance floor or the junction is skipped.
+        floor = float(min_flank) if min_flank is not None else 0.0
+        if noise_scale is not None:
+            floor = max(floor, 5.0 * float(noise_scale))
+        if left > floor and right > floor:
+            ratio = float(np.clip(right / left, 1.0 / max_ratio, max_ratio))
+        else:
+            ratio = 1.0
         response.append(response[-1] * ratio)
     return np.asarray(response, dtype=float)
 
