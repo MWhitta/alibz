@@ -173,7 +173,9 @@ class TestPeakyFinderFast(unittest.TestCase):
                         range=9,
                     )
 
-        mock_bg.assert_called_once_with(x, y, range=9)
+        mock_bg.assert_called_once_with(
+            x, y, segment_edges=PeakyFinder.DEFAULT_SEGMENT_EDGES, range=9
+        )
         np.testing.assert_allclose(result['background'], bg)
 
 
