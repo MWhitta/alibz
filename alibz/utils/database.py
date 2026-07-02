@@ -41,6 +41,15 @@ class Database():
         #database missing data for these elements
         with open(self.dbpath / "no_lines26.pickle", 'rb') as f:
             self.no_lines = pickle.load(f)
+
+        # Elements with no stable (or primordially long-lived) isotope:
+        # they cannot occur in natural targets, but their database lines
+        # can coincidentally match observed peaks (measured: a 0.2% "Tc"
+        # assignment on real mineral data).  Th and U are long-lived
+        # primordial nuclides and stay available.
+        self.unstable_elements = {
+            'Tc', 'Pm', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Pa',
+        }
         
         with open(self.dbpath / "el_lines92.pickle", 'rb') as f:
             self.atom_dict = pickle.load(f)

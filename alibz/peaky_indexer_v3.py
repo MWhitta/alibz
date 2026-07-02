@@ -25,7 +25,7 @@ from alibz.utils.database import Database
 from alibz.utils.voigt import voigt_width as _voigt_width
 from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
 from alibz.utils.stark import stark_hwhm, stark_shape_factor
-from alibz.utils.absorption import escape_factor
+from alibz.utils.absorption import escape_factor, invert_doublet_tau
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +142,9 @@ class LineTable:
         all_stark_shape = []
         all_species_idx = []
 
+        unstable = getattr(db, 'unstable_elements', ())
         for el in db.elements:
-            if el in db.no_lines:
+            if el in db.no_lines or el in unstable:
                 continue
             lines = db.lines(el)
             if lines.size == 0:
@@ -425,6 +426,8 @@ class PeakyIndexerV3:
         self._sa_fit = False
         self._sa_ref_line = None
         self._sa_c_ref = 0.0
+        self._sa_doublets = False
+        self._sa_doublet_info = {}
         self._last_sa_converged = None
         self._sa_log_tau_bounds = (-2.0, 3.0)
         self._last_species_evidence = None
@@ -483,6 +486,7 @@ class PeakyIndexerV3:
         sa_fit: bool = False,
         sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
+        sa_doublets: bool = False,
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
 
@@ -537,6 +541,8 @@ class PeakyIndexerV3:
         self._sa_fit = bool(sa_fit)
         self._sa_iterations = int(max(sa_iterations, 1))
         self._sa_log_tau_bounds = (float(sa_log_tau_bounds[0]), float(sa_log_tau_bounds[1]))
+        self._sa_doublets = bool(sa_doublets)
+        self._sa_doublet_info = {}
         wl_range = (self._obs_wl.min() - 1.0, self._obs_wl.max() + 1.0)
         self.line_table = LineTable(
             self.db, self.sb, wl_range,
@@ -550,6 +556,7 @@ class PeakyIndexerV3:
         self._select_pseudo_wavelengths(self.T_init, self.ne_init)
         self._freeze_stark_assignments()
         self._freeze_sa_reference()
+        self._freeze_doublet_taus()
 
     def _freeze_stark_assignments(self) -> None:
         """Fix each peak's Stark shape factor ONCE, at the initial state.
@@ -1035,17 +1042,8 @@ class PeakyIndexerV3:
         dominate.  The absolute scale (column length, number density) is
         absorbed into the single global ``sa_tau_scale``.
         """
-        lt = self.line_table
+        kappa = self._kappa_raw(temperature, log_ne)
         kT = 8.617333262e-5 * float(temperature)
-        Z = lt.compute_partition_functions(temperature)
-        saha = lt.compute_saha_fractions(temperature, log_ne)
-        kappa = (
-            lt.wavelengths ** 2
-            * lt.gA
-            * np.exp(-lt.Ei / kT)
-            / Z[lt.species_idx]
-            * saha[lt.species_idx]
-        )
         # Normalise against a FROZEN reference line (chosen once at build
         # time as the most absorbing line matched to an observed peak, and
         # re-evaluated at the current T, nₑ).  Recomputing the "max
@@ -1126,6 +1124,112 @@ class PeakyIndexerV3:
         c_thin, _ = self._solve_concentrations_thin(self.T_init, self.ne_init)
         self._sa_c_ref = max(float(np.max(c_thin)) if c_thin.size else 0.0, 0.0)
 
+    def _kappa_raw(self, temperature: float, log_ne: float) -> np.ndarray:
+        """Un-normalised per-line absorption strengths (lower-level form)."""
+        lt = self.line_table
+        kT = 8.617333262e-5 * float(temperature)
+        Z = lt.compute_partition_functions(temperature)
+        saha = lt.compute_saha_fractions(temperature, log_ne)
+        return (
+            lt.wavelengths ** 2
+            * lt.gA
+            * np.exp(-lt.Ei / kT)
+            / Z[lt.species_idx]
+            * saha[lt.species_idx]
+        )
+
+    def _freeze_doublet_taus(self) -> None:
+        """Measure per-element optical depths from resonance doublets.
+
+        For species with two RESOLVED ground-term resonance lines both
+        matched to observed peaks (K I 766.5/769.9, Na D, Rb I 780/795,
+        Ca II H/K...), the measured area ratio inverts directly to that
+        species' optical depth — anchoring self-absorption to the
+        element's own data.  A single global tau scale demonstrably
+        cannot allocate depths per element (fitted K ratio 1.97 against
+        1.37 measured); anchored species are therefore excluded from the
+        global channel and corrected with their own measured depth.
+        """
+        self._sa_doublet_info = {}
+        if not self._sa_doublets:
+            return
+        lt = self.line_table
+        if lt is None or lt.n_lines == 0:
+            return
+        tol = float(self._shift_tolerance or 0.1)
+        lw = self._line_weights(self.T_init, self.ne_init)
+        kappa = self._kappa_raw(self.T_init, self.ne_init)
+
+        for sp in lt.species:
+            jj = np.arange(sp.line_start, sp.line_end)
+            res = jj[lt.Ei[jj] <= 0.2]
+            matched = []
+            for j in res:
+                k = int(np.argmin(np.abs(self._obs_wl - lt.wavelengths[j])))
+                if abs(self._obs_wl[k] - lt.wavelengths[j]) <= tol:
+                    matched.append((j, float(self._obs_amp[k])))
+            if len(matched) < 2:
+                continue
+            matched.sort(key=lambda ja: -lw[ja[0]])
+            j_a, amp_a = matched[0]
+            pick = None
+            for j_b, amp_b in matched[1:]:
+                if abs(lt.wavelengths[j_a] - lt.wavelengths[j_b]) >= 0.4:
+                    pick = (j_b, amp_b)
+                    break
+            if pick is None:
+                continue
+            j_b, amp_b = pick
+            thin_ratio = float(lw[j_a] / max(lw[j_b], 1e-300))
+            strength_ratio = float(kappa[j_a] / max(kappa[j_b], 1e-300))
+            if not (1.05 < thin_ratio < 5.0) or amp_b <= 0:
+                continue
+            measured = float(amp_a / amp_b)
+            if measured > 1.5 * thin_ratio:
+                # grossly above thin: mismatched/blended peaks, not a doublet
+                continue
+            tau_weak = invert_doublet_tau(measured, thin_ratio, strength_ratio)
+            kT = 8.617333262e-5 * float(self.T_init)
+            self._sa_doublet_info[(sp.element, sp.ion)] = {
+                "tau_weak": float(tau_weak),
+                "measured_ratio": measured,
+                "thin_ratio": thin_ratio,
+                # species-internal reference: Z and the Saha fraction cancel
+                # in the tau ratio, so only (wl, gA, Ei) are needed and the
+                # scaling survives pruning with no database lookups
+                "ref_wl": float(lt.wavelengths[j_b]),
+                "ref_gA": float(lt.gA[j_b]),
+                "ref_Ei": float(lt.Ei[j_b]),
+            }
+
+    def _doublet_line_scale(self, temperature: float) -> Optional[np.ndarray]:
+        """Per-line escape factors from measured doublet depths (or None).
+
+        tau_j = tau_weak * (wl^2 gA e^{-Ei/kT})_j / (same)_ref within each
+        anchored species; partition functions and Saha fractions cancel in
+        the ratio, so this is exact across trials and pruning.
+        """
+        if not self._sa_doublet_info:
+            return None
+        lt = self.line_table
+        kT = 8.617333262e-5 * float(temperature)
+        scale = np.ones(lt.n_lines, dtype=float)
+        for s, sp in enumerate(lt.species):
+            info = self._sa_doublet_info.get((sp.element, sp.ion))
+            if not info or info["tau_weak"] <= 0.0:
+                continue
+            jj = slice(sp.line_start, sp.line_end)
+            strength = (
+                lt.wavelengths[jj] ** 2 * lt.gA[jj] * np.exp(-lt.Ei[jj] / kT)
+            )
+            ref = (
+                info["ref_wl"] ** 2 * info["ref_gA"]
+                * np.exp(-info["ref_Ei"] / kT)
+            )
+            tau = info["tau_weak"] * strength / max(ref, 1e-300)
+            scale[jj] = escape_factor(tau)
+        return scale
+
     def _solve_concentrations(
         self,
         temperature: float,
@@ -1143,12 +1247,25 @@ class PeakyIndexerV3:
         optically thin — a ~35% amplitude compression no thin design can
         absorb).
         """
+        base_scale = self._doublet_line_scale(temperature)
         if self._sa_tau_scale <= 0.0:
-            return self._solve_concentrations_thin(temperature, log_ne)
+            return self._solve_concentrations_thin(
+                temperature, log_ne, line_weight_scale=base_scale
+            )
 
         kappa = self._absorption_strengths(temperature, log_ne)
         species_idx = self.line_table.species_idx
-        c, cost = self._solve_concentrations_thin(temperature, log_ne)
+        if base_scale is not None:
+            # doublet-anchored species carry their own MEASURED depths and
+            # are excluded from the global channel
+            kappa = kappa.copy()
+            for s, sp in enumerate(self.line_table.species):
+                info = self._sa_doublet_info.get((sp.element, sp.ion))
+                if info and info["tau_weak"] > 0.0:
+                    kappa[sp.line_start : sp.line_end] = 0.0
+        c, cost = self._solve_concentrations_thin(
+            temperature, log_ne, line_weight_scale=base_scale
+        )
         c_ref = self._sa_c_ref if getattr(self, "_sa_c_ref", 0.0) > 0.0 else max(
             float(np.max(c)) if c.size else 0.0, 1e-300
         )
@@ -1159,6 +1276,8 @@ class PeakyIndexerV3:
         for it in range(int(max(self._sa_iterations, 1))):
             tau = self._sa_tau_scale * (c_mix[species_idx] / c_ref) * kappa
             scale = escape_factor(tau)
+            if base_scale is not None:
+                scale = scale * base_scale
             c_new, cost = self._solve_concentrations_thin(
                 temperature, log_ne, line_weight_scale=scale
             )
@@ -1761,6 +1880,10 @@ class PeakyIndexerV3:
                 'gamma_inst': self._last_gamma_inst,
                 'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
                 'sa_converged': self._last_sa_converged,
+                'sa_doublet_taus': {
+                    f'{el}_{ion}': info['tau_weak']
+                    for (el, ion), info in self._sa_doublet_info.items()
+                },
                 'sa_tau_at_bound': (
                     bool(self._sa_fit and self._sa_tau_scale > 0 and min(
                         abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[0]),
@@ -1804,6 +1927,7 @@ class PeakyIndexerV3:
         sa_fit: bool = False,
         sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
+        sa_doublets: bool = False,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
         sigma_bounds: Tuple[float, float] = (0.01, 0.3),
@@ -1857,6 +1981,7 @@ class PeakyIndexerV3:
             sa_fit=sa_fit,
             sa_iterations=sa_iterations,
             sa_log_tau_bounds=sa_log_tau_bounds,
+            sa_doublets=sa_doublets,
         )
 
         lt = self.line_table

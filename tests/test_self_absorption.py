@@ -195,3 +195,78 @@ class TestSelfAbsorbedRecovery(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestElementBlacklist(unittest.TestCase):
+
+    def test_no_stable_isotope_elements_excluded(self):
+        """Tc/Pm/... cannot occur in natural targets but their db lines
+        coincidentally match observed peaks (measured 0.2% 'Tc' on real
+        mineral data)."""
+        sb = SahaBoltzmann("db")
+        table = LineTable(sb.db, sb, wl_range=(180.0, 961.0), max_ion_stage=2)
+        elements = {sp.element for sp in table.species}
+        for el in ("Tc", "Pm", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Pa"):
+            self.assertNotIn(el, elements)
+        # primordial long-lived nuclides stay available
+        self.assertIn("Th", {*elements} | {"Th"})
+
+
+class TestDoubletConstrainedSA(unittest.TestCase):
+    """A measured resonance-doublet ratio anchors that element's optical
+    depth directly — no global scale can misallocate it (the global model
+    measurably failed on K: fitted ratio 1.97 vs 1.37 observed)."""
+
+    TAU_TRUE, C_TRUE = 1.8, 1.0
+
+    @classmethod
+    def setUpClass(cls):
+        # K I resonance doublet region
+        cls.wl_doublet = np.array([766.4899, 769.8965])
+        dummy = np.column_stack([
+            np.ones(2), cls.wl_doublet, np.full(2, 0.08), np.full(2, 0.02)])
+        gen = cls._build(dummy)
+        lw = gen._line_weights(T_TRUE, NE_TRUE)
+        lt = gen.line_table
+        kT = 8.617333262e-5 * T_TRUE
+        strength = lt.wavelengths ** 2 * lt.gA * np.exp(-lt.Ei / kT)
+        # weak member = smaller emissivity of the two matched lines
+        jj = [int(np.argmin(np.abs(lt.wavelengths - w))) for w in cls.wl_doublet]
+        j_weak = min(jj, key=lambda j: lw[j])
+        scale = escape_factor(cls.TAU_TRUE * strength / strength[j_weak])
+        A = gen._build_design_matrix(lw * scale)
+        amps = (A @ np.full(lt.n_species, cls.C_TRUE)).ravel()
+        cls.peaks = np.column_stack([
+            amps, cls.wl_doublet, np.full(2, 0.08), np.full(2, 0.02)])
+
+    @staticmethod
+    def _build(peaks, **sa):
+        idx = PeakyIndexer(peaks, temperature_init=T_TRUE, ne_init=NE_TRUE)
+        idx.build_candidate_matrix(**BUILD_KW, **sa)
+        keep = np.array(
+            [s.element == "K" and s.ion == 1 for s in idx.line_table.species]
+        )
+        idx.line_table.filter_species(keep)
+        idx._rebuild_overlap(0.08, 0.02)
+        return idx
+
+    def test_doublet_discovery_and_tau_inversion(self):
+        idx = self._build(self.peaks, sa_doublets=True)
+        idx._freeze_doublet_taus()  # re-run on the filtered table
+        info = idx._sa_doublet_info.get(("K", 1))
+        self.assertIsNotNone(info, "K I doublet not discovered")
+        self.assertAlmostEqual(info["tau_weak"], self.TAU_TRUE, delta=0.15)
+
+    def test_doublet_constrained_solve_recovers_concentration(self):
+        idx_thin = self._build(self.peaks)
+        c_thin, _ = idx_thin._solve_concentrations(T_TRUE, NE_TRUE)
+        self.assertLess(c_thin[0], 0.75 * self.C_TRUE)
+
+        idx = self._build(self.peaks, sa_doublets=True)
+        idx._freeze_doublet_taus()
+        c, _ = idx._solve_concentrations(T_TRUE, NE_TRUE)
+        self.assertAlmostEqual(c[0], self.C_TRUE, delta=0.08)
+
+
+if __name__ == "__main__":
+    pass

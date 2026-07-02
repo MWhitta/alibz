@@ -58,3 +58,44 @@ def doublet_ratio(tau_weak, strength_ratio=2.0):
     num = strength_ratio * escape_factor(strength_ratio * tau_weak)
     den = escape_factor(tau_weak)
     return num / den
+
+
+def invert_doublet_tau(measured_ratio, thin_ratio, strength_ratio=None,
+                       tau_max=50.0):
+    """Per-element optical depth from a measured resonance-doublet ratio.
+
+    Doublet members share (nearly) the same lower level, so their optical
+    depths are locked in the known ratio of their absorption strengths:
+    given the measured area ratio ``R`` and the optically thin emissivity
+    ratio ``R0``, solve
+
+        R = R0 * f(strength_ratio * tau_weak) / f(tau_weak)
+
+    for ``tau_weak`` (``f`` the escape factor).  This anchors an element's
+    self-absorption DIRECTLY to its own measured lines — no global scale
+    can misallocate it (measured failure of the global model: fitted K
+    doublet ratio 1.97 against 1.37 observed).
+
+    ``strength_ratio`` defaults to ``thin_ratio`` (shared upper-level
+    structure makes emission and absorption ratios equal).  Returns 0
+    when ``R >= R0`` (no measurable compression) and ``tau_max`` when the
+    doublet is compressed beyond the model's saturated limit.
+    """
+    from scipy.optimize import brentq
+
+    R = float(measured_ratio)
+    R0 = float(thin_ratio)
+    sr = float(strength_ratio) if strength_ratio is not None else R0
+    if not np.isfinite(R) or not np.isfinite(R0) or R0 <= 1.0 or sr <= 1.0:
+        return 0.0
+    if R >= R0:
+        return 0.0
+
+    def g(t):
+        return R0 * float(escape_factor(sr * t)) / float(escape_factor(t)) - R
+
+    if g(tau_max) > 0.0:
+        # even at tau_max the model ratio stays above the measurement:
+        # saturated beyond the model's range
+        return float(tau_max)
+    return float(brentq(g, 1e-9, tau_max))
