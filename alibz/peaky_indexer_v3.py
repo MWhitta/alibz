@@ -417,6 +417,7 @@ class PeakyIndexerV3:
         self._stark_width_weight = 0.0
         self._stark_c4 = 0.0
         self._stark_log_ne_ref = 17.0
+        self._stark_peak_shape = None
         self._last_gamma_inst = None
         self._last_species_evidence = None
 
@@ -531,6 +532,35 @@ class PeakyIndexerV3:
         self._prefilter_species_by_initial_strength(self._init_relative_intensity)
         self._prefilter_species_by_line_evidence(self.T_init, self.ne_init)
         self._select_pseudo_wavelengths(self.T_init, self.ne_init)
+        self._freeze_stark_assignments()
+
+    def _freeze_stark_assignments(self) -> None:
+        """Fix each peak's Stark shape factor ONCE, at the initial state.
+
+        The width cost must not re-derive peak-to-line assignments per
+        trial: the dominant-line argmax flips with (T, nₑ, σ, γ), the
+        valid set then varies across trials, and excluded peaks cost
+        nothing — so the optimiser is rewarded for plasma states that
+        push peaks OUT of the width channel.  Freezing the assignment at
+        (T_init, nₑ_init) — using the per-peak-fitted-width overlap map
+        built above — makes the width cost comparable across trials and
+        removes a per-evaluation emissivity recomputation.
+        """
+        self._stark_peak_shape = np.zeros(self.n_peaks, dtype=float)
+        if self._stark_width_weight <= 0.0 or self._stark_c4 <= 0.0:
+            return
+        lt = self.line_table
+        if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
+            return
+        shape = getattr(lt, "stark_shape", None)
+        if shape is None:
+            return
+        lw = self._line_weights(self.T_init, self.ne_init)
+        weighted = self.peak_line_map.multiply(lw[np.newaxis, :]).tocsr()
+        j_star = np.asarray(weighted.argmax(axis=1)).ravel()
+        row_max = np.asarray(weighted.max(axis=1).todense()).ravel()
+        matched = row_max > 0
+        self._stark_peak_shape[matched] = shape[j_star[matched]]
 
     # =================================================================
     # Step 3: Forward model
@@ -1245,19 +1275,16 @@ class PeakyIndexerV3:
 
         return concentrations, cost
 
-    def _width_cost(
-        self,
-        temperature: float,
-        log_ne: float,
-    ) -> float:
+    def _width_cost(self, log_ne: float) -> float:
         """Stark-width misfit charged to the outer objective.
 
-        For each observed peak, take its dominant candidate line (largest
-        kernel-times-emissivity entry of the overlap map at the trial
-        plasma state) and model the peak's Lorentzian HWHM as
-        ``gamma_inst + stark_hwhm(shape_j, log_ne)``.  The instrumental
-        intercept ``gamma_inst`` is PROFILED analytically (the
-        amplitude-weighted least-squares intercept at the trial nₑ,
+        Each peak's Lorentzian HWHM is modelled as
+        ``gamma_inst + stark_hwhm(shape, log_ne)`` where ``shape`` is the
+        peak's FROZEN dominant-line Stark shape factor (see
+        ``_freeze_stark_assignments`` — per-trial re-assignment would let
+        the optimiser escape the channel by invalidating peaks).  The
+        instrumental intercept ``gamma_inst`` is PROFILED analytically
+        (the amplitude-weighted least-squares intercept at the trial nₑ,
         clipped at 0) — searching it as a free outer parameter would leave
         a flat (gamma_inst, nₑ) compensation valley, whereas profiling
         makes the width cost one-dimensional in nₑ.  ``c4`` must stay
@@ -1272,38 +1299,32 @@ class PeakyIndexerV3:
 
         This is the nₑ measurement channel: with ion stages as independent
         unknowns the fitted amplitudes are flat in nₑ, so linewidths are
-        the only in-spectrum handle.  Peaks whose dominant line has no
-        Stark shape factor (hydrogen, missing ionization data) are
-        excluded.
+        the only in-spectrum handle.  Excluded peaks: dominant line with
+        no Stark shape (hydrogenic species, missing ionization data,
+        near-threshold levels) and peaks whose fitted Lorentzian width
+        sits at the zero bound (a censored measurement, not an
+        observation of zero width — including them biases nₑ low).
         """
+        self._last_gamma_inst = None
         if self._stark_width_weight <= 0.0 or self._stark_c4 <= 0.0:
             return 0.0
-        lt = self.line_table
-        if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
+        peak_shape = getattr(self, "_stark_peak_shape", None)
+        if peak_shape is None:
             return 0.0
-        shape = getattr(lt, "stark_shape", None)
-        if shape is None:
-            return 0.0
-
-        lw = self._line_weights(temperature, log_ne)
-        weighted = self.peak_line_map.multiply(lw[np.newaxis, :]).tocsr()
-        j_star = np.asarray(weighted.argmax(axis=1)).ravel()
-        row_max = np.asarray(weighted.max(axis=1).todense()).ravel()
 
         obs_gamma = np.asarray(self.peak_array[:, 3], dtype=float)
-        valid = (row_max > 0) & (shape[j_star] > 0) & np.isfinite(obs_gamma)
+        valid = (peak_shape > 0) & np.isfinite(obs_gamma) & (obs_gamma > 0)
         if not np.any(valid):
             return 0.0
 
-        positive = obs_gamma[valid][obs_gamma[valid] > 0]
-        gamma_ref = float(np.median(positive)) if positive.size else 0.0
+        obs = obs_gamma[valid]
+        gamma_ref = float(np.median(obs))
         if gamma_ref <= 0.0:
             return 0.0
 
         stark = stark_hwhm(
-            shape[j_star[valid]], log_ne, self._stark_c4, self._stark_log_ne_ref
+            peak_shape[valid], log_ne, self._stark_c4, self._stark_log_ne_ref
         )
-        obs = obs_gamma[valid]
         amp_weight = self._obs_amp[valid] / max(float(np.max(self._obs_amp)), 1e-300)
         gamma_inst = max(
             float(np.sum(amp_weight * (obs - stark)) / np.sum(amp_weight)), 0.0
@@ -1329,7 +1350,7 @@ class PeakyIndexerV3:
         self._rebuild_overlap(sigma, gamma)
 
         _, cost = self._solve_concentrations(T, log_ne)
-        cost += self._width_cost(T, log_ne)
+        cost += self._width_cost(log_ne)
         return cost
 
     def _rebuild_overlap(self, sigma: float, gamma: float):
@@ -1432,7 +1453,7 @@ class PeakyIndexerV3:
             concentrations,
             cost,
         )
-        cost += self._width_cost(best_T, best_ne)
+        cost += self._width_cost(best_ne)
 
         # Predicted amplitudes from the physical design matrix and
         # physical concentrations (identical to the normalised product).

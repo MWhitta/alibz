@@ -38,12 +38,27 @@ def effective_quantum_number_sq(ion_energy_eV, Ek_eV, z):
     return np.where(gap > 0.0, z ** 2 * RYDBERG_EV / safe_gap, 0.0)
 
 
-def stark_shape_factor(ion_energy_eV, Ek_eV, z):
+#: Validity ceiling for the quadratic-impact scaling.  Griem's
+#: semi-empirical n_eff^4 law holds for low-lying isolated lines; levels
+#: bound by less than ~z^2*Ry/64 (n_eff > ~8) approach the Inglis-Teller
+#: regime where lines merge into the continuum at LIBS densities and the
+#: isolated-line width model is meaningless.  Without this ceiling the
+#: database's near-threshold lines (e.g. Si II 670.13 nm, bound by 7 meV,
+#: n_eff ~ 91, shape ~ 1.7e7) would swamp the width objective by six
+#: decades and pin n_e to a search bound.
+N_EFF_MAX = 8.0
+
+
+def stark_shape_factor(ion_energy_eV, Ek_eV, z, n_eff_max=N_EFF_MAX):
     """Dimensionless per-line factor ``n_eff**4 / z**2``.
 
-    Zero where the upper-level binding energy is non-positive.
+    Zero where the upper-level binding energy is non-positive AND where
+    ``n_eff`` exceeds ``n_eff_max`` (near-threshold Rydberg levels outside
+    the quadratic-impact validity range are excluded from the width model
+    rather than clamped — they are not isolated lines at LIBS densities).
     """
     n_sq = effective_quantum_number_sq(ion_energy_eV, Ek_eV, z)
+    n_sq = np.where(n_sq > float(n_eff_max) ** 2, 0.0, n_sq)
     z = np.asarray(z, dtype=float)
     return n_sq ** 2 / np.clip(z, 1.0, None) ** 2
 

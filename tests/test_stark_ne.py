@@ -45,6 +45,27 @@ class TestStarkUtils(unittest.TestCase):
         high = float(stark_shape_factor(10.0, 9.0, 1))
         self.assertGreater(high, low)
 
+    def test_shape_factor_zero_beyond_validity_ceiling(self):
+        """Near-threshold Rydberg levels (Si II 670.13 nm class: bound by
+        ~7 meV, n_eff ~ 91, raw shape ~1.7e7) are outside the
+        quadratic-impact validity range and merged into the continuum at
+        LIBS densities — excluded, not clamped, or one line swamps the
+        width objective by six decades and pins n_e to a bound."""
+        self.assertEqual(float(stark_shape_factor(11.872, 11.865, 2)), 0.0)
+        # A level bound by ~1 eV (n_eff ~ 3.7 at z=1) stays in.
+        self.assertGreater(float(stark_shape_factor(5.0, 4.0, 1)), 0.0)
+
+    def test_zero_width_peaks_are_censored_not_observations(self):
+        """A Lorentzian width fitted at its zero bound is a censored
+        measurement (sigma/gamma degeneracy at low SNR), not an
+        observation of zero width; treating it as data biases n_e low."""
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.03, 0.0]]))
+        idx._stark_width_weight = 0.5
+        idx._stark_c4 = 1e-3
+        idx._stark_peak_shape = np.array([50.0])
+        self.assertEqual(idx._width_cost(17.0), 0.0)
+        self.assertIsNone(idx._last_gamma_inst)
+
     def test_stark_hwhm_linear_in_ne(self):
         w17 = float(stark_hwhm(1.0, 17.0, c4=1e-3, log_ne_ref=17.0))
         w18 = float(stark_hwhm(1.0, 18.0, c4=1e-3, log_ne_ref=17.0))
@@ -209,14 +230,17 @@ class TestNeRecoveryFromWidths(unittest.TestCase):
         return peaks, shapes
 
     def test_ne_recovered_from_widths_alone(self):
-        ne_true, gamma_inst_true = 17.5, 0.02
-        sb_probe = None  # noqa: F841
+        # A reference density distinct from both the default (17.0) and
+        # ne_init, so a mis-wired stark_log_ne_ref cannot cancel out.
+        ne_true, gamma_inst_true, ne_ref = 17.5, 0.02, 16.5
 
         def widths(shapes):
             # choose c4 so the median Stark HWHM at ne_true is comparable
             # to the instrumental width (a realistic, measurable effect)
-            self.c4 = 0.03 / (np.median(shapes) * 10.0 ** (ne_true - 17.0))
-            return gamma_inst_true + stark_hwhm(shapes, ne_true, self.c4)
+            self.c4 = 0.03 / (np.median(shapes) * 10.0 ** (ne_true - ne_ref))
+            return gamma_inst_true + stark_hwhm(
+                shapes, ne_true, self.c4, log_ne_ref=ne_ref
+            )
 
         peaks, _ = self._make_indexer(widths)
 
@@ -232,6 +256,7 @@ class TestNeRecoveryFromWidths(unittest.TestCase):
             n_calls=25,
             stark_width_weight=0.5,
             stark_c4=self.c4,
+            stark_log_ne_ref=ne_ref,
             verbose=False,
         )
         self.assertAlmostEqual(result.ne, ne_true, delta=0.3)
@@ -261,9 +286,12 @@ class TestNeRecoveryFromWidths(unittest.TestCase):
             stark_width_weight=0.0,
             verbose=False,
         )
-        near_bound = min(abs(result.ne - 16.0), abs(result.ne - 19.0)) < 0.4
-        recovered = abs(result.ne - ne_true) < 0.3
-        self.assertTrue(near_bound or not recovered)
+        # Without the width channel the amplitudes are flat in n_e, so the
+        # optimiser must both FAIL to recover the truth and drift to a
+        # search bound (asserting only "not recovered" would pass vacuously
+        # on a broken fixture).
+        self.assertGreater(abs(result.ne - ne_true), 0.3)
+        self.assertLess(min(abs(result.ne - 16.0), abs(result.ne - 19.0)), 0.4)
 
 
 if __name__ == "__main__":
