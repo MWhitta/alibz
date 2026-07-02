@@ -12,6 +12,7 @@ from alibz.utils.stark import (
 )
 from alibz.utils.voigt import voigt_width, multi_voigt
 from alibz.utils.wavelength import vacuum_to_air
+from alibz.utils.absorption import escape_factor, doublet_ratio
 from alibz.utils.dataloader import Data
 
 __all__ = [
@@ -30,5 +31,7 @@ __all__ = [
     "voigt_width",
     "multi_voigt",
     "vacuum_to_air",
+    "escape_factor",
+    "doublet_ratio",
     "Data",
 ]

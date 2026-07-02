@@ -25,6 +25,7 @@ from alibz.utils.database import Database
 from alibz.utils.voigt import voigt_width as _voigt_width
 from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
 from alibz.utils.stark import stark_hwhm, stark_shape_factor
+from alibz.utils.absorption import escape_factor
 
 
 # ---------------------------------------------------------------------------
@@ -419,6 +420,10 @@ class PeakyIndexerV3:
         self._stark_log_ne_ref = 17.0
         self._stark_peak_shape = None
         self._last_gamma_inst = None
+        self._sa_tau_scale = 0.0
+        self._sa_iterations = 30
+        self._sa_fit = False
+        self._sa_log_tau_bounds = (-2.0, 3.0)
         self._last_species_evidence = None
 
     def _empty_result(self, reason: str) -> FitResult:
@@ -471,6 +476,10 @@ class PeakyIndexerV3:
         stark_width_weight: float = 0.0,
         stark_c4: float = 1e-4,
         stark_log_ne_ref: float = 17.0,
+        sa_tau_scale: float = 0.0,
+        sa_fit: bool = False,
+        sa_iterations: int = 30,
+        sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
 
@@ -521,6 +530,10 @@ class PeakyIndexerV3:
         self._stark_width_weight = float(max(stark_width_weight, 0.0))
         self._stark_c4 = float(max(stark_c4, 0.0))
         self._stark_log_ne_ref = float(stark_log_ne_ref)
+        self._sa_tau_scale = float(max(sa_tau_scale, 0.0))
+        self._sa_fit = bool(sa_fit)
+        self._sa_iterations = int(max(sa_iterations, 1))
+        self._sa_log_tau_bounds = (float(sa_log_tau_bounds[0]), float(sa_log_tau_bounds[1]))
         wl_range = (self._obs_wl.min() - 1.0, self._obs_wl.max() + 1.0)
         self.line_table = LineTable(
             self.db, self.sb, wl_range,
@@ -1004,12 +1017,95 @@ class PeakyIndexerV3:
     # Step 4: Optimisation
     # =================================================================
 
+    def _absorption_strengths(
+        self,
+        temperature: float,
+        log_ne: float,
+    ) -> np.ndarray:
+        """Per-line RELATIVE optical-depth strengths, normalised to max 1.
+
+        The line-centre optical depth scales with the LOWER-level
+        population:  ``kappa_j ~ lambda_j^2 * gA_j * exp(-E_i,j / kT)
+        / Z_s(T) * f_stage``  (contrast the emissivity, which carries the
+        upper level).  Ground-state resonance lines of abundant species
+        dominate.  The absolute scale (column length, number density) is
+        absorbed into the single global ``sa_tau_scale``.
+        """
+        lt = self.line_table
+        kT = 8.617333262e-5 * float(temperature)
+        Z = lt.compute_partition_functions(temperature)
+        saha = lt.compute_saha_fractions(temperature, log_ne)
+        kappa = (
+            lt.wavelengths ** 2
+            * lt.gA
+            * np.exp(-lt.Ei / kT)
+            / Z[lt.species_idx]
+            * saha[lt.species_idx]
+        )
+        # Normalise against the most absorbing line MATCHED to an observed
+        # peak (not the whole table): sa_tau_scale * concentration then
+        # reads directly as the optical depth of the most absorbed
+        # observed line, an O(0.1-30) quantity that sits comfortably in
+        # the default log-bounds regardless of what unmatched resonance
+        # lines exist elsewhere in the window.
+        peak = 0.0
+        if kappa.size:
+            if self.peak_line_map is not None and self.peak_line_map.nnz > 0:
+                matched = np.asarray(self.peak_line_map.getnnz(axis=0)).ravel() > 0
+                if np.any(matched):
+                    peak = float(np.max(kappa[matched]))
+            if peak <= 0.0:
+                peak = float(np.max(kappa))
+        return kappa / peak if peak > 0 else kappa
+
     def _solve_concentrations(
         self,
         temperature: float,
         log_ne: float,
     ) -> Tuple[np.ndarray, float]:
         """NNLS solve for concentrations at fixed (T, nₑ).
+
+        When ``sa_tau_scale > 0``, self-absorption is applied by a damped
+        fixed point: solve optically thin, compute per-line optical
+        depths ``tau_j = sa_tau_scale * c_s(j) * kappa_j``, compress the
+        line weights by the homogeneous-slab escape factor
+        ``(1 - e^-tau)/tau``, and re-solve.  The escape factor is the
+        degree of freedom the linear model lacks on resonance lines of
+        major elements (measured: K I doublet ratio 1.30 vs 2.02
+        optically thin — a ~35% amplitude compression no thin design can
+        absorb).
+        """
+        if self._sa_tau_scale <= 0.0:
+            return self._solve_concentrations_thin(temperature, log_ne)
+
+        kappa = self._absorption_strengths(temperature, log_ne)
+        species_idx = self.line_table.species_idx
+        c, cost = self._solve_concentrations_thin(temperature, log_ne)
+        c_mix = c
+        for _ in range(int(max(self._sa_iterations, 1))):
+            tau = self._sa_tau_scale * c_mix[species_idx] * kappa
+            scale = escape_factor(tau)
+            c_new, cost = self._solve_concentrations_thin(
+                temperature, log_ne, line_weight_scale=scale
+            )
+            # Damped update: the map c -> solve(escape(tau(c))) is a
+            # monotone contraction from the thin start; damping guards the
+            # strongly saturated regime where an undamped step overshoots.
+            c_next = 0.5 * (c_new + c_mix)
+            converged = np.allclose(c_next, c_mix, rtol=1e-4, atol=1e-12)
+            c_mix = c_next
+            c = c_new
+            if converged:
+                break
+        return c, cost
+
+    def _solve_concentrations_thin(
+        self,
+        temperature: float,
+        log_ne: float,
+        line_weight_scale: Optional[np.ndarray] = None,
+    ) -> Tuple[np.ndarray, float]:
+        """Optically thin NNLS solve at fixed (T, nₑ).
 
         Columns of the design matrix are normalised for the solve so that
         concentrations are on a comparable scale (this prevents species
@@ -1021,9 +1117,14 @@ class PeakyIndexerV3:
         ridge penalties plus the pseudo-observation cost — so the outer
         optimiser ranks (T, nₑ, σ, γ) by the same functional as the
         inner solve.  Degenerate branches return the SSE of the all-zero
-        model in the same squared units.
+        model in the same squared units.  ``line_weight_scale`` (e.g. the
+        self-absorption escape factors) multiplies the per-line
+        emissivities, so the evidence penalties and pseudo-observations
+        also see the corrected expected intensities.
         """
         lw = self._line_weights(temperature, log_ne)
+        if line_weight_scale is not None:
+            lw = lw * line_weight_scale
         A = self._build_design_matrix(lw)
         if A.size == 0:
             c = np.zeros(self.line_table.n_species, dtype=float)
@@ -1343,9 +1444,12 @@ class PeakyIndexerV3:
         matrix is rebuilt with the trial broadening values.  When the
         Stark coupling is enabled the width misfit is charged as well
         (its instrumental intercept is profiled analytically, so γ keeps
-        its kernel-width role).
+        its kernel-width role).  When ``sa_fit`` is enabled the fifth
+        parameter is ``log10`` of the self-absorption tau scale.
         """
-        T, log_ne, sigma, gamma = params
+        if len(params) >= 5:
+            self._sa_tau_scale = float(10.0 ** params[4])
+        T, log_ne, sigma, gamma = params[:4]
 
         self._rebuild_overlap(sigma, gamma)
 
@@ -1407,6 +1511,11 @@ class PeakyIndexerV3:
             Real(sigma_bounds[0], sigma_bounds[1], name='sigma'),
             Real(gamma_bounds[0], gamma_bounds[1], name='gamma'),
         ]
+        if self._sa_fit:
+            dimensions.append(
+                Real(self._sa_log_tau_bounds[0], self._sa_log_tau_bounds[1],
+                     name='log10_sa_tau')
+            )
 
         if verbose:
             print(f"Bayesian optimisation: {n_calls} evaluations over "
@@ -1437,7 +1546,9 @@ class PeakyIndexerV3:
         )
 
         # Extract best parameters
-        best_T, best_ne, best_sigma, best_gamma = result.x
+        best_T, best_ne, best_sigma, best_gamma = result.x[:4]
+        if self._sa_fit and len(result.x) >= 5:
+            self._sa_tau_scale = float(10.0 ** result.x[4])
         if verbose:
             print(f"\nBest: T={best_T:.0f} K, ne={best_ne:.1f}, "
                   f"σ={best_sigma:.4f}, γ={best_gamma:.4f}")
@@ -1542,6 +1653,7 @@ class PeakyIndexerV3:
                 'best_params': result.x,
                 'all_costs': result.func_vals.tolist(),
                 'gamma_inst': self._last_gamma_inst,
+                'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
             },
             element_concentrations=element_concentrations,
             element_fractions=element_fractions,
@@ -1574,6 +1686,10 @@ class PeakyIndexerV3:
         stark_width_weight: float = 0.0,
         stark_c4: float = 1e-4,
         stark_log_ne_ref: float = 17.0,
+        sa_tau_scale: float = 0.0,
+        sa_fit: bool = False,
+        sa_iterations: int = 30,
+        sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
         sigma_bounds: Tuple[float, float] = (0.01, 0.3),
@@ -1623,6 +1739,10 @@ class PeakyIndexerV3:
             stark_width_weight=stark_width_weight,
             stark_c4=stark_c4,
             stark_log_ne_ref=stark_log_ne_ref,
+            sa_tau_scale=sa_tau_scale,
+            sa_fit=sa_fit,
+            sa_iterations=sa_iterations,
+            sa_log_tau_bounds=sa_log_tau_bounds,
         )
 
         lt = self.line_table
