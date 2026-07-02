@@ -1002,6 +1002,17 @@ class PeakyFinder():
             lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
 
             lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+            # A component wider than its own fit window is baseline, not a
+            # line: unbounded widths here let windows sitting on residual
+            # background humps blow up into 100+ nm pseudo-peaks (measured
+            # on real data: a sigma=289 nm component carrying 89% of the
+            # total fitted area, plus ~400 real components destroyed by
+            # width blow-up before filtering).
+            window_span = max(float(x_window[-1] - x_window[0]), inc)
+            upper_bounds[2::4] = window_span
+            upper_bounds[3::4] = window_span
+            x0[2::4] = np.clip(x0[2::4], 0.0, window_span)
+            x0[3::4] = np.clip(x0[3::4], 0.0, window_span)
             bounds = (lower_bounds, upper_bounds)
 
             # Subtract the modelled wings of every peak OUTSIDE this window:
@@ -1130,7 +1141,19 @@ class PeakyFinder():
         else:
             sigmas, gammas = peak_parameters[:, 2:4].T
             widths = self.voigt_width(sigmas, gammas)
-            median_fwhm = float(np.median(widths))
+            # Robust line-width scale: baseline remnants fitted as ultra-
+            # broad components would otherwise dominate this median and
+            # disarm the width sanity rule below (measured on real data:
+            # a junk-poisoned median of 44.6 nm put the gate at 4464 nm
+            # and dropped nothing).  Real emission lines are orders of
+            # magnitude narrower than the spectral span.
+            span = float(x[-1] - x[0]) if x.size > 1 else 0.0
+            narrow = widths[np.isfinite(widths) & (widths > 0)]
+            if span > 0:
+                line_like = narrow[narrow < span / 50.0]
+                if line_like.size:
+                    narrow = line_like
+            median_fwhm = float(np.median(narrow)) if narrow.size else 0.0
 
         # Noise-referenced significance: a peak survives if the HEIGHT its
         # fitted area implies exceeds 2x the point noise.  (The previous

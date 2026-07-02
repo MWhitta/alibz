@@ -127,6 +127,46 @@ class TestFastPathAccuracy(unittest.TestCase):
                 self.assertLess(abs(row[0] - area) / area, 1.0, f"area at {mu} nm")
 
 
+class TestResidualBaselineHump(unittest.TestCase):
+    """Real spectra leave broad residual humps after background subtraction
+    (detector junctions, imperfect baseline).  The global refit must not
+    convert them into ultra-broad pseudo-Voigt components: measured on real
+    data, unbounded fit_all widths produced a sigma=289 nm component
+    carrying 89% of the total fitted area and destroyed ~400 genuine
+    components, while the width sanity gate was disarmed because its median
+    was computed over the corrupted population."""
+
+    def test_broad_hump_does_not_become_giant_component_and_lines_survive(self):
+        # Noiseless fixture on a compact window keeps the runtime sane: the
+        # point is the RESIDUAL hump surviving into the fit stage, exactly
+        # what happens on real data after imperfect background subtraction.
+        lines = [(a, m, 0.03, 0.02) for a, m in zip([5e3, 2e4, 1e5], [430.0, 450.0, 470.0])]
+        x, y = synth(lines, w_lo=420.0, w_hi=480.0)
+        # residual baseline hump ~200 counts, junction-like
+        y = y + 200.0 * np.exp(-0.5 * ((x - 448.0) / 15.0) ** 2)
+
+        finder = PeakyFinder.__new__(PeakyFinder)
+        fit = finder.fit_spectrum(x, y, subtract_background=False, plot=False, n_sigma=0)
+        peaks = fit["sorted_parameter_array"]
+
+        widths = finder.voigt_width(
+            np.maximum(peaks[:, 2], 1e-9), np.maximum(peaks[:, 3], 1e-9)
+        )
+        span = x[-1] - x[0]
+        self.assertLess(np.max(widths), span / 2.0,
+                        f"window-spanning pseudo-line kept: {np.max(widths):.1f} nm")
+        for area, mu, _s, _g in lines:
+            row = _match(peaks, mu, tol=0.05)
+            self.assertIsNotNone(row, f"line at {mu} nm lost")
+            # generous: the un-modelled hump biases areas, but the lines
+            # must survive with sane parameters
+            self.assertLess(abs(row[0] - area) / area, 0.5, f"area at {mu} nm")
+
+
+def synth(lines, w_lo=390.0, w_hi=510.0, inc=0.01, noise=0.0, seed=7):
+    return _synth(lines, w_lo=w_lo, w_hi=w_hi, inc=inc, noise=noise, seed=seed)
+
+
 class TestNoiseReferencedSignificance(unittest.TestCase):
     """The noise machinery must work OUTSIDE the zero-noise limit, and the
     noise scale must survive the corpus path's linear-interpolation
