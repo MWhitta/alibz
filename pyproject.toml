@@ -9,7 +9,7 @@ description = "LIBS spectral peak finding, fitting, indexing, and PCA analysis t
 license = "Unlicense"
 requires-python = ">=3.9"
 dependencies = [
-    "numpy",
+    "numpy>=2.0",
     "scipy",
     "scikit-learn",
     "scikit-optimize",

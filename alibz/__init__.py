@@ -9,6 +9,13 @@ PeakyCorpus        Batch loading, standardisation, and parallel fitting.
 PeakyPCA           PCA peak-shape decomposition and broadening classification.
 DetectorModel      Three-segment detector artifact removal and background subtraction.
 
+Fit refinement and inspection:
+    refine_fit, classify_feature, sa_voigt   Second-iteration refinement,
+        blends vs self-absorption asymmetry (``alibz.refinement``).
+    peak_table, format_peak_table, estimate_peak_uncertainties,
+    plot_spectrum_overview, plot_peak_zoom   Fit visualisation and
+        parameter uncertainties (``alibz.inspection``).
+
 Supporting types exported from ``peaky_indexer_v3``:
     FitResult, LineTable, PeakVector, Species, PhysicsComputationError
 
@@ -30,6 +37,7 @@ from alibz.peaky_maker import PeakyMaker
 from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
 from alibz.detector import DetectorModel
+from alibz.refinement import classify_feature, refine_fit, sa_voigt
 from alibz.inspection import (
     estimate_peak_uncertainties,
     format_peak_table,
@@ -54,6 +62,9 @@ __all__ = [
     "peak_table",
     "format_peak_table",
     "estimate_peak_uncertainties",
+    "refine_fit",
+    "classify_feature",
+    "sa_voigt",
     # Indexer data types
     "FitResult",
     "LineTable",
