@@ -30,6 +30,13 @@ from alibz.peaky_maker import PeakyMaker
 from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
 from alibz.detector import DetectorModel
+from alibz.inspection import (
+    estimate_peak_uncertainties,
+    format_peak_table,
+    peak_table,
+    plot_peak_zoom,
+    plot_spectrum_overview,
+)
 from alibz.utils.database import Database
 from alibz.utils.sahaboltzmann import SahaBoltzmann
 
@@ -42,6 +49,11 @@ __all__ = [
     "PeakyCorpus",
     "PeakyPCA",
     "DetectorModel",
+    "plot_spectrum_overview",
+    "plot_peak_zoom",
+    "peak_table",
+    "format_peak_table",
+    "estimate_peak_uncertainties",
     # Indexer data types
     "FitResult",
     "LineTable",
