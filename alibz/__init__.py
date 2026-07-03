@@ -12,6 +12,8 @@ DetectorModel      Three-segment detector artifact removal and background subtra
 Fit refinement and inspection:
     refine_fit, classify_feature, sa_voigt   Second-iteration refinement,
         blends vs self-absorption asymmetry (``alibz.refinement``).
+    seed_minor_lines, match_and_scale   Prior-driven fitting of minor
+        lines from established elements (``alibz.minor_lines``).
     peak_table, format_peak_table, estimate_peak_uncertainties,
     plot_spectrum_overview, plot_peak_zoom   Fit visualisation and
         parameter uncertainties (``alibz.inspection``).
@@ -38,6 +40,7 @@ from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
 from alibz.detector import DetectorModel
 from alibz.refinement import classify_feature, refine_fit, sa_voigt
+from alibz.minor_lines import match_and_scale, seed_minor_lines
 from alibz.inspection import (
     estimate_peak_uncertainties,
     format_peak_table,
@@ -65,6 +68,8 @@ __all__ = [
     "refine_fit",
     "classify_feature",
     "sa_voigt",
+    "seed_minor_lines",
+    "match_and_scale",
     # Indexer data types
     "FitResult",
     "LineTable",
