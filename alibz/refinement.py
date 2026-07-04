@@ -81,17 +81,38 @@ def _model_B(x, p):
     return _model_S(x, p[:4]) + _model_S(x, p[4:])
 
 
-def _fit(model, x, y, w, p0, lo, hi):
+#: Robust-loss scale for the S/A/B window fits, in units of the local
+#: noise sigma (residuals are noise-weighted before the loss is applied).
+#: ``soft_l1`` KEEPS every sample but rolls its penalty from quadratic to
+#: linear past this many sigma, so a single-pixel instrument notch on a
+#: strong line's flank — the spectrometer's own export ringing, measured
+#: ~19 sigma deep on Sr II 407.77 — can no longer lever the fitted optical
+#: depth or centre, while genuine line structure at a few sigma is left
+#: untouched.  On clean data with no such outliers the fit is identical to
+#: ordinary least squares (soft_l1 -> quadratic well inside f_scale), so
+#: the synthetic refinement fixtures are unaffected.  8 sigma is chosen to
+#: catch the export notches (>10 sigma) without down-weighting the ~5-7
+#: sigma line-shape misfit that a Voigt leaves on the brightest lines
+#: (that is model inadequacy to be fixed by a real line-spread function,
+#: not an outlier to reject — see docs/development_guide.md).
+SA_ROBUST_F_SCALE = 8.0
+
+
+def _fit(model, x, y, w, p0, lo, hi, loss="soft_l1", f_scale=None):
+    if f_scale is None:
+        f_scale = SA_ROBUST_F_SCALE
     p0 = np.clip(np.asarray(p0, dtype=float), lo, hi)
     try:
         res = least_squares(
             lambda p: (y - model(x, p)) * w, p0, bounds=(lo, hi),
-            x_scale="jac", max_nfev=400,
+            x_scale="jac", max_nfev=400, loss=loss, f_scale=f_scale,
         )
     except (ValueError, RuntimeError):
         return None, np.inf
-    chi2 = float(np.sum(res.fun ** 2))
-    return res.x, chi2
+    # 2*cost is the robust sum-of-squares (identical to sum(fun**2) for
+    # loss="linear"), so an outlier's leverage is removed from the BIC
+    # model comparison too, not just from the fitted parameters.
+    return res.x, 2.0 * float(res.cost)
 
 
 def _bic(chi2, n, n_params):

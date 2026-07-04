@@ -273,6 +273,82 @@ new spectra and no spatial/temporal analysis.
 
 ---
 
+## Future work — instrument line-spread function (forward model)
+
+**Status: planned, not started. Interim mitigation (robust loss) is in place.**
+
+### The problem
+
+The spectrometer exports every spectrum on an exactly-uniform 0.03333 nm
+grid (verified: `np.diff(x)` std ≈ 1e-14 straight from the instrument CSV;
+this is the instrument's own CCD→wavelength export, not a resampling we
+apply). Two consequences show up on the brightest, sharpest lines and
+contaminate the second-iteration self-absorption fit
+([refinement.py](../alibz/refinement.py) model **A**):
+
+1. **Export ringing notches.** A bright line leaves a single-pixel
+   undershoot on its steep flank — e.g. Sr II 407.77 dips to −50.9 raw
+   counts one pixel past its edge (≈19σ below the local continuum),
+   followed by a small positive side-lobe. This is a Gibbs/apodization
+   signature of the instrument's internal interpolation onto the uniform
+   grid, not photon noise. It is rare (≈0.1% of samples) and localised to a
+   few of the brightest lines.
+2. **Line-shape model inadequacy.** Even away from the notch, a Voigt (or
+   attenuated Voigt) leaves a *systematic, oscillatory* ~5–7σ residual
+   across the whole profile of the brightest lines. The true instrument
+   line-spread function (LSF) is not a Voigt, so the self-absorption
+   parameters (τ, δ) partly absorb LSF error rather than plasma physics.
+   Measured on Sr II 407.77: model-A residual RMS 5σ (blue) / 7σ (red), and
+   τ carries a ~20% systematic from the notch alone.
+
+Crucially, **upsampling the data does not help** — the instrument already
+exports its finest grid, so spline-interpolating to a finer axis adds no
+information (verified: refitting model A on a ×5 spline-upsampled window
+returns identical τ, δ). The fix has to be on the *model* side.
+
+### Interim mitigation (implemented)
+
+`refinement._fit` uses a robust `soft_l1` loss with `f_scale =
+SA_ROBUST_F_SCALE = 8` sigma
+([refinement.py](../alibz/refinement.py#L84)). This *keeps* every sample
+(no rejection) but rolls the penalty from quadratic to linear past ~8σ, so
+a single-pixel export notch cannot lever τ/δ while genuine few-σ line-shape
+structure is untouched. On clean synthetic data (no notches) it reduces to
+ordinary least squares, so the refinement fixtures are unaffected. Measured
+effect on MW2-112 spectrum 0: profile RMS 36.8→34.9, verdict counts stable,
+Sr II 407.77 τ 0.54→0.49 (toward the notch-masked 0.52), notch-free lines
+(Li 670.75, K 766.5) unchanged. This addresses the *notch* but not the
+*LSF-shape* inadequacy.
+
+### The plan (a forward-modeled LSF)
+
+1. **Characterise the LSF empirically.** Stack isolated, bright,
+   *unsaturated* lines spanning the range; normalise and align them to
+   extract the mean instrument profile and its wavelength dependence (width
+   grows toward the NIR). Capture the ringing side-lobe structure, which
+   encodes the export interpolation kernel.
+2. **Model the export kernel.** The uniform-grid ringing is consistent with
+   a fixed interpolation/apodization kernel. Represent it (e.g. a
+   windowed-sinc or cubic-convolution kernel), **forward-convolve** the
+   physical model with it, and **pixel-integrate** onto the 0.03333 nm grid
+   — i.e. fit `LSF ⊛ (attenuated Voigt)` sampled as the detector samples
+   it, rather than a bare point-sampled Voigt.
+3. **Refit self-absorption against the true LSF.** With the LSF folded into
+   the forward model, τ and δ measure plasma self-absorption rather than
+   compensating for instrument shape. Feeds the `emission_area`
+   reconstruction the indexer consumes.
+4. **Validate on fit accuracy.** Success criteria: the ~5–7σ systematic
+   residual on bright isolated lines collapses toward the noise band; τ/δ
+   stabilise under the notch-masking / robust-loss perturbations that
+   currently move them; and doublet-ratio checks (e.g. K I 766.5/769.9)
+   move toward the optically-thin prediction after correction.
+
+A **Component-2** enhancement that also sharpens Component-3
+quantification; deferred behind the PCA-to-re-fit loop and the MILP solver.
+The robust loss is sufficient until then.
+
+---
+
 ## Summary
 
 | # | Component | Status | Completeness | Blocking? |
@@ -286,3 +362,117 @@ new spectra and no spatial/temporal analysis.
 **Current priority**: Close the PCA-to-re-fit loop in Component 2 (robust
 profile fitting with physically-informed broadening constraints), then
 complete the MILP composition solver in Component 3.
+
+---
+
+## Appendix — CF-LIBS prototype (dev1) salvaged ideas
+
+An experimental self-contained CF-LIBS engine lived under `dev/dev1/cflibs/`
+— a full-spectrum variable-projection (VarPro) inverter with its own
+Saha/Boltzmann, forward model, self-absorption, and validation scaffolding.
+A module-by-module comparison against the production engine
+(`peaky_indexer_v3.py`, `utils/sahaboltzmann.py`, `utils/absorption.py`,
+`utils/voigt.py`, `utils/stark.py`, `refinement.py`) found its **core
+redundant and superseded**: the VarPro architecture (outer nonlinear
+plasma search around an inner non-negative linear concentration solve with
+a damped self-absorption fixed point), the Saha/Boltzmann chain, the
+partition sum, the `(1−e^−τ)/τ` escape factor, the wofz Voigt and its FWHM
+approximation, and the robust noise estimator all already exist in main —
+and main is *more* complete (Aitken-accelerated SA with a divergence guard,
+doublet-anchored per-element τ via `invert_doublet_tau`, the resolved-shape
+cold-absorber `sa_voigt`, an explicit Stark-width nₑ channel, and the
+`stage_disagreement` diagnostic). The prototype was therefore removed. What
+follows is the salvaged novelty — ideas genuinely absent from main —
+recorded here so nothing of value was lost with the code.
+
+**None of these has been adopted: each is a physics/solver change to a
+tuned pipeline and must be A/B-tested for fit accuracy (against the `bench/`
+harness and the synthetic self-absorption round-trips) before adoption.**
+Priority order below is by expected accuracy impact / risk.
+
+### Ready to A/B test (concrete, accuracy-relevant)
+
+1. **Stimulated-emission factor on the optical depth** *(highest value, ~1
+   line)*. The prototype multiplies the line-center optical depth by
+   `(1 − exp(−hc/λk_BT))` (`forward.py:110`). Main's absorbing strength
+   `_kappa_raw` ([peaky_indexer_v3.py:1127](../alibz/peaky_indexer_v3.py#L1127))
+   omits it. It is **wavelength-dependent** (~0.91 at Na 589, ~0.83 at Rb
+   794, ~0.82 at Cs 852 for T≈10⁴ K), so it is **not** absorbable into
+   main's single global `sa_tau_scale`, and it shifts *relative*
+   escape-factor compression by ~9–18% across exactly the alkali resonance
+   lines (K 766/770, Na 589, Rb 780/795, Cs 852) that are this codebase's
+   known quantification pain point (see the sim-to-real notes: alkali
+   doublet ratios sit ~35% below optically thin). Integration point:
+   `_kappa_raw`. Accuracy check: does it move the K/Na doublet ratios
+   toward the optically-thin prediction?
+
+2. **Debye ionization-potential-depression (continuum lowering) in the Saha
+   balance.** The prototype lowers χ by `Δχ = (z+1)e²/4πε₀λ_D` before the
+   Saha step (`physics.py`). Main's `ionization_distribution`
+   ([sahaboltzmann.py:177](../alibz/utils/sahaboltzmann.py#L177)) has no IPD
+   term, so at LIBS densities (nₑ≈10¹⁷ cm⁻³, several-tenths-eV lowering) the
+   effective ionization energy is unlowered and the ion balance is biased.
+   Physically load-bearing; changes every ion-stage fraction feeding
+   quantification.
+
+3. **Robust Tukey-biweight IRLS in the concentration solve.** The prototype
+   wraps the inner linear solve in IRLS reweighting (`inversion.py`) so
+   unmodeled lines / DB-absent blends / detector artifacts cannot bias T,
+   nₑ, or composition. Main's whole-pattern NNLS
+   ([peaky_indexer_v3.py:1250](../alibz/peaky_indexer_v3.py#L1250)) uses
+   plain squared error. This is the *indexer-stage* analogue of the
+   `soft_l1` robust loss just added to `refinement._fit` — same philosophy,
+   different stage, and a natural next step.
+
+4. **Classical Boltzmann-plot T seed + independent cross-check.** The
+   prototype runs a per-species robust `ln(Iλ/gA)` vs `Ek` regression
+   (`classical.py`) for a data-driven T, used both to seed the outer search
+   and as an independent physical check. Main starts the outer search from a
+   **fixed** `T_init` (default 10 kK,
+   [peaky_indexer_v3.py:377](../alibz/peaky_indexer_v3.py#L377)) with no
+   data-derived initialization and no independent T diagnostic. A cheap
+   Boltzmann-plot from the isolated strong peaks the finder already extracts
+   could steer the multimodal outer search off spurious minima and
+   cross-check the full-pattern T/nₑ. (Complements the existing
+   stage-consistency thermometer.)
+
+5. **Non-negative LASSO trace-element suppression.** `sparse_refine`
+   (`inversion.py`) applies a principled sparsity operator once at the
+   best-fit θ to zero spurious trace elements whose weak/blended lines only
+   soaked up noise — a cleaner alternative/complement to main's heuristic
+   false-positive stack (evidence penalties, pseudo-observations,
+   `prune_and_refit`).
+
+6. **Physics-based thermal Doppler width.** `doppler_sigma_nm(T, mass)`
+   (`lineshape.py:18`) ties the Gaussian width to fitted T and per-element
+   atomic mass (heavier → narrower), added in quadrature with an instrument
+   σ. Main uses a fixed width in the forward model and fits σ as a free
+   scalar; grounding it in physics removes/constrains a free parameter.
+   (Related to the LSF work above.)
+
+### Future / tooling (document, lower priority)
+
+- **Bootstrap uncertainty** over θ and concentrations (Gaussian-resample +
+  local re-fit) — main returns point estimates only.
+- **External critically-evaluated (T,U) partition tables** (cubic-spline
+  interpolation), decoupling U from the incomplete line-derived level set
+  main is forced to sum; plus **Griem truncation** of the partition sum
+  under continuum lowering.
+- **McWhirter LTE-validity diagnostic** `nₑ ≥ 1.6e12·√T·ΔE³` — report
+  whether the LTE assumption holds for a given fit; none exists in main.
+- **NIST ASD "Lines Form" text parser** (`atomic.parse_nist_asd_lines`,
+  header-name matching, tolerant of NIST quoting) — main ingests only
+  pre-pickled line arrays, so there is no text-ingestion / provenance path.
+- **In-solver joint Legendre continuum** — only relevant if a future path
+  fits raw spectrum pixels rather than the extracted peak table; moot on
+  main's current peak-table input.
+
+### Removed as redundant (already in main)
+
+Voigt profile + FWHM (`utils/voigt.py`), Saha/Boltzmann + partition sum
+(`utils/sahaboltzmann.py`), `(1−e^−τ)/τ` self-absorption fixed point
+(`utils/absorption.py` + `peaky_indexer_v3.py`, main more complete), the
+robust noise estimator (duplicated verbatim in `peaky_finder.py:131`),
+Stark-width∝nₑ (`utils/stark.py`, main more sophisticated), bounded-LSQ /
+column normalization, and the synthetic-observation / procedural-database
+validation scaffolding (superseded by the committed `bench/` harness).
