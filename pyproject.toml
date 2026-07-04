@@ -24,8 +24,14 @@ dev = [
 gpu = [
     "cupy-cuda12x",
 ]
+notebook = [
+    "nbformat",
+    "nbclient",
+    "ipykernel",
+]
 
 [project.scripts]
+alibz-analyze = "alibz.cli:main"
 run-corpus-pca = "scripts.run_corpus_pca:main"
 background-pca = "alibz.background_pca:main"
 
