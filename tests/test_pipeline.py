@@ -15,7 +15,15 @@ import unittest
 import numpy as np
 
 from alibz.pipeline import (
+    ELEMENTS_BY_ATOMIC_NUMBER,
+    ELEMENT_COLORS,
+    ELEMENT_PERIODIC_BLOCK,
+    PERIODIC_BLOCK_COLORS,
     build_inspection_notebook,
+    element_block_color,
+    element_color,
+    element_periodic_block,
+    element_sort_key,
     element_uncertainties,
     load_spectrum_csv,
     resolve_dbpath,
@@ -77,7 +85,7 @@ class TestSummaryCsv(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "summary.csv")
             elements = write_summary_csv(rows, path)
-            self.assertEqual(elements[0], "K")  # highest median first
+            self.assertEqual(elements, ["Li", "K"])  # atomic number order
             with open(path) as fh:
                 got = list(csv.DictReader(fh))
         self.assertEqual(len(got), 3)
@@ -97,6 +105,50 @@ class TestSummaryCsv(unittest.TestCase):
         self.assertEqual(got[0]["K_unc"], "")
 
 
+class TestElementOrderingAndColors(unittest.TestCase):
+    def test_periodic_sort_key_orders_by_atomic_number(self):
+        self.assertLess(element_sort_key("Li"), element_sort_key("K"))
+        self.assertLess(element_sort_key("K"), element_sort_key("Rb"))
+        self.assertLess(element_sort_key("U"), element_sort_key("Xx"))
+
+    def test_periodic_block_assignments_cover_database_elements(self):
+        expected = {
+            "K": "group 1",
+            "Ca": "group 2",
+            "Fe": "3d-block",
+            "Pd": "4d-block",
+            "Au": "5d-block",
+            "Ce": "4f-block",
+            "U": "5f-block",
+            "Si": "metalloid",
+            "Al": "post-transition metal",
+            "Ne": "noble gas",
+            "Cl": "halogen",
+            "O": "reactive nonmetal",
+        }
+        for element, block in expected.items():
+            self.assertEqual(element_periodic_block(element), block)
+        self.assertEqual(element_periodic_block("Xx"), "other")
+        self.assertTrue(
+            all(element_periodic_block(el) != "other"
+                for el in ELEMENTS_BY_ATOMIC_NUMBER)
+        )
+        self.assertEqual(len(ELEMENT_PERIODIC_BLOCK),
+                         len(ELEMENTS_BY_ATOMIC_NUMBER))
+
+    def test_periodic_block_colors_are_unique(self):
+        self.assertEqual(len(set(PERIODIC_BLOCK_COLORS.values())),
+                         len(PERIODIC_BLOCK_COLORS))
+        self.assertEqual(element_block_color("Fe"),
+                         PERIODIC_BLOCK_COLORS["3d-block"])
+        self.assertEqual(len(set(ELEMENT_COLORS.values())),
+                         len(ELEMENT_COLORS))
+        self.assertEqual(len(ELEMENT_COLORS), len(ELEMENTS_BY_ATOMIC_NUMBER))
+        self.assertEqual(element_color("Fe"), ELEMENT_COLORS["Fe"])
+        self.assertNotEqual(element_color("Li"), element_color("Na"))
+        self.assertNotEqual(element_color("Fe"), element_color("Mn"))
+
+
 class TestNotebook(unittest.TestCase):
     def test_notebook_is_valid_nbformat(self):
         nb = build_inspection_notebook("/data/dir", "/db/path")
@@ -111,6 +163,9 @@ class TestNotebook(unittest.TestCase):
         self.assertIn("'/data/dir'", src)
         self.assertIn("'/db/path'", src)
         self.assertIn("plot_spectrum_overview", src)
+        self.assertIn("element_sort_key", src)
+        self.assertIn("element_color", src)
+        self.assertIn("periodic block", src)
 
 
 class _StubIndexer:
@@ -133,6 +188,98 @@ class _StubResult:
     temperature = 8000.0
     ne = 17.0
     element_fractions = {"K": 0.6, "Si": 0.4}
+    stage_disagreement = {"K": 0.1, "Si": float("nan")}
+
+
+class TestStimulatedEmission(unittest.TestCase):
+    def test_factor_values_and_wavelength_dependence(self):
+        from alibz.peaky_indexer_v3 import stimulated_emission_factor as f
+        # canonical value: Na D at 10 kK
+        self.assertAlmostEqual(float(f(589.0, 10_000.0)), 0.913, delta=0.002)
+        # monotone: redder lines carry a smaller factor (more induced emission)
+        vals = np.asarray(f(np.array([250.0, 589.0, 770.0]), 8300.0))
+        self.assertTrue(np.all(np.diff(vals) < 0))
+        self.assertGreater(float(vals[0]), 0.99)   # UV ~ unity
+        self.assertLess(float(vals[2]), 0.91)      # K I 770 suppressed
+        # bounded in (0, 1]
+        self.assertTrue(np.all(vals > 0) and np.all(vals <= 1))
+
+    def test_kappa_gated_by_flag(self):
+        """_kappa_raw with the flag differs from without by exactly the factor."""
+        from alibz.peaky_indexer_v3 import (PeakyIndexerV3,
+                                            stimulated_emission_factor)
+        peaks = np.array([[100.0, 589.0, 0.05, 0.02],
+                          [50.0, 766.5, 0.05, 0.02]])
+        idx = PeakyIndexerV3(peaks, dbpath="db")
+        idx.build_candidate_matrix(sa_doublets=False)
+        k_off = idx._kappa_raw(9000.0, 17.0)
+        idx._sa_stim = True
+        k_on = idx._kappa_raw(9000.0, 17.0)
+        expect = stimulated_emission_factor(idx.line_table.wavelengths, 9000.0)
+        np.testing.assert_allclose(k_on, k_off * expect, rtol=1e-12)
+
+
+class TestClassifyDetections(unittest.TestCase):
+    def _detections(self, fractions, stats, support, stage=None):
+        from alibz.pipeline import classify_detections
+
+        class R:
+            element_fractions = fractions
+            stage_disagreement = stage or {}
+        return {d["element"]: d for d in classify_detections(R(), stats, support)}
+
+    def test_status_ladder(self):
+        det = self._detections(
+            fractions={"K": 0.5, "Hg": 0.02, "Mo": 0.01, "Eu": 0.004,
+                       "Cd": 0.008},
+            stats={"K": {"mean": 0.5, "std": 0.01},
+                   "Hg": {"mean": 0.02, "std": 0.005},   # z=4, 1 line
+                   "Mo": {"mean": 0.01, "std": 0.004},   # z=2.5
+                   "Eu": {"mean": 0.004, "std": 0.004},  # z=1
+                   "Cd": {"mean": 0.008, "std": 0.001},  # z=8, 0 lines
+                   "Pd": {"mean": 0.001, "std": 0.002}}, # zeroed -> upper limit
+            support={"K": [(9.0, 766.5, 10.0), (5.0, 404.4, 6.0)],
+                     "Hg": [(4.0, 253.65, 5.0)],
+                     "Mo": [(2.0, 379.8, 3.0), (1.0, 386.4, 2.0)]},
+        )
+        self.assertEqual(det["K"]["status"], "detected")
+        self.assertEqual(det["Hg"]["status"], "single-line")
+        self.assertEqual(det["Hg"]["n_lines"], 1)
+        self.assertEqual(det["Hg"]["strongest_peak_nm"], 253.65)
+        self.assertEqual(det["Mo"]["status"], "marginal")
+        self.assertEqual(det["Eu"]["status"], "weak")
+        self.assertEqual(det["Cd"]["status"], "blended-only")
+        self.assertEqual(det["Pd"]["status"], "upper-limit")
+        self.assertAlmostEqual(det["Pd"]["upper_limit"], 0.005)
+
+    def test_zeroed_element_without_stats_is_omitted(self):
+        det = self._detections(fractions={"K": 1.0},
+                               stats={"K": {"mean": 1.0, "std": 0.01}},
+                               support={})
+        self.assertNotIn("Zz", det)
+
+    def test_detections_csv_round_trip(self):
+        from alibz.pipeline import write_detections_csv
+        rows = [dict(sample="s1", detections=[
+            dict(element="Hg", status="single-line", fraction=0.02,
+                 unc=0.005, z=4.0, n_lines=1, strongest_peak_nm=253.652,
+                 strongest_obs=120.0, upper_limit=None,
+                 stage_disagreement=None),
+            dict(element="Pd", status="upper-limit", fraction=0.0,
+                 unc=0.002, z=0.0, n_lines=0, strongest_peak_nm=None,
+                 strongest_obs=None, upper_limit=0.005,
+                 stage_disagreement=None),
+        ])]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "detections.csv")
+            n = write_detections_csv(rows, path)
+            with open(path) as fh:
+                got = list(csv.DictReader(fh))
+        self.assertEqual(n, 2)
+        self.assertEqual(got[0]["element"], "Hg")
+        self.assertEqual(got[0]["status"], "single-line")
+        self.assertEqual(got[1]["upper_limit"], "0.005")
+        self.assertEqual(got[1]["fraction"], "")
 
 
 class TestElementUncertainties(unittest.TestCase):
@@ -183,7 +330,7 @@ class TestDriverRobustness(unittest.TestCase):
             fh.write("wavelength,intensity\nnot,numbers\n")
             path = fh.name
         try:
-            row = _analyze_file((path, "db", 4, 4, 0))
+            row = _analyze_file((path, "db", 4, 4, 0, False))
             self.assertTrue(row["status"].startswith("error:"))
             self.assertEqual(row["n_peaks"], 0)
         finally:

@@ -45,6 +45,27 @@ class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
 
 
+#: second radiation constant hc/k_B in nm*K
+_C2_NM_K = 1.4387768775039337e7
+
+
+def stimulated_emission_factor(wavelengths_nm, temperature):
+    """Induced-emission correction ``1 - exp(-hc / (lambda k_B T))``.
+
+    The net absorption coefficient is the pure lower-level absorption
+    minus stimulated emission from the upper level; in LTE the two
+    populations are Boltzmann-related and the correction reduces to this
+    wavelength-dependent factor.  It matters here because it does NOT
+    cancel across lines of different wavelength (~0.99 in the UV vs
+    ~0.89 at the K I 770 nm resonance line at LIBS temperatures), so a
+    single global tau scale cannot absorb it: without the factor the
+    red/IR resonance lines of the alkalis are assigned relatively too
+    much optical depth compared to UV lines of the same species.
+    """
+    lam = np.asarray(wavelengths_nm, dtype=float)
+    return -np.expm1(-_C2_NM_K / (lam * max(float(temperature), 1.0)))
+
+
 # ---------------------------------------------------------------------------
 # Data containers
 # ---------------------------------------------------------------------------
@@ -427,6 +448,7 @@ class PeakyIndexerV3:
         self._sa_ref_line = None
         self._sa_c_ref = 0.0
         self._sa_doublets = False
+        self._sa_stim = False
         self._sa_doublet_info = {}
         self._last_sa_converged = None
         self._sa_log_tau_bounds = (-2.0, 3.0)
@@ -487,6 +509,7 @@ class PeakyIndexerV3:
         sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
         sa_doublets: bool = False,
+        sa_stimulated_emission: bool = False,
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
 
@@ -542,6 +565,7 @@ class PeakyIndexerV3:
         self._sa_iterations = int(max(sa_iterations, 1))
         self._sa_log_tau_bounds = (float(sa_log_tau_bounds[0]), float(sa_log_tau_bounds[1]))
         self._sa_doublets = bool(sa_doublets)
+        self._sa_stim = bool(sa_stimulated_emission)
         self._sa_doublet_info = {}
         wl_range = (self._obs_wl.min() - 1.0, self._obs_wl.max() + 1.0)
         self.line_table = LineTable(
@@ -1068,6 +1092,10 @@ class PeakyIndexerV3:
                     * np.exp(-ref["Ei"] / kT) / max(Z_ref, 1e-300)
                     * max(f_ref, 1e-300)
                 )
+                if getattr(self, "_sa_stim", False):
+                    # keep the normalisation consistent with _kappa_raw
+                    peak *= float(stimulated_emission_factor(
+                        ref["wavelength"], temperature))
             except (KeyError, IndexError, ValueError, TypeError):
                 peak = 0.0
         else:
@@ -1109,6 +1137,12 @@ class PeakyIndexerV3:
             lt.wavelengths ** 2 * lt.gA * np.exp(-lt.Ei / kT)
             / Z[lt.species_idx] * saha[lt.species_idx]
         )
+        if getattr(self, "_sa_stim", False):
+            # the anchor must be the most absorbing line under the SAME
+            # metric the solves use, or the frozen normalisation picks the
+            # wrong line when stim re-orders nearby kappas (IR vs UV)
+            kappa = kappa * stimulated_emission_factor(
+                lt.wavelengths, self.T_init)
         matched = np.asarray(self.peak_line_map.getnnz(axis=0)).ravel() > 0
         if not np.any(matched):
             return
@@ -1125,18 +1159,28 @@ class PeakyIndexerV3:
         self._sa_c_ref = max(float(np.max(c_thin)) if c_thin.size else 0.0, 0.0)
 
     def _kappa_raw(self, temperature: float, log_ne: float) -> np.ndarray:
-        """Un-normalised per-line absorption strengths (lower-level form)."""
+        """Un-normalised per-line absorption strengths (lower-level form).
+
+        With ``sa_stimulated_emission`` the net absorption additionally
+        carries the induced-emission factor ``1 - e^{-hc/lambda kT}``
+        (see :func:`stimulated_emission_factor`) — wavelength-dependent,
+        so it changes the RELATIVE depths across a species' lines.
+        """
         lt = self.line_table
         kT = 8.617333262e-5 * float(temperature)
         Z = lt.compute_partition_functions(temperature)
         saha = lt.compute_saha_fractions(temperature, log_ne)
-        return (
+        kappa = (
             lt.wavelengths ** 2
             * lt.gA
             * np.exp(-lt.Ei / kT)
             / Z[lt.species_idx]
             * saha[lt.species_idx]
         )
+        if getattr(self, "_sa_stim", False):
+            kappa = kappa * stimulated_emission_factor(
+                lt.wavelengths, temperature)
+        return kappa
 
     def _freeze_doublet_taus(self) -> None:
         """Measure per-element optical depths from resonance doublets.
@@ -1243,6 +1287,15 @@ class PeakyIndexerV3:
                 info["ref_wl"] ** 2 * info["ref_gA"]
                 * np.exp(-info["ref_Ei"] / kT)
             )
+            if getattr(self, "_sa_stim", False):
+                # induced emission does NOT cancel in the cross-line ratio
+                # (a species' lines span the UV to the IR): ~9-18% relative
+                # change across the alkali resonance lines this spread is
+                # anchored on
+                strength = strength * stimulated_emission_factor(
+                    lt.wavelengths[jj], temperature)
+                ref *= float(stimulated_emission_factor(
+                    info["ref_wl"], temperature))
             tau = info["tau_weak"] * strength / max(ref, 1e-300)
             scale[jj] = escape_factor(tau)
         return scale
@@ -1945,6 +1998,7 @@ class PeakyIndexerV3:
         sa_iterations: int = 150,
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
         sa_doublets: bool = False,
+        sa_stimulated_emission: bool = False,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
         sigma_bounds: Tuple[float, float] = (0.01, 0.3),
@@ -1999,6 +2053,7 @@ class PeakyIndexerV3:
             sa_iterations=sa_iterations,
             sa_log_tau_bounds=sa_log_tau_bounds,
             sa_doublets=sa_doublets,
+            sa_stimulated_emission=sa_stimulated_emission,
         )
 
         lt = self.line_table

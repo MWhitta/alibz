@@ -1,4 +1,6 @@
 import pickle
+import os
+import sysconfig
 from pathlib import Path
 
 import numpy as np
@@ -10,19 +12,44 @@ class Database():
     """
 
     @staticmethod
-    def _resolve_dbpath(dbpath):
-        candidate = Path(dbpath).expanduser()
-        if candidate.is_dir():
-            return candidate.resolve()
+    def _resolve_dbpath(dbpath="db"):
+        requested = "db" if dbpath is None else str(dbpath)
+        default_db = requested in {"db", "./db"}
+
+        if not default_db:
+            candidate = Path(requested).expanduser()
+            if candidate.is_dir():
+                return candidate.absolute()
+            raise FileNotFoundError(
+                f"Database path {dbpath!r} was not found"
+            )
+
+        env_db = os.environ.get("ALIBZ_DB")
+        if env_db:
+            candidate = Path(env_db).expanduser()
+            if candidate.is_dir():
+                return candidate.absolute()
+            raise FileNotFoundError(
+                f"ALIBZ_DB points to a missing database directory: {env_db!r}"
+            )
 
         project_root = Path(__file__).resolve().parents[2]
-        fallback = (project_root / candidate).resolve()
-        if fallback.is_dir():
-            return fallback
+        data_root = Path(sysconfig.get_path("data") or sysconfig.get_path("prefix"))
+        candidates = [
+            Path(requested).expanduser(),
+            project_root / "db",
+            project_root / "share" / "alibz" / "db",
+            data_root / "share" / "alibz" / "db",
+        ]
+
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate.absolute()
 
         raise FileNotFoundError(
-            f"Database path {dbpath!r} was not found relative to the current "
-            f"working directory or the project root"
+            "Database path 'db' was not found. Searched ./db, the source "
+            "checkout db, and the installed share/alibz/db. Pass an explicit "
+            "dbpath or set ALIBZ_DB."
         )
 
     def __init__(self, dbpath) -> None:

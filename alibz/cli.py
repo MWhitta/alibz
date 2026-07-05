@@ -1,7 +1,8 @@
 """Command-line entry point: ``alibz-analyze <data_dir>``.
 
 Analyzes every spectrum in a directory and writes ``summary.csv`` (element
-abundances + uncertainties) and ``fit_inspection.ipynb`` into it.  See
+abundances + uncertainties), ``detections.csv`` (long-format detection
+status and upper limits), and ``fit_inspection.ipynb`` into it.  See
 :mod:`alibz.pipeline` for the analysis chain and uncertainty semantics.
 """
 
@@ -13,11 +14,14 @@ from alibz.pipeline import (
     DEFAULT_DRAWS,
     DEFAULT_N_CALLS,
     DEFAULT_PATTERN,
+    DEFAULT_STIMULATED_EMISSION,
     DEFAULT_TIMEOUT_S,
+    DETECTIONS_NAME,
     analyze_directory,
     build_inspection_notebook,
     execute_notebook,
     resolve_dbpath,
+    write_detections_csv,
     write_inspection_notebook,
     write_summary_csv,
 )
@@ -35,7 +39,8 @@ def main(argv=None) -> int:
         prog="alibz-analyze",
         description="Quantitative CF-LIBS analysis of a directory of "
                     "spectra: writes summary.csv (element abundance + "
-                    "1-sigma statistical uncertainty) and "
+                    "1-sigma statistical uncertainty), detections.csv "
+                    "(long-format detection status + upper limits), and "
                     "fit_inspection.ipynb into the directory.",
     )
     p.add_argument("data_dir", help="directory of wavelength,intensity CSVs")
@@ -43,7 +48,7 @@ def main(argv=None) -> int:
                    help=f"spectrum filename glob (default {DEFAULT_PATTERN!r})")
     p.add_argument("--db", default=None,
                    help="atomic database directory (default: $ALIBZ_DB, "
-                        "./db, or the repo db)")
+                        "./db, source checkout db, or bundled installed db)")
     p.add_argument("--workers", type=_positive_int,
                    default=max(1, (os.cpu_count() or 2) - 2),
                    help="parallel worker processes (default: cores - 2)")
@@ -69,8 +74,14 @@ def main(argv=None) -> int:
                    help="write the notebook without executing it")
     p.add_argument("--force", action="store_true",
                    help="regenerate the notebook even if it already exists "
-                        "(overwrites any edits); summary.csv is always "
-                        "rewritten")
+                        "(overwrites any edits); summary.csv and "
+                        "detections.csv are always rewritten")
+    p.add_argument("--stimulated-emission",
+                   action=argparse.BooleanOptionalAction,
+                   default=DEFAULT_STIMULATED_EMISSION,
+                   help="apply the induced-emission factor "
+                        "(1 - exp(-hc/lambda kT)) to self-absorption "
+                        "optical depths")
     args = p.parse_args(argv)
 
     data_dir = os.path.abspath(args.data_dir)
@@ -89,7 +100,8 @@ def main(argv=None) -> int:
         data_dir, pattern=args.pattern, dbpath=dbpath,
         workers=args.workers, n_calls=args.n_calls, draws=args.draws,
         timeout_s=args.timeout, limit=args.limit,
-        exclude=(args.out,),
+        stimulated_emission=args.stimulated_emission,
+        exclude=(args.out, DETECTIONS_NAME),
     )
     n_ok = sum(1 for r in rows if r["status"] == "ok")
 
@@ -97,6 +109,11 @@ def main(argv=None) -> int:
     elements = write_summary_csv(rows, csv_path)
     print(f"\nwrote {csv_path}  ({n_ok}/{len(rows)} spectra ok, "
           f"{len(elements)} elements)")
+
+    det_path = os.path.join(data_dir, DETECTIONS_NAME)
+    n_det = write_detections_csv(rows, det_path)
+    print(f"wrote {det_path}  ({n_det} per-element detection records "
+          f"incl. borderline evidence and upper limits)")
 
     if not args.no_notebook:
         nb_path = os.path.join(data_dir, args.notebook)
@@ -107,6 +124,7 @@ def main(argv=None) -> int:
             nb = build_inspection_notebook(
                 data_dir, dbpath, pattern=args.pattern, summary_name=args.out,
                 n_calls=args.n_calls,
+                stimulated_emission=args.stimulated_emission,
             )
             write_inspection_notebook(nb, nb_path)
             print(f"wrote {nb_path}")

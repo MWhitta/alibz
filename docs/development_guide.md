@@ -243,17 +243,25 @@ coordinates, timestamps) and returns comprehensive chemometrics:
 - Depth profiles (composition vs ablation depth)
 - Timeseries (temporal evolution of plasma or sample)
 
-### Current status: ~30% — research prototype only
+### Current status: ~45% — research prototype with a CLI
 
-The `run-corpus-pca` CLI can batch-process a corpus of spectra through
-the peak-fitting and PCA pipeline, but there is no inference pathway for
-new spectra and no spatial/temporal analysis.
+The `alibz-analyze` CLI is the current production-facing path for new
+spectra. It runs the peak-fitting, refinement, minor-line seeding,
+whole-pattern indexing, H-alpha electron-density initialization when
+available, doublet self-absorption anchoring, and amplitude-resampling
+uncertainty workflow over a directory of CSV spectra. It writes
+`summary.csv`, `detections.csv`, and an inspection notebook into the input
+directory.
+
+`run-corpus-pca` remains available for corpus-scale peak-shape and PCA
+work, not for composition inference. Spatial mapping, depth profiling,
+and standards-validated reporting are still future work.
 
 ### What needs to happen (future)
 
-1. **Inference API.**  A function or service that takes a single spectrum
-   and returns composition + uncertainties using either the physics
-   pipeline (Components 1–3) or the transformer (Component 4).
+1. **Harden the inference API.**  Stabilize `alibz.pipeline.analyze_spectrum`
+   and `alibz-analyze` around a versioned output schema, explicit database
+   provenance, and systematic-error diagnostics.
 
 2. **Spatial mapping.**  Associate spectra with (x, y) coordinates from
    the LIBS instrument's raster scan.  Produce 2D elemental maps with
@@ -357,7 +365,7 @@ The robust loss is sufficient until then.
 | 2 | **Peak Fitting** | **Active development** | **~80%** | **Yes — blocks Component 3** |
 | 3 | Indexing & Whole-Pattern | Partial | ~50% | Blocked by Component 2 |
 | 4 | Transformer Model | Not started | 0% | Blocked by Components 2+3 |
-| 5 | Production Model | Prototype | ~30% | Blocked by Components 3+4 |
+| 5 | Production Model | Prototype CLI | ~45% | Blocked by validation and Component 3 hardening |
 
 **Current priority**: Close the PCA-to-re-fit loop in Component 2 (robust
 profile fitting with physically-informed broadening constraints), then
@@ -392,19 +400,35 @@ Priority order below is by expected accuracy impact / risk.
 
 ### Ready to A/B test (concrete, accuracy-relevant)
 
-1. **Stimulated-emission factor on the optical depth** *(highest value, ~1
-   line)*. The prototype multiplies the line-center optical depth by
-   `(1 − exp(−hc/λk_BT))` (`forward.py:110`). Main's absorbing strength
-   `_kappa_raw` ([peaky_indexer_v3.py:1127](../alibz/peaky_indexer_v3.py#L1127))
-   omits it. It is **wavelength-dependent** (~0.91 at Na 589, ~0.83 at Rb
-   794, ~0.82 at Cs 852 for T≈10⁴ K), so it is **not** absorbable into
-   main's single global `sa_tau_scale`, and it shifts *relative*
-   escape-factor compression by ~9–18% across exactly the alkali resonance
-   lines (K 766/770, Na 589, Rb 780/795, Cs 852) that are this codebase's
-   known quantification pain point (see the sim-to-real notes: alkali
-   doublet ratios sit ~35% below optically thin). Integration point:
-   `_kappa_raw`. Accuracy check: does it move the K/Na doublet ratios
-   toward the optically-thin prediction?
+1. **Stimulated-emission factor on the optical depth** — **TESTED
+   2026-07-04: implemented, A/B-refused as default; flag retained.**
+   The factor `(1 − exp(−hc/λk_BT))` is implemented as
+   `stimulated_emission_factor` and applied (behind
+   `sa_stimulated_emission` / `--stimulated-emission`, default OFF) in
+   `_kappa_raw`, the frozen-reference normalisation, and
+   `_doublet_line_scale`. It is wavelength-dependent (~0.91 at Na 589,
+   ~0.89 at K 770, ~0.999 in the UV at 8.3 kK), so it is not absorbable
+   into a single global `sa_tau_scale`.
+
+   **A/B result (38 JChristensen spectra, deterministic optimizer,
+   pre-registered metrics):** fit quality and internal consistency were
+   *neutral* — median Δr² = 0.0000 and median Δstage_disagreement =
+   0.0000 — but alkali/Si compositions swung >20% on **14/38** samples
+   (K/Li/Na typically ±30–60%, one sample Li +1080% with Δr² −0.081).
+   A physics-free control (perturbing only the optimizer trajectory,
+   `n_calls` 40→41, stim off) produced median 0% shifts with only 3/38
+   samples >20% — so the swings are attributable to the factor, not
+   optimizer noise. Interpretation: with only the doublet-anchored SA
+   channel active, the factor re-tilts a **near-degenerate alkali-SA /
+   composition direction** without adding constraining information; the
+   result is instability, not accuracy. **Refused as default on fit
+   accuracy.** Revisit when (a) the global `sa_fit` channel is in
+   production use (the cross-λ effect is then first-order rather than a
+   perturbation), and (b) the emission-side weights and the doublet
+   `thin_ratio` carry a consistent treatment. The A/B also showed the
+   fixed-θ statistical uncertainty understates total uncertainty on
+   samples with an active alkali-SA degeneracy (flagged by
+   `stage_spread` in `summary.csv`).
 
 2. **Debye ionization-potential-depression (continuum lowering) in the Saha
    balance.** The prototype lowers χ by `Δχ = (z+1)e²/4πε₀λ_D` before the

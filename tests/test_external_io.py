@@ -69,6 +69,43 @@ class TestExternalIO(unittest.TestCase):
         self.assertIn("H", db.elements)
         self.assertTrue(len(db.no_lines) > 0)
 
+    def test_database_default_honors_alibz_db_env(self) -> None:
+        original = os.environ.get("ALIBZ_DB")
+        dbpath = os.path.abspath("db")
+        try:
+            os.environ["ALIBZ_DB"] = dbpath
+            db = Database("db")
+        finally:
+            if original is None:
+                os.environ.pop("ALIBZ_DB", None)
+            else:
+                os.environ["ALIBZ_DB"] = original
+
+        self.assertEqual(str(db.dbpath), os.path.abspath(dbpath))
+
+    def test_database_resolves_installed_target_share_db(self) -> None:
+        import alibz.utils.database as database_mod
+
+        original_file = database_mod.__file__
+        original_cwd = os.getcwd()
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                package_file = os.path.join(
+                    tmpdir, "alibz", "utils", "database.py"
+                )
+                share_db = os.path.join(tmpdir, "share", "alibz", "db")
+                os.makedirs(os.path.dirname(package_file))
+                os.makedirs(share_db)
+                database_mod.__file__ = package_file
+                os.chdir(tmpdir)
+
+                resolved = Database._resolve_dbpath("db")
+        finally:
+            database_mod.__file__ = original_file
+            os.chdir(original_cwd)
+
+        self.assertEqual(str(resolved), os.path.realpath(share_db))
+
     def test_database_ionization_energy_filters_by_ion_stage(self) -> None:
         db = Database("db")
 

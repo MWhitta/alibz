@@ -37,3 +37,11 @@ background-pca = "alibz.background_pca:main"
 
 [tool.setuptools.packages.find]
 include = ["alibz*", "scripts*"]
+
+[tool.setuptools.data-files]
+"share/alibz/db" = [
+    "db/abundance_92.csv",
+    "db/el_lines92.pickle",
+    "db/no_lines26.pickle",
+]
+"share/alibz/db/ionization" = ["db/ionization/*.pickle"]
