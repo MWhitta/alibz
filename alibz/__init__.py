@@ -79,6 +79,12 @@ from alibz.detections import (
     merge_contests,
     resolve_confounded,
 )
+from alibz.profiles import (
+    analyze_peak_profiles,
+    element_shape_quality,
+    profile_summary,
+    segment_width_floor,
+)
 from alibz.pipeline import analyze_directory, analyze_spectrum
 from alibz.utils.database import Database
 from alibz.utils.sahaboltzmann import SahaBoltzmann
@@ -112,6 +118,11 @@ __all__ = [
     "resolve_confounded",
     "element_uncertainties",
     "confounder_catalog",
+    # Peak-shape physics (profiles)
+    "analyze_peak_profiles",
+    "element_shape_quality",
+    "profile_summary",
+    "segment_width_floor",
     # Element metadata
     "element_sort_key",
     "element_periodic_block",

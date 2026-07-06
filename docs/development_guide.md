@@ -99,14 +99,36 @@ raw spectrum
 | `peaky_finder.py` | (a) Fast peak detection via local-maxima search; FFT-based background subtraction; multi-Voigt least-squares fitting with adaptive bounds; fast-mode parameter estimation without optimiser. | **Working** |
 | `peaky_corpus.py` | (a,b) Batch fitting across a corpus; common-grid standardisation (GPU-accelerated); FWHM width statistics; GMM mode detection. | **Working** |
 | `peaky_pca.py` | (b) PCA decomposition of normalised peak windows; perturbation analysis mapping each PC to a physical broadening mechanism (Doppler, Stark, self-absorption); peak classification. | **Working** |
+| `profiles.py` | (c) Per-detector-segment, per-peak shape physics on a FITTED spectrum: segment instrumental width floors from the spectrum's own narrow peaks; Doppler-vs-Stark decomposition of excess width; residual-signature classification separating shoulders (unresolved overlaps) from true self-absorption asymmetry; optional PC-score projection with a trained `PeakyPCA`; per-element support shape QC (`sa_share`, `shoulder_share`, `clean_anchors` in `detections.csv`). | **Working** |
 | `gpu.py` | All | GPU acceleration (CuPy): batch interpolation, SVD-based PCA, pseudo-Voigt evaluation, window extraction. | **Working** |
 | `utils/voigt.py` | (a) | Thompson FWHM approximation; vectorised multi-Voigt; GPU dispatch. | **Working** |
+| `background_pca.py` | (b) Corpus background/segment PCA. Superseded by `PeakyFinder.find_background` + `DetectorModel` + `profiles.py`. | **Deprecated** |
 
-### Current status: ~80% complete
+### Current status: ~85% complete
 
-Stages (a) and (b) are functional and tested.  Stage (c) — using the PCA
-broadening decomposition to feed back into a physics-informed re-fit — is
-the **critical gap** that must be closed before moving to Component 3.
+Stages (a) and (b) are functional and tested.  Stage (c) — shape physics
+feeding back into the analysis — now has its first production piece:
+`alibz.profiles` classifies every fitted peak per segment and QCs each
+element's supporting flux (reported in `detections.csv` and flagged in
+`summary.csv` as `dominant-weak-shape`).  What it does NOT yet do: feed a
+physics-informed RE-FIT (shoulder-triggered deblends, SA-model refits of
+saturated lines with growth-curve area recovery) — that is the remaining
+gap.
+
+An honest measured caveat from JChristensen (2026-07-06): the
+single-element-dominated failures there (Hg 1.000 from one 194 nm line,
+Fe 0.991, Ca 0.990) were NOT peak-shape failures — the driver peaks
+classify `instrumental` (clean).  They were **inverse-solve basin
+failures**: the corroboration (pass-3) re-index, after seeding dozens of
+weak low-excitation lines, drifted into a low-T basin (~5 200 K) where one
+element's tiny Saha-Boltzmann response explains everything — with
+r-squared even IMPROVING (0.87), because a line-rich element fits
+anything.  The fix is the **composition-collapse basin guard** in
+`analyze_spectrum` (`COLLAPSE_TOP_FRACTION`/`COLLAPSE_JUMP`): the
+corroborated re-index is rejected when its top fraction newly collapses
+(measured A/B: Pam Hg 1.000 -> K/Li/Si; MDD006 Fe 0.991 -> Si/K/Li), and
+`summary.csv` records `corroboration-rejected(collapse)`.  Shape QC and
+the basin guard are complementary constraints, not substitutes.
 
 ### What needs to happen next
 

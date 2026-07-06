@@ -630,8 +630,9 @@ def analyze_detections(
     per-peak area 1-sigma uncertainties (aligned with the peak table);
     ``shift`` maps observed peak centers back to the database frame.
 
-    Returns ``{detections, support, contested, element_uncertainty,
-    stats, resolved_fractions}``.  ``resolved_fractions`` is the
+    Returns ``{detections, support, support_idx, contested,
+    element_uncertainty, stats, resolved_fractions}`` (``support_idx``
+    maps element -> peak-row indices, for joining shape/profile QC).  ``resolved_fractions`` is the
     composition after true-negative attribution (confounded elements
     credited only their clear flux, the rest reattributed to the
     confounder; see :func:`resolve_confounded`); each detection also gains
@@ -656,7 +657,8 @@ def analyze_detections(
     detections = classify_detections(result, stats, support,
                                      contested=contested)
     resolved_fractions = resolve_confounded(detections, contested)
-    return dict(detections=detections, support=support, contested=contested,
+    return dict(detections=detections, support=support,
+                support_idx=sup_idx, contested=contested,
                 element_uncertainty=unc, stats=stats,
                 resolved_fractions=resolved_fractions)
 

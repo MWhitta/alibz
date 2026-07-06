@@ -29,7 +29,13 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
             -> PeakyIndexerV3.fit  [pass 2]     (confirms elements present)
             -> seed_minor_lines (corroboration) (pass-2 elements; line-rich
                                                  stages like Fe trusted)
-            -> PeakyIndexerV3.fit  [pass 3]     (corroborated composition)
+            -> PeakyIndexerV3.fit  [pass 3]     (corroborated composition;
+                                                 rejected by the basin guard
+                                                 if it newly collapses onto
+                                                 one element -- see
+                                                 COLLAPSE_TOP_FRACTION)
+            -> alibz.profiles                   (per-segment per-peak shape
+                                                 QC of each element support)
             -> uncertainty resampling           (see below)
 
 Electron density is initialised per shot from the H-alpha Lorentzian width
@@ -115,6 +121,36 @@ STAGE_FLAG_THRESHOLD = 0.5
 DEFAULT_STIMULATED_EMISSION = False
 #: long-format per-(sample, element) detection report filename.
 DETECTIONS_NAME = "detections.csv"
+#: basin guard for the corroborated (pass-3) re-index: seeding dozens of
+#: weak low-excitation lines can let the re-optimizer drift into a low-T
+#: basin where ONE element's tiny Saha-Boltzmann response explains
+#: everything (measured on JChristensen: Hg 1.000 from a single 194 nm
+#: line, Fe 0.991 at T~5200 K — while r-squared even improved, because a
+#: line-rich element fits anything).  The corroborated composition is
+#: accepted only when it does NOT newly collapse onto a single element:
+#: rejected when its top fraction reaches COLLAPSE_TOP_FRACTION and grew
+#: by at least COLLAPSE_JUMP over the pass-2 top fraction.
+COLLAPSE_TOP_FRACTION = 0.9
+COLLAPSE_JUMP = 0.2
+
+
+def composition_collapsed(fr_before: dict, fr_after: dict) -> bool:
+    """Basin-guard criterion for the corroborated (pass-3) re-index.
+
+    True when the re-indexed composition NEWLY collapses onto a single
+    element: its top fraction reaches ``COLLAPSE_TOP_FRACTION`` and either
+    grew by ``COLLAPSE_JUMP`` over the before-state or belongs to a
+    DIFFERENT element than before (measured failures: K 0.54 -> Hg 1.00,
+    Si 0.35 -> Fe 0.99).  A composition that was already dominated by the
+    same element stays accepted.
+    """
+    top_b = max(fr_before.values(), default=0.0)
+    top_a = max(fr_after.values(), default=0.0)
+    if top_a < COLLAPSE_TOP_FRACTION:
+        return False
+    el_b = max(fr_before, key=fr_before.get) if fr_before else None
+    el_a = max(fr_after, key=fr_after.get) if fr_after else None
+    return (top_a - top_b) >= COLLAPSE_JUMP or el_a != el_b
 
 _SAMPLE_SUFFIX_RE = re.compile(
     r"_\d{8}_\d{6}_(?:AM|PM)_AverageSpectrum$", re.IGNORECASE
@@ -210,14 +246,20 @@ def analyze_spectrum(
     residual recovery -> pass-2 indexer (confirms the elements present) ->
     CORROBORATION seed of those elements' still-unfitted weak (>= 2 sigma)
     lines (line-rich elements such as Fe, silenced pre-id, are trusted here)
-    -> pass-3 indexer for the corroborated composition -> detection report.
+    -> pass-3 indexer for the corroborated composition, accepted only if it
+    does not newly collapse onto a single element (basin guard; see
+    ``COLLAPSE_TOP_FRACTION``) -> detection report + per-peak shape QC
+    (:mod:`alibz.profiles`).
 
     Returns a dict with the intermediate fits (``fit``, ``refined``,
     ``final``, ``decisions``, ``records``, ``shift``), the final
-    ``result`` (:class:`FitResult`), ``element_uncertainty``, and the
-    ``established`` element list (the pass-2 confirmed elements that drove
-    corroboration).  Raises on hard failures; the directory driver converts
-    those into an error row.
+    ``result`` (:class:`FitResult`), ``element_uncertainty``, the
+    ``established`` element list (the pass-2 confirmed elements when
+    corroboration ran; the pass-1 list otherwise),
+    ``profiles``/``shape_quality`` (per-peak shape physics
+    and per-element support QC), and ``corroboration`` (whether the pass-3
+    re-index was used, and why not).  Raises on hard failures; the
+    directory driver converts those into an error row.
     """
     from alibz import PeakyFinder, refine_fit, seed_minor_lines
     from alibz.inspection import estimate_peak_uncertainties
@@ -301,30 +343,74 @@ def analyze_spectrum(
     # must actually be present at the predicted position).  Re-index so the
     # composition reflects the corroborating lines.
     fidx, result = idx2, res2
+    corroboration = dict(used=False, added=0, reason="seed_minor disabled")
     if seed_minor:
         confirmed = sorted(
             [el for el, f in res2.element_fractions.items()
              if f >= ESTABLISHED_MIN_FRACTION],
             key=element_sort_key)
+        corroboration = dict(used=False, added=0,
+                             reason="no confirmed elements")
         if confirmed:
             established = confirmed
-            final, corr = seed_minor_lines(x, y, final, db, confirmed,
-                                           shift_nm=shift,
-                                           robust_elements=set(confirmed))
-            records = records + corr
-            fpeaks = final["sorted_parameter_array"]
-            # pass 3: final composition on the corroborated fit
-            idx3 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
-                                  temperature_init=res2.temperature,
-                                  ne_init=res2.ne)
-            result = idx3.run(**run_kwargs)
-            fidx = idx3
+            final_c, corr = seed_minor_lines(x, y, final, db, confirmed,
+                                             shift_nm=shift,
+                                             robust_elements=set(confirmed))
+            n_added = sum(1 for r in corr if r.get("action") == "added")
+            if n_added == 0:
+                # nothing new to quantify: keep the pass-2 result rather
+                # than re-running the optimizer for no reason (a bare
+                # re-index can still wander into a worse basin)
+                corroboration = dict(used=False, added=0,
+                                     reason="no corroborating lines added")
+            else:
+                fpeaks_c = final_c["sorted_parameter_array"]
+                # pass 3: composition on the corroborated fit
+                idx3 = PeakyIndexerV3(_db_frame(fpeaks_c), dbpath=dbpath,
+                                      temperature_init=res2.temperature,
+                                      ne_init=res2.ne)
+                res3 = idx3.run(**run_kwargs)
+                # basin guard: see composition_collapsed above
+                fr2, fr3 = res2.element_fractions, res3.element_fractions
+                collapsed = composition_collapsed(fr2, fr3)
+                top2 = max(fr2.values(), default=0.0)
+                top3 = max(fr3.values(), default=0.0)
+                corroboration = dict(used=not collapsed, added=n_added,
+                                     top_before=round(float(top2), 3),
+                                     top_after=round(float(top3), 3),
+                                     reason=("composition collapse in "
+                                             "corroborated re-index"
+                                             if collapsed else ""))
+                if not collapsed:
+                    final, fpeaks = final_c, fpeaks_c
+                    records = records + corr
+                    fidx, result = idx3, res3
+                # on rejection: quantify from the pass-2 basin; final/
+                # fpeaks/records stay pre-corroboration so every downstream
+                # consumer (detections, area_sigma, profiles) sees one
+                # consistent fit
 
     # detection report + confounder (true-negative rival) analysis
     bg = np.asarray(final.get("background", np.zeros_like(y)), dtype=float)
     area_sigma = estimate_peak_uncertainties(x, y - bg, fpeaks)[:, 0]
     det = analyze_detections(fidx, result, area_sigma, shift=shift,
                              dbpath=dbpath, draws=draws)
+
+    # per-segment, per-peak shape physics (alibz.profiles): classify every
+    # fitted peak (instrumental / broadened / shoulder / sa-like / narrow)
+    # and QC each element's supporting flux -- an element whose abundance
+    # rests on saturated (sa-like) or overlap-contaminated (shoulder) peaks
+    # is flagged rather than trusted
+    from alibz.profiles import analyze_peak_profiles, element_shape_quality
+    profiles = analyze_peak_profiles(x, y, final)
+    shape_quality = element_shape_quality(det.get("support_idx", {}),
+                                          profiles)
+    for d in det["detections"]:
+        q = shape_quality.get(d["element"])
+        if q:
+            d["sa_share"] = round(float(q["sa_share"]), 3)
+            d["shoulder_share"] = round(float(q["shoulder_share"]), 3)
+            d["clean_anchors"] = int(q["clean_anchors"])
 
     return dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
@@ -335,6 +421,8 @@ def analyze_spectrum(
         detections=det["detections"], support=det["support"],
         contested=det["contested"],
         resolved_fractions=det["resolved_fractions"],
+        profiles=profiles, shape_quality=shape_quality,
+        corroboration=corroboration,
     )
 
 
@@ -357,6 +445,25 @@ def _summary_row(path: str, analysis: dict) -> dict:
         for d in analysis.get("detections", [])
         if d["status"] == "confounded" and d.get("confounder")
     ]
+    # shape-QC flag: a DOMINANT element whose supporting peaks are mostly
+    # saturated (sa-like) or lack clean anchors is a model choice, not a
+    # measurement (archetype: Ca II 393.3 resonance carrying 99% Ca)
+    fr = res.element_fractions
+    if fr:
+        top_el = max(fr, key=fr.get)
+        if fr[top_el] >= 0.5:
+            dom = next((d for d in analysis.get("detections", [])
+                        if d["element"] == top_el), None)
+            # no shape entry at all = the dominant element has NO supporting
+            # peaks of its own -- the weakest possible support
+            weak = (dom is None or dom.get("clean_anchors") is None
+                    or dom["clean_anchors"] < 2
+                    or (dom.get("sa_share") or 0.0) > 0.5)
+            if weak:
+                flags.append(f"{top_el}:dominant-weak-shape")
+    corro = analysis.get("corroboration") or {}
+    if "collapse" in (corro.get("reason") or ""):
+        flags.append("corroboration-rejected(collapse)")
     return dict(
         file=os.path.basename(path),
         sample=sample_name(path),
@@ -583,7 +690,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
               "fraction_hi", "unc", "z",
               "n_lines", "clear_lines", "contested_share", "confounder",
               "strongest_peak_nm", "strongest_obs",
-              "upper_limit", "stage_disagreement"]
+              "upper_limit", "stage_disagreement",
+              "sa_share", "shoulder_share", "clean_anchors"]
     n = 0
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
@@ -619,6 +727,12 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
                      if d.get("upper_limit") is not None else ""),
                     (d["stage_disagreement"]
                      if d.get("stage_disagreement") is not None else ""),
+                    (d["sa_share"]
+                     if d.get("sa_share") is not None else ""),
+                    (d["shoulder_share"]
+                     if d.get("shoulder_share") is not None else ""),
+                    (d["clean_anchors"]
+                     if d.get("clean_anchors") is not None else ""),
                 ])
                 n += 1
     return n
@@ -931,6 +1045,47 @@ for d in borderline[:6]:
                      f"{d['n_lines']} line(s)) — strongest matched line\\n"
                      + axs[0].get_title(), fontsize=9)"""
 
+    md_shapes = """### Peak-shape physics QC (`alibz.profiles`)
+
+Every fitted peak is classified per detector segment against that segment's
+instrumental width floor: `instrumental` (clean, resolution-limited — the
+safest quantification anchors), `broadened` (genuine plasma broadening;
+Gaussian fraction separates Doppler from Stark), `shoulder` (an UNRESOLVED
+overlapping line — the fitted area is contaminated), `sa-like` (core
+defect: the growth-curve signature of self-absorption — the area is
+saturated, NOT proportional to concentration), `narrow` (below the
+instrument floor — suspect). Shoulders and self-absorption both look
+"asymmetric"; their residual signatures (one-sided flank bump vs core
+defect) are what tells them apart.
+
+Per element, `sa_share`/`shoulder_share` is the flux-weighted share of its
+supporting peaks that is saturated/contaminated and `clean_anchors` counts
+its clean lines — a DOMINANT element with weak shape support is flagged
+`dominant-weak-shape` in `summary.csv`. `corroboration` reports whether
+the weak-line (pass-3) re-index was accepted or rejected by the
+composition-collapse basin guard.
+"""
+    code_shapes = """# peak-shape physics QC for this spectrum
+from alibz import analyze_peak_profiles, profile_summary
+prof = analyze_peak_profiles(x, y, a['final'])
+print('peak shape classes:', profile_summary(prof))
+print('corroboration:', a.get('corroboration'))
+rows = [d for d in a['detections'] if d.get('sa_share') is not None]
+print(f"\\n{'el':>4} {'status':>12} {'resolved':>9} {'sa_share':>8}"
+      f" {'shoulder':>8} {'clean':>5}")
+for d in sorted(rows, key=lambda d: -(d.get('fraction_resolved') or 0))[:14]:
+    print(f"{d['element']:>4} {d['status']:>12}"
+          f" {d.get('fraction_resolved', 0):9.4f}"
+          f" {d.get('sa_share', 0):8.2f} {d.get('shoulder_share', 0):8.2f}"
+          f" {d.get('clean_anchors', ''):>5}")
+# saturated or overlap-contaminated peaks, strongest first
+bad = [r for r in prof if r['classification'] in ('sa-like', 'shoulder')]
+print(f"\\n{len(bad)} saturated/contaminated peaks:")
+for r in sorted(bad, key=lambda r: -abs(r['area']))[:10]:
+    print(f"  {r['center_nm']:9.3f}  {r['classification']:9s}"
+          f"  area={r['area']:9.1f}  wr={r['width_ratio']:.2f}"
+          f"  gfrac={r['gaussian_fraction']:.2f}")"""
+
     md_notes = """## Reading the results
 
 - **`detections.csv`** (written alongside `summary.csv`) is the long-format
@@ -998,6 +1153,8 @@ else:
         _nb_cell("code", code_recovered),
         _nb_cell("markdown", md_borderline),
         _nb_cell("code", code_borderline),
+        _nb_cell("markdown", md_shapes),
+        _nb_cell("code", code_shapes),
         _nb_cell("markdown", md_notes),
     ]
     return {

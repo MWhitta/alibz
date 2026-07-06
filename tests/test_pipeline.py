@@ -308,6 +308,51 @@ class TestClassifyDetections(unittest.TestCase):
         self.assertEqual(got[1]["upper_limit"], "0.005")
         self.assertEqual(got[1]["fraction"], "")
 
+    def test_detections_csv_shape_columns(self):
+        from alibz.pipeline import write_detections_csv
+        rows = [dict(sample="s1", detections=[
+            dict(element="Ca", status="detected", fraction=0.9,
+                 unc=0.05, z=10.0, n_lines=2, strongest_peak_nm=393.33,
+                 strongest_obs=900.0, upper_limit=None,
+                 stage_disagreement=None, sa_share=0.87,
+                 shoulder_share=0.0, clean_anchors=0),
+            dict(element="Si", status="detected", fraction=0.1,
+                 unc=0.01, z=8.0, n_lines=5, strongest_peak_nm=251.6,
+                 strongest_obs=100.0, upper_limit=None,
+                 stage_disagreement=None),
+        ])]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "detections.csv")
+            write_detections_csv(rows, path)
+            with open(path) as fh:
+                got = list(csv.DictReader(fh))
+        # shape QC columns present; blank when the element has no profile
+        self.assertEqual(got[0]["sa_share"], "0.87")
+        self.assertEqual(got[0]["clean_anchors"], "0")
+        self.assertEqual(got[1]["sa_share"], "")
+
+
+class TestCollapseGuard(unittest.TestCase):
+    def test_collapse_criterion(self):
+        # newly-appearing near-total dominance is rejected; stable
+        # same-element dominance or modest growth is accepted
+        from alibz.pipeline import composition_collapsed as collapsed
+        # measured failures: K 0.54 -> Hg 1.00, Si 0.36 -> Fe 0.99
+        self.assertTrue(collapsed({"K": 0.54, "Li": 0.23},
+                                  {"Hg": 1.00}))
+        self.assertTrue(collapsed({"Si": 0.36, "K": 0.29},
+                                  {"Fe": 0.99, "Si": 0.01}))
+        # different element reaching near-total dominance is rejected even
+        # below the jump threshold
+        self.assertTrue(collapsed({"Si": 0.75, "K": 0.2},
+                                  {"Fe": 0.92, "Si": 0.05}))
+        # a sample ALREADY Si-dominated stays accepted (same element)
+        self.assertFalse(collapsed({"Si": 0.85, "Mn": 0.1},
+                                   {"Si": 0.92, "Mn": 0.05}))
+        # normal corroboration: small recomposition
+        self.assertFalse(collapsed({"Si": 0.40, "K": 0.3},
+                                   {"Si": 0.45, "K": 0.3}))
+
 
 class TestElementUncertainties(unittest.TestCase):
     def test_resampling_spread_and_amp_restore(self):

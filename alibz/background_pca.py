@@ -1,13 +1,19 @@
-"""Corpus-level PCA for background and detector artifact removal.
+"""DEPRECATED — corpus-level PCA for background/detector identification.
+
+.. deprecated:: 0.2
+   The exploratory background-identification and detector-segment PCA this
+   module (and the ``background-pca`` CLI) provided is superseded by the
+   production chain: :meth:`alibz.PeakyFinder.find_background` (arPLS-style
+   background estimation used by every fit), :class:`alibz.DetectorModel`
+   with ``corrections/detector.json`` (segment junctions/artifact removal),
+   and :mod:`alibz.profiles` (per-segment, per-peak shape physics).  It is
+   retained only to regenerate the historical corpus pickles; expect removal
+   once nothing consumes them.
 
 Runs PCA on full standardised spectra (not peak windows) to identify
 common-mode features: detector junction artifacts, baseline shapes,
-and instrument response.  These can be subtracted before peak fitting.
-
-With ``--segment``, runs a separate PCA on each detector segment
-(UV, VIS, NIR) using the junction positions from
-``corrections/detector.json``.  This captures segment-specific
-variance that the full-spectrum PCA may dilute.
+and instrument response.  With ``--segment``, a separate PCA per detector
+segment (UV, VIS, NIR) using ``corrections/detector.json`` junctions.
 
 Usage:
     background-pca /path/to/data --out data/bg_pca.pkl
@@ -15,6 +21,7 @@ Usage:
 """
 
 import argparse
+import warnings
 import json
 import pickle
 import time
@@ -201,6 +208,12 @@ def _print_junction_analysis(result):
 # ---------------------------------------------------------------------------
 
 def main():
+    warnings.warn(
+        "background-pca is deprecated: background estimation lives in "
+        "PeakyFinder.find_background, detector-segment handling in "
+        "alibz.DetectorModel (corrections/detector.json), and per-peak "
+        "shape physics in alibz.profiles.",
+        DeprecationWarning, stacklevel=2)
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('data_dirs', nargs='+',
