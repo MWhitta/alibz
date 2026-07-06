@@ -17,6 +17,21 @@ Fit refinement and inspection:
     peak_table, format_peak_table, estimate_peak_uncertainties,
     plot_spectrum_overview, plot_peak_zoom   Fit visualisation and
         parameter uncertainties (``alibz.inspection``).
+    recover_residual_lines   Element-agnostic recovery of significant
+        positive residual peaks (``alibz.minor_lines``).
+
+Detection reporting and confounders (``alibz.detections``):
+    analyze_detections, classify_detections, element_support,
+    contested_support, merge_contests, element_uncertainties,
+    confounder_catalog   Per-element detection status with true-negative
+        confounder analysis; corpus confounder catalog.
+
+Element metadata (``alibz.elements``):
+    element_sort_key, element_periodic_block, element_color
+
+End-to-end directory analysis (``alibz.pipeline``):
+    analyze_spectrum, analyze_directory   Full chain to composition +
+        detection report; the ``alibz-analyze`` CLI wraps these.
 
 Supporting types exported from ``peaky_indexer_v3``:
     FitResult, LineTable, PeakVector, Species, PhysicsComputationError
@@ -49,6 +64,21 @@ from alibz.inspection import (
     plot_peak_zoom,
     plot_spectrum_overview,
 )
+from alibz.elements import (
+    element_color,
+    element_periodic_block,
+    element_sort_key,
+)
+from alibz.detections import (
+    analyze_detections,
+    classify_detections,
+    confounder_catalog,
+    contested_support,
+    element_support,
+    element_uncertainties,
+    merge_contests,
+)
+from alibz.pipeline import analyze_directory, analyze_spectrum
 from alibz.utils.database import Database
 from alibz.utils.sahaboltzmann import SahaBoltzmann
 
@@ -72,6 +102,21 @@ __all__ = [
     "recover_residual_lines",
     "seed_minor_lines",
     "match_and_scale",
+    # Detection reporting + confounders
+    "analyze_detections",
+    "classify_detections",
+    "element_support",
+    "contested_support",
+    "merge_contests",
+    "element_uncertainties",
+    "confounder_catalog",
+    # Element metadata
+    "element_sort_key",
+    "element_periodic_block",
+    "element_color",
+    # Directory / spectrum analysis
+    "analyze_spectrum",
+    "analyze_directory",
     # Indexer data types
     "FitResult",
     "LineTable",

@@ -47,7 +47,6 @@ stayed flat — far beyond ``<El>_unc`` — so treat flagged samples' alkali
 values as model-limited, not noise-limited.
 """
 
-import colorsys
 import csv
 import glob
 import json
@@ -62,9 +61,35 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+# Element metadata and the detection/confounder analysis live in dedicated
+# modules; re-exported here so existing importers (and the generated
+# notebook, which imports these from alibz.pipeline) keep working.
+from alibz.elements import (  # noqa: F401
+    ELEMENT_COLORS,
+    ELEMENTS_BY_ATOMIC_NUMBER,
+    ELEMENT_PERIODIC_BLOCK,
+    PERIODIC_BLOCK_COLORS,
+    element_block_color,
+    element_color,
+    element_periodic_block,
+    element_sort_key,
+)
+from alibz.detections import (  # noqa: F401
+    DEFAULT_DRAWS,
+    DETECT_Z,
+    MARGINAL_Z,
+    MIN_SUPPORT_FRACTION,
+    analyze_detections,
+    classify_detections,
+    confounder_catalog,
+    contested_support,
+    element_uncertainties,
+    element_uncertainty_stats,
+    merge_contests,
+)
+
 DEFAULT_PATTERN = "*.csv"
 DEFAULT_N_CALLS = 40
-DEFAULT_DRAWS = 32
 DEFAULT_TIMEOUT_S = 900
 #: pass-1 element fraction above which an element is treated as
 #: "established" and eligible to seed minor lines.
@@ -80,145 +105,12 @@ STAGE_FLAG_THRESHOLD = 0.5
 #: The physics is correct in isolation; revisit together with the global
 #: SA channel (see docs/development_guide.md).
 DEFAULT_STIMULATED_EMISSION = False
-#: detection classification thresholds (z = fraction / 1-sigma unc).
-DETECT_Z = 3.0
-MARGINAL_Z = 2.0
-#: a peak "supports" an element when that element's species is the peak's
-#: dominant assignment and contributes at least this share of the
-#: observed amplitude.
-MIN_SUPPORT_FRACTION = 0.3
 #: long-format per-(sample, element) detection report filename.
 DETECTIONS_NAME = "detections.csv"
-
-ELEMENTS_BY_ATOMIC_NUMBER = (
-    "H", "He",
-    "Li", "Be", "B", "C", "N", "O", "F", "Ne",
-    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
-    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni",
-    "Cu", "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr",
-    "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd",
-    "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe",
-    "Cs", "Ba", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd",
-    "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W",
-    "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po",
-    "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U",
-)
-ATOMIC_NUMBER = {el: i + 1 for i, el in enumerate(ELEMENTS_BY_ATOMIC_NUMBER)}
-
-PERIODIC_BLOCK_MEMBERS = {
-    "reactive nonmetal": ("H", "C", "N", "O", "P", "S", "Se"),
-    "group 1": ("Li", "Na", "K", "Rb", "Cs", "Fr"),
-    "group 2": ("Be", "Mg", "Ca", "Sr", "Ba", "Ra"),
-    "3d-block": ("Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni",
-                 "Cu", "Zn"),
-    "4d-block": ("Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd",
-                 "Ag", "Cd"),
-    "5d-block": ("Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au",
-                 "Hg"),
-    "4f-block": ("La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd",
-                 "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu"),
-    "5f-block": ("Ac", "Th", "Pa", "U"),
-    "post-transition metal": ("Al", "Ga", "In", "Sn", "Tl", "Pb",
-                              "Bi"),
-    "metalloid": ("B", "Si", "Ge", "As", "Sb", "Te", "Po"),
-    "halogen": ("F", "Cl", "Br", "I", "At"),
-    "noble gas": ("He", "Ne", "Ar", "Kr", "Xe", "Rn"),
-}
-ELEMENT_PERIODIC_BLOCK = {
-    el: block
-    for block, elements in PERIODIC_BLOCK_MEMBERS.items()
-    for el in elements
-}
-PERIODIC_BLOCK_COLORS = {
-    "reactive nonmetal": "#dc2626",
-    "group 1": "#e11d48",
-    "group 2": "#d97706",
-    "3d-block": "#2563eb",
-    "4d-block": "#0d9488",
-    "5d-block": "#7c3aed",
-    "4f-block": "#c026d3",
-    "5f-block": "#92400e",
-    "post-transition metal": "#64748b",
-    "metalloid": "#65a30d",
-    "halogen": "#16a34a",
-    "noble gas": "#0891b2",
-    "other": "#52525b",
-}
-PERIODIC_BLOCK_COLOR_STYLE = {
-    # hue degrees, saturation, light shade, dark shade
-    "reactive nonmetal": (4.0, 0.76, 0.82, 0.38),
-    "group 1": (342.0, 0.78, 0.84, 0.38),
-    "group 2": (36.0, 0.82, 0.84, 0.36),
-    "3d-block": (215.0, 0.78, 0.82, 0.34),
-    "4d-block": (174.0, 0.74, 0.80, 0.32),
-    "5d-block": (262.0, 0.72, 0.82, 0.36),
-    "4f-block": (292.0, 0.68, 0.84, 0.38),
-    "5f-block": (22.0, 0.72, 0.82, 0.35),
-    "post-transition metal": (210.0, 0.34, 0.78, 0.36),
-    "metalloid": (78.0, 0.66, 0.78, 0.34),
-    "halogen": (132.0, 0.68, 0.78, 0.34),
-    "noble gas": (190.0, 0.68, 0.78, 0.34),
-    "other": (0.0, 0.0, 0.60, 0.40),
-}
-
-
-def _hex_to_rgb01(color: str) -> Tuple[float, float, float]:
-    color = color.lstrip("#")
-    return tuple(int(color[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
-
-
-def _rgb01_to_hex(rgb: Tuple[float, float, float]) -> str:
-    vals = [max(0, min(255, int(round(v * 255.0)))) for v in rgb]
-    return "#{:02x}{:02x}{:02x}".format(*vals)
-
-
-def _build_element_colors() -> Dict[str, str]:
-    """Unique shades grouped by periodic-table chemistry/position."""
-    colors = {}
-    for block, members in PERIODIC_BLOCK_MEMBERS.items():
-        hue_deg, saturation, light_hi, light_lo = PERIODIC_BLOCK_COLOR_STYLE[
-            block
-        ]
-        ordered = sorted(members, key=lambda el: (ATOMIC_NUMBER[el], el))
-        n = len(ordered)
-        for i, el in enumerate(ordered):
-            frac = 0.5 if n == 1 else i / (n - 1)
-            # A small within-family hue drift plus a wide lightness span
-            # keeps related elements grouped without making adjacent
-            # members look like repeated colors in stacked bars.
-            hue = ((hue_deg + (frac - 0.5) * 28.0) % 360.0) / 360.0
-            lightness = light_hi - (light_hi - light_lo) * frac
-            sat = max(0.20, min(0.90, saturation + 0.06 * (0.5 - frac)))
-            colors[el] = _rgb01_to_hex(colorsys.hls_to_rgb(
-                hue, lightness, sat
-            ))
-    return colors
-
-ELEMENT_COLORS = _build_element_colors()
 
 _SAMPLE_SUFFIX_RE = re.compile(
     r"_\d{8}_\d{6}_(?:AM|PM)_AverageSpectrum$", re.IGNORECASE
 )
-
-
-def element_sort_key(element: str) -> Tuple[int, str]:
-    """Sort key for periodic-table order, with unknown labels last."""
-    return ATOMIC_NUMBER.get(element, 10_000), element
-
-
-def element_periodic_block(element: str) -> str:
-    """Periodic-table block/family used for inspection-notebook coloring."""
-    return ELEMENT_PERIODIC_BLOCK.get(element, "other")
-
-
-def element_block_color(element: str) -> str:
-    """Unique same-hue shade assigned to an element's periodic block."""
-    return PERIODIC_BLOCK_COLORS[element_periodic_block(element)]
-
-
-def element_color(element: str) -> str:
-    """Unique same-hue shade assigned to an individual element."""
-    return ELEMENT_COLORS.get(element, PERIODIC_BLOCK_COLORS["other"])
 
 
 def resolve_dbpath(dbpath: Optional[str] = None) -> str:
@@ -292,335 +184,6 @@ def _halpha_ne(peak_array: np.ndarray):
     if bounds is None:
         return None, None
     return 0.5 * (bounds[0] + bounds[1]), bounds
-
-
-def element_uncertainty_stats(
-    indexer,
-    result,
-    area_sigma: np.ndarray,
-    draws: int = DEFAULT_DRAWS,
-    seed: int = 0,
-) -> Dict[str, Dict[str, float]]:
-    """Per-element fraction statistics by amplitude resampling.
-
-    Perturbs the observed peak amplitudes with the fitted per-peak area
-    uncertainties, re-runs ONLY the linear concentration solve and element
-    aggregation at the best-fit (T, n_e), and returns per-element
-    ``{"mean": .., "std": ..}`` over the draws.  The nonlinear plasma
-    parameters are held fixed, so this measures how the composition
-    responds to measurement noise at the accepted plasma state.
-
-    Statistics cover EVERY element that appears in ANY draw — including
-    elements the best fit zeroed, whose draw distribution is the basis of
-    the near-detection-limit upper bound reported downstream.  An element
-    missing from a given draw contributed exactly 0 there (that draw's
-    NNLS zeroed it), and those zeros count in the statistics.
-    """
-    draws = max(2, int(draws))   # a single draw has no spread: the whole
-    #                                downstream z/upper-limit chain needs a std
-    rng = np.random.default_rng(seed)
-    amp0 = indexer._obs_amp.copy()
-    sig = np.asarray(area_sigma, dtype=float).copy()
-    # degenerate/pinned covariances report nan; fall back to 10% of the
-    # amplitude so those peaks still carry a nonzero, conservative error
-    bad = ~np.isfinite(sig)
-    sig[bad] = 0.1 * np.abs(amp0[bad])
-    per_draw: List[Dict[str, float]] = []
-    try:
-        for _ in range(int(draws)):
-            indexer._obs_amp = np.clip(
-                amp0 + rng.standard_normal(amp0.size) * sig, 0.0, None
-            )
-            c, _cost = indexer._solve_concentrations(
-                result.temperature, result.ne
-            )
-            _conc, fracs, _dis = indexer._aggregate_elements(
-                c, indexer._last_A
-            )
-            per_draw.append({el: float(f) for el, f in fracs.items()})
-    finally:
-        indexer._obs_amp = amp0
-    union = set(result.element_fractions)
-    for d in per_draw:
-        union |= set(d)
-    out: Dict[str, Dict[str, float]] = {}
-    for el in union:
-        vals = np.array([d.get(el, 0.0) for d in per_draw], dtype=float)
-        if vals.size > 1:
-            out[el] = {"mean": float(np.mean(vals)),
-                       "std": float(np.std(vals)),
-                       "p95": float(np.percentile(vals, 95))}
-        else:
-            out[el] = {"mean": float(vals[0]) if vals.size else 0.0,
-                       "std": float("nan"), "p95": float("nan")}
-    return out
-
-
-def element_uncertainties(
-    indexer,
-    result,
-    area_sigma: np.ndarray,
-    draws: int = DEFAULT_DRAWS,
-    seed: int = 0,
-) -> Dict[str, float]:
-    """1-sigma fraction uncertainty per best-fit element.
-
-    Thin wrapper over :func:`element_uncertainty_stats` (see there for
-    mechanics and semantics).
-    """
-    stats = element_uncertainty_stats(indexer, result, area_sigma,
-                                      draws=draws, seed=seed)
-    return {el: (stats[el]["std"] if el in stats else float("nan"))
-            for el in result.element_fractions}
-
-
-#: a supporting peak is contested when a rival element — at the LARGEST
-#: concentration its own true negatives allow — still covers at least
-#: this fraction of the peak's amplitude.
-RIVAL_COVER_FRACTION = 0.5
-#: rival template response at the peak must be at least this fraction of
-#: the claiming element's response to count as a potential rival at all.
-RIVAL_MIN_RESPONSE = 0.05
-#: plasma-state grid the contest scans.  The fitted (T, n_e) cannot be
-#: trusted for this: a wrong attribution drags the fit to a plasma state
-#: where the rival's lines vanish and then "confirms" itself (measured:
-#: Mn booking the Mg II 279.5 flux pulled T to 5.0 kK, where Mg is
-#: neutral and Mg II cannot respond — the rival became invisible to its
-#: own contest).  A peak is contested if a rival is viable at ANY
-#: corpus-plausible state.
-CONTEST_T_GRID = (6000.0, 8000.0, 10000.0, 12000.0)
-CONTEST_LOGNE_GRID = (16.5, 17.5)
-
-
-def _contested_support(
-    A_pk: np.ndarray,
-    cols: Dict[str, List[int]],
-    el_names: List[str],
-    obs: np.ndarray,
-    area_sigma: np.ndarray,
-    sup_idx: Dict[str, List[int]],
-    A_nonres: Optional[np.ndarray] = None,
-) -> Dict[str, dict]:
-    """True-negative-weighted contest analysis of each element's support.
-
-    For each rival element the spectrum itself caps its concentration:
-    ``c_max = min_j (obs_j + 3 sigma_j) / T_j`` over every peak position
-    where the rival's template responds — the rival can be no more
-    abundant than its FAINTEST expected line allows (its true negatives).
-    A supporting peak of element E is CONTESTED when some rival at that
-    cap still covers >= :data:`RIVAL_COVER_FRACTION` of the peak's
-    amplitude: attribution between E and the rival is then a model
-    choice, not evidence.  Archetype: Mg (capped by its observed Mg I
-    285.2 line) can still cover the Mg II 279.5/280.3 flux booked to
-    Mn — contested; genuine 50% Mn would need its absent 403 nm triplet,
-    so Mn's own cap collapses in samples that lack it.
-
-    Returns per-element ``{clear_lines, contested_share, confounder}``:
-    supporting peaks NO rival can cover, the fraction of supporting flux
-    on contested peaks, and the rival contesting the most flux.
-    """
-    sig = np.where(np.isfinite(area_sigma), area_sigma,
-                   0.1 * np.abs(obs))
-    allow = np.abs(obs) + 3.0 * sig + 1e-12
-    # per-element unit-concentration template response at each peak
-    T = np.stack([A_pk[:, cols[el]].sum(axis=1) for el in el_names],
-                 axis=1)
-    # Concentration caps come from the element's NON-RESONANCE response
-    # when available (``A_nonres``: the same design with Ei <= 0.2 eV
-    # lines zeroed): resonance lines self-absorb, so their observed
-    # amplitudes UNDERSTATE the element and would strangle the cap
-    # (measured: the classic self-absorbed Mg I 285.2 capped Mg at 12%
-    # of the Mg II 279.5 flux it can physically supply, letting a 50%
-    # "Mn" reading stand uncontested).
-    T_cap = T
-    if A_nonres is not None:
-        T_cap = np.stack([A_nonres[:, cols[el]].sum(axis=1)
-                          for el in el_names], axis=1)
-    # per-element concentration cap from its true negatives: the minimum
-    # of allow/T over the positions where the element's template responds
-    # at a meaningful level (tiny wing responses would set absurd caps)
-    c_max = np.full(len(el_names), np.inf)
-    for r in range(len(el_names)):
-        resp = T_cap[:, r]
-        if not np.any(resp > 0):
-            resp = T[:, r]  # no non-resonance lines: fall back
-        active = resp > 1e-3 * float(np.max(resp)) if np.any(resp > 0) \
-            else np.zeros_like(resp, dtype=bool)
-        if np.any(active):
-            c_max[r] = float(np.min(allow[active] / resp[active]))
-    out: Dict[str, dict] = {}
-    for el, idxs in sup_idx.items():
-        if el not in el_names:
-            out[el] = dict(contested=set(), rivals={})
-            continue
-        e = el_names.index(el)
-        contested_idx = set()
-        rival_flux: Dict[str, float] = {}
-        for i in idxs:
-            for r, rel in enumerate(el_names):
-                if rel == el or T[i, r] <= RIVAL_MIN_RESPONSE * max(
-                        T[i, e], 1e-300):
-                    continue
-                if (np.isfinite(c_max[r]) and c_max[r] * T[i, r]
-                        >= RIVAL_COVER_FRACTION * obs[i]):
-                    contested_idx.add(i)
-                    rival_flux[rel] = rival_flux.get(rel, 0.0) + float(obs[i])
-        out[el] = dict(contested=contested_idx, rivals=rival_flux)
-    return out
-
-
-def _merge_contests(
-    sup_idx: Dict[str, List[int]],
-    obs: np.ndarray,
-    per_state: List[Dict[str, dict]],
-) -> Dict[str, dict]:
-    """Merge per-plasma-state contest results (existential over states).
-
-    A supporting peak is contested if ANY scanned (T, n_e) makes a rival
-    viable; ``clear_lines`` counts peaks no state can contest.  The
-    ``confounder`` is the rival contesting the most flux, maximised over
-    states so a rival strong at one temperature is not diluted by states
-    where it cannot respond.
-    """
-    out: Dict[str, dict] = {}
-    for el, idxs in sup_idx.items():
-        contested_idx: set = set()
-        rival_best: Dict[str, float] = {}
-        for state in per_state:
-            det = state.get(el)
-            if not det:
-                continue
-            contested_idx |= det["contested"]
-            for rel, fl in det["rivals"].items():
-                rival_best[rel] = max(rival_best.get(rel, 0.0), fl)
-        total = sum(float(obs[i]) for i in idxs)
-        contested_flux = sum(float(obs[i]) for i in contested_idx)
-        out[el] = dict(
-            clear_lines=sum(1 for i in idxs if i not in contested_idx),
-            contested_share=round(contested_flux / total, 3)
-            if total > 0 else 0.0,
-            confounder=(max(rival_best, key=rival_best.get)
-                        if rival_best else None),
-        )
-    return out
-
-
-def classify_detections(
-    result,
-    stats: Dict[str, Dict[str, float]],
-    support: Dict[str, List[Tuple[float, float, float]]],
-    contested: Optional[Dict[str, dict]] = None,
-) -> List[dict]:
-    """Per-element detection records for the long-format report.
-
-    Near the limit of detection an abundance number alone is not a claim;
-    each element is therefore reported WITH its evidence so borderline
-    cases (single strong lines, marginal statistics) are visible instead
-    of silently included or dropped:
-
-    - ``detected``     z >= 3 and >= 2 supporting lines;
-    - ``single-line``  z >= 3 but only one supporting line — statistically
-      strong yet spectroscopically thin (a lone coincidence is possible);
-      confirm against the line-evidence zoom in the notebook;
-    - ``blended-only`` z >= 3 with NO peak dominated by this element (all
-      fitted flux sits under peaks assigned to other species) — maximum
-      suspicion;
-    - ``confounded``   would be detected/single-line, but EVERY
-      supporting peak could equally be a viable rival element's line
-      (see :func:`_contested_support`) — the attribution, and therefore
-      the abundance, is a model choice between this element and the
-      named ``confounder`` (measured archetype: Mn "detected" at 50%
-      entirely from the Mg II 279.5/280.3 nm region);
-    - ``marginal``     2 <= z < 3;
-    - ``weak``         z < 2 (consistent with zero at ~95%);
-    - ``upper-limit``  the best fit zeroed the element but its candidate
-      lines are in the design: ``upper_limit`` = mean + 2 std of the
-      resampled fraction is how much could hide below the noise.
-
-    ``z = fraction / (1-sigma statistical uncertainty)``; ``support`` maps
-    element -> [(contribution, wavelength_nm, observed_amp), ...] for
-    peaks whose dominant assignment is that element.
-
-    Caveats: ``strongest_peak_nm`` is the FITTED observed-frame peak
-    center of the strongest supporting peak (a self-absorbed or blended
-    line sits displaced from its database wavelength — that is physics,
-    not an error).  Near the detection limit the resampled draws are
-    clipped at zero, so the spread is mildly truncated and z mildly
-    optimistic; treat 2 < z < 4 as soft rather than sharp.
-    """
-    detections = []
-    for el in sorted(set(stats) | set(result.element_fractions),
-                     key=element_sort_key):
-        frac = float(result.element_fractions.get(el, 0.0))
-        st = stats.get(el, {})
-        std = float(st.get("std", float("nan")))
-        lines = sorted(support.get(el, []), reverse=True)
-        strongest = lines[0] if lines else None
-        upper = None
-        if frac > 0:
-            if np.isfinite(std) and std > 0:
-                z = frac / std
-            elif float(st.get("mean", 0.0)) >= 0.5 * frac:
-                # zero spread AND the draws reproduce the best fit:
-                # genuinely rigid
-                z = float("inf")
-            else:
-                # zero/undefined spread because the draws ZEROED the
-                # element the best fit reports — maximal fragility, the
-                # opposite of confidence
-                z = 0.0
-            if z >= DETECT_Z and len(lines) >= 2:
-                status = "detected"
-            elif z >= DETECT_Z and len(lines) == 1:
-                status = "single-line"
-            elif z >= DETECT_Z:
-                # statistically strong yet NO peak is dominated by this
-                # element: all of its fitted flux hides under peaks
-                # assigned to other species — treat with maximum suspicion
-                status = "blended-only"
-            elif z >= MARGINAL_Z:
-                status = "marginal"
-            else:
-                status = "weak"
-            # true-negative demotion: a "detection" whose EVERY
-            # supporting peak could equally be a rival's line (and the
-            # rival's own predictions check out elsewhere) is an
-            # attribution choice, not a detection — e.g. Mn "detected"
-            # at 50% purely from the Mg II 279.5/280.3 region
-            con = (contested or {}).get(el, {})
-            if (status in ("detected", "single-line")
-                    and con.get("clear_lines", 1) == 0
-                    and con.get("contested_share", 0.0) >= 0.5):
-                status = "confounded"
-        else:
-            if not st or not np.isfinite(std):
-                continue  # not in the candidate design at all
-            # empirical 95th percentile of the resampled fraction: the
-            # draw distribution near the LOD is a spike at zero plus a
-            # tail, where mean + 2*std is ill-calibrated
-            p95 = float(st.get("p95", float("nan")))
-            upper = p95 if np.isfinite(p95) and p95 > 0 else (
-                float(st.get("mean", 0.0)) + 2.0 * std)
-            if upper <= 0:
-                continue  # never activated in any draw: no design support
-            status, z = "upper-limit", 0.0
-        d = result.stage_disagreement.get(el, float("nan"))
-        con = (contested or {}).get(el, {})
-        detections.append(dict(
-            element=el, status=status, fraction=frac,
-            unc=(std if np.isfinite(std) else None),
-            z=(round(min(z, 999.0), 1) if np.isfinite(z) else 999.0),
-            n_lines=len(lines),
-            clear_lines=con.get("clear_lines"),
-            contested_share=con.get("contested_share"),
-            confounder=con.get("confounder"),
-            strongest_peak_nm=(round(strongest[1], 3) if strongest else None),
-            strongest_obs=(round(strongest[2], 1) if strongest else None),
-            upper_limit=upper,
-            stage_disagreement=(round(float(d), 2) if np.isfinite(d)
-                                else None),
-        ))
-    return detections
 
 
 def analyze_spectrum(
@@ -714,101 +277,20 @@ def analyze_spectrum(
                           ne_init=res1.ne)
     result = idx2.run(**run_kwargs)
 
+    # detection report + confounder (true-negative rival) analysis
     bg = np.asarray(final.get("background", np.zeros_like(y)), dtype=float)
     area_sigma = estimate_peak_uncertainties(x, y - bg, fpeaks)[:, 0]
-    stats = element_uncertainty_stats(idx2, result, area_sigma, draws=draws)
-    unc = {el: (stats[el]["std"] if el in stats else float("nan"))
-           for el in result.element_fractions}
-
-    # Per-element line support, aggregated at the ELEMENT level: a peak
-    # supports an element when that element's summed contribution (across
-    # its ion stages) dominates the peak and covers >= MIN_SUPPORT_FRACTION
-    # of the observed amplitude.  Aggregating first fixes the stage-split
-    # undercount (Ca I 0.30 + Ca II 0.28 losing the per-species argmax to
-    # an Fe I 0.35).  Support entries within one resolution element of
-    # each other are merged (strongest kept) so a phantom-split strong
-    # line cannot count as two independent lines.
-    support: Dict[str, List[Tuple[float, float, float]]] = {}
-    contested: Dict[str, dict] = {}
-    A = getattr(idx2, "_last_A", None)
-    if A is not None and result.concentrations.size:
-        n_pk = len(idx2._obs_wl)
-        A_pk = np.asarray(A)[:n_pk]
-        contrib = A_pk * result.concentrations
-        el_names = sorted({sp.element for sp in result.species})
-        cols = {el: [j for j, sp in enumerate(result.species)
-                     if sp.element == el] for el in el_names}
-        E = np.stack([contrib[:, cols[el]].sum(axis=1) for el in el_names],
-                     axis=1)                       # (n_peaks, n_elements)
-        obs = np.asarray(idx2._obs_amp[:n_pk], dtype=float)
-        dom = np.argmax(E, axis=1)
-        sup_idx: Dict[str, List[int]] = {}
-        for i in range(n_pk):
-            el = el_names[dom[i]]
-            con = float(E[i, dom[i]])
-            if obs[i] > 0 and con >= MIN_SUPPORT_FRACTION * obs[i]:
-                wl_obs = float(idx2._obs_wl[i]) + shift
-                support.setdefault(el, []).append((con, wl_obs,
-                                                   float(obs[i])))
-                sup_idx.setdefault(el, []).append(i)
-        for el, lines in support.items():
-            lines.sort(reverse=True)
-            merged: List[Tuple[float, float, float]] = []
-            for ln in lines:
-                if all(abs(ln[1] - m[1]) > 0.15 for m in merged):
-                    merged.append(ln)
-            support[el] = merged
-        # The contest must see the FULL candidate space, not the fit's
-        # survivors: the NNLS vertex hands collinear flux to one species
-        # and prune_and_refit then deletes the rival (measured: Mg II —
-        # 183 candidate lines — pruned after Mn I took the 279.5/280.1
-        # region, leaving 50% "Mn" unfalsifiable inside the fitted
-        # design).  Rebuild the un-pruned design at the fitted plasma
-        # state and contest against every candidate element.
-        try:
-            # Build the contest candidate table at a NEUTRAL corpus-central
-            # plasma state, never the fitted one: build_candidate_matrix's
-            # Saha prefilter prunes species using T_init/ne_init, and a fit
-            # whose misattribution dragged T to 5 kK would prune the very
-            # rival (Mg II) the contest exists to consider.
-            idx_c = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
-                                   temperature_init=9000.0, ne_init=17.0)
-            idx_c.build_candidate_matrix()
-            el_full = sorted({sp.element for sp in idx_c.line_table.species})
-            cols_full = {el: [j for j, sp
-                              in enumerate(idx_c.line_table.species)
-                              if sp.element == el] for el in el_full}
-            per_state = []
-            for T_c in CONTEST_T_GRID:
-                for ne_c in CONTEST_LOGNE_GRID:
-                    lw = idx_c._line_weights(T_c, ne_c)
-                    A_full = np.asarray(
-                        idx_c._build_design_matrix(lw))[:n_pk]
-                    # non-resonance design for the concentration caps
-                    # (resonance lines self-absorb and understate the
-                    # element)
-                    lw_nr = np.where(idx_c.line_table.Ei > 0.2, lw, 0.0)
-                    A_nr = np.asarray(
-                        idx_c._build_design_matrix(lw_nr))[:n_pk]
-                    per_state.append(_contested_support(
-                        A_full, cols_full, el_full, obs,
-                        area_sigma[:n_pk], sup_idx, A_nonres=A_nr))
-            contested = _merge_contests(sup_idx, obs, per_state)
-        except Exception:  # noqa: BLE001 - contest is best-effort QC
-            traceback.print_exc(file=sys.stderr)
-            print("contested-support: full-candidate scan failed; "
-                  "borderline confounder columns will be empty",
-                  file=sys.stderr)
-            contested = {}
-    detections = classify_detections(result, stats, support,
-                                     contested=contested)
+    det = analyze_detections(idx2, result, area_sigma, shift=shift,
+                             dbpath=dbpath, draws=draws)
 
     return dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
         records=records, recovered=recovered, shift=shift,
         n_anchor=n_anchor, ne_init=ne_init,
-        result=result, element_uncertainty=unc, established=established,
-        detections=detections, support=support, contested=contested,
+        result=result, established=established,
+        element_uncertainty=det["element_uncertainty"],
+        detections=det["detections"], support=det["support"],
+        contested=det["contested"],
     )
 
 
@@ -1149,6 +631,7 @@ analyze_spectrum = alibz_pipeline.analyze_spectrum
 element_color = alibz_pipeline.element_color
 element_periodic_block = alibz_pipeline.element_periodic_block
 element_sort_key = alibz_pipeline.element_sort_key
+confounder_catalog = alibz_pipeline.confounder_catalog
 load_spectrum_csv = alibz_pipeline.load_spectrum_csv
 sample_name = alibz_pipeline.sample_name
 
@@ -1160,6 +643,11 @@ FILES = sorted(f for f in glob.glob(os.path.join(DATA_DIR, {pattern!r}))
 print(f"{{len(FILES)}} spectra")
 with open(os.path.join(DATA_DIR, {summary_name!r})) as fh:
     SUMMARY = list(csv.DictReader(fh))
+try:
+    with open(os.path.join(DATA_DIR, {DETECTIONS_NAME!r})) as fh:
+        DETECTIONS = list(csv.DictReader(fh))
+except FileNotFoundError:
+    DETECTIONS = []
 ELEMENTS = sorted([c for c in SUMMARY[0] if c + '_unc' in SUMMARY[0]],
                   key=element_sort_key)
 print("elements:", ELEMENTS)
@@ -1340,11 +828,37 @@ for d in borderline[:6]:
   peak table stores observed (attenuated) areas.
 - For methodology see `docs/fit_pipeline.md` in the alibz repository.
 """
+    md_confounders = """## Confounders across the corpus
+
+Some abundances rest on peaks a *rival* element could equally explain. An
+element flagged **`confounded`** in `detections.csv` has EVERY supporting
+peak coverable by the named rival at a concentration that element's own
+true negatives allow, scanned over the corpus plasma range — its number
+is an attribution choice, not a measurement. The catalog below is the
+operative confounder set for THIS corpus and instrument; treat
+`confounded` fractions (and any totals renormalised around them) as
+upper bounds. See `docs/development_guide.md` for the method."""
+    code_confounders = """# corpus confounder catalog + the confounded detections
+if DETECTIONS:
+    cat = confounder_catalog(DETECTIONS)   # accepts CSV-dict rows
+    print("confounder pairs (element <- rival), by frequency:")
+    for (el, rival), n in cat.most_common():
+        print(f"  {el:>3s} <- {rival:<3s}  x{n}")
+    conf = [r for r in DETECTIONS if r['status'] == 'confounded']
+    print(f"\\n{len(conf)} confounded detections across {len(FILES)} spectra:")
+    for r in sorted(conf, key=lambda r: -float(r['fraction'] or 0))[:20]:
+        print(f"  {r['sample'][:26]:26s} {r['element']:>3s}={r['fraction']:>8s}"
+              f"  <- {r['confounder']}  (contested {r['contested_share']})")
+else:
+    print("no detections.csv found next to summary.csv")"""
+
     cells = [
         _nb_cell("markdown", md_title),
         _nb_cell("code", code_setup),
         _nb_cell("markdown", "## Composition across all samples"),
         _nb_cell("code", code_overview),
+        _nb_cell("markdown", md_confounders),
+        _nb_cell("code", code_confounders),
         _nb_cell("markdown",
                  "## Single-spectrum inspection\n\nRe-runs the full pipeline "
                  "live (~1–3 min) on `SPECTRUM_FILE`."),

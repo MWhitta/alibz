@@ -335,7 +335,7 @@ class TestContestedSupport(unittest.TestCase):
     """
 
     def _run(self, rival_other_obs):
-        from alibz.pipeline import _contested_support, _merge_contests
+        from alibz.detections import contested_support, merge_contests
         # species columns: 0 = Mn-like claimer, 1 = Mg-like rival
         A = np.array([[10.0, 8.0],     # both respond at the blend peak
                       [0.0, 5.0],      # rival's independent line
@@ -344,11 +344,11 @@ class TestContestedSupport(unittest.TestCase):
         sig = np.array([10.0, 10.0, 10.0])
         cols = {"Mn": [0], "Mg": [1]}
         sup = {"Mn": [0, 2]}
-        per = [_contested_support(A, cols, ["Mg", "Mn"], obs, sig, sup,
+        per = [contested_support(A, cols, ["Mg", "Mn"], obs, sig, sup,
                                   A_nonres=A * np.array([[0, 0],
                                                          [0, 1],
                                                          [1, 0]]))]
-        return _merge_contests(sup, obs, per)["Mn"]
+        return merge_contests(sup, obs, per)["Mn"]
 
     def test_blend_peak_contested_when_rival_cap_allows(self):
         # rival's independent line is bright: its cap covers the blend
@@ -365,16 +365,32 @@ class TestContestedSupport(unittest.TestCase):
         self.assertIsNone(out["confounder"])
 
     def test_merge_is_existential_over_states(self):
-        from alibz.pipeline import _merge_contests
+        from alibz.detections import merge_contests
         sup = {"X": [0, 1]}
         obs = np.array([100.0, 50.0])
         per = [
             {"X": dict(contested={0}, rivals={"Y": 100.0})},   # state A
             {"X": dict(contested=set(), rivals={})},           # state B
         ]
-        out = _merge_contests(sup, obs, per)["X"]
+        out = merge_contests(sup, obs, per)["X"]
         self.assertEqual(out["clear_lines"], 1)   # peak 0 contested SOMEWHERE
         self.assertEqual(out["confounder"], "Y")
+
+    def test_confounder_catalog_counts_pairs(self):
+        from alibz.detections import confounder_catalog
+        det_by_sample = [
+            [dict(element="Mn", confounder="Mg"),
+             dict(element="Li", confounder=None)],
+            [dict(element="Mn", confounder="Mg"),
+             dict(element="Be", confounder="Fe")],
+        ]
+        cat = confounder_catalog(det_by_sample)          # list-of-lists
+        self.assertEqual(cat[("Mn", "Mg")], 2)
+        self.assertEqual(cat[("Be", "Fe")], 1)
+        self.assertNotIn(("Li", None), cat)
+        # also accepts a flat iterable of detection dicts
+        flat = confounder_catalog([d for s in det_by_sample for d in s])
+        self.assertEqual(flat[("Mn", "Mg")], 2)
 
 
 class TestRecoverResidualLines(unittest.TestCase):
