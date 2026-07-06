@@ -77,6 +77,7 @@ from alibz.detections import (
     element_support,
     element_uncertainties,
     merge_contests,
+    resolve_confounded,
 )
 from alibz.pipeline import analyze_directory, analyze_spectrum
 from alibz.utils.database import Database
@@ -108,6 +109,7 @@ __all__ = [
     "element_support",
     "contested_support",
     "merge_contests",
+    "resolve_confounded",
     "element_uncertainties",
     "confounder_catalog",
     # Element metadata

@@ -376,6 +376,151 @@ class TestContestedSupport(unittest.TestCase):
         self.assertEqual(out["clear_lines"], 1)   # peak 0 contested SOMEWHERE
         self.assertEqual(out["confounder"], "Y")
 
+    def test_resolve_confounded_reattributes_to_rival(self):
+        from alibz.detections import resolve_confounded
+
+        class R:
+            element_fractions = {"Mn": 0.50, "Mg": 0.05, "Li": 0.45}
+        dets = [
+            dict(element="Mn", status="confounded", fraction=0.50,
+                 contested_share=1.0, confounder="Mg"),
+            dict(element="Mg", status="single-line", fraction=0.05,
+                 contested_share=0.0, confounder=None),
+            dict(element="Li", status="detected", fraction=0.45,
+                 contested_share=0.0, confounder=None),
+        ]
+        contested = {"Mn": {"resp_ratio": 1.0}}
+        resolved = resolve_confounded(dets, contested)
+        by = {d["element"]: d for d in dets}
+        # Mn fully contested -> credited ~0; its high end stays the vertex
+        self.assertAlmostEqual(by["Mn"]["fraction_resolved"], 0.0, places=6)
+        self.assertAlmostEqual(by["Mn"]["fraction_hi"], 0.50, places=6)
+        # the freed flux went to Mg (resp_ratio 1), then renormalised to 1
+        self.assertAlmostEqual(sum(resolved.values()), 1.0, places=6)
+        self.assertAlmostEqual(resolved["Mg"], 0.55, places=6)  # Mg gained
+        self.assertAlmostEqual(resolved["Mn"], 0.0, places=6)
+        # reattribution conserves the total, so a clean element is untouched
+        self.assertAlmostEqual(resolved["Li"], 0.45, places=6)
+
+    def test_resolve_partial_contest_keeps_clear_share(self):
+        from alibz.detections import resolve_confounded
+
+        class R:
+            element_fractions = {"A": 0.40, "B": 0.60}
+        dets = [dict(element="A", status="confounded", fraction=0.40,
+                     contested_share=0.5, confounder="B"),
+                dict(element="B", status="detected", fraction=0.60,
+                     contested_share=0.0, confounder=None)]
+        resolve_confounded(dets, {"A": {"resp_ratio": 1.0}})
+        by = {d["element"]: d for d in dets}
+        # half A's flux is clear -> keeps ~half (before renormalisation it is
+        # 0.20; after renormalising with B+0.20 the ratio is preserved)
+        self.assertGreater(by["A"]["fraction_resolved"], 0.0)
+        self.assertLess(by["A"]["fraction_resolved"], 0.40)
+
+    def test_resolve_mutual_confounding_is_order_independent(self):
+        # A<->B mutually confounded (each names the other as confounder) and
+        # NEITHER independently detected: neither rival can host the other's
+        # flux (evidence ceiling 0), so each returns to its vertex value and
+        # the split is neither fabricated nor order-dependent.  The :534
+        # defect (a blind per-element assignment) would instead zero whichever
+        # is processed last and inflate the clean element.
+        from alibz.detections import resolve_confounded
+
+        def _dets():
+            return [
+                dict(element="Mg", status="confounded", fraction=0.30,
+                     contested_share=1.0, confounder="Mn"),
+                dict(element="Mn", status="confounded", fraction=0.20,
+                     contested_share=1.0, confounder="Mg"),
+                dict(element="Li", status="detected", fraction=0.50,
+                     contested_share=0.0, confounder=None),
+            ]
+        contested = {"Mg": {"resp_ratio": 1.0}, "Mn": {"resp_ratio": 1.0}}
+        resolved = resolve_confounded(_dets(), contested)
+        self.assertAlmostEqual(sum(resolved.values()), 1.0, places=6)
+        # both retained (neither silently zeroed), clean element untouched
+        self.assertAlmostEqual(resolved["Mg"], 0.30, places=6)
+        self.assertAlmostEqual(resolved["Mn"], 0.20, places=6)
+        self.assertAlmostEqual(resolved["Li"], 0.50, places=6)
+        # order-independent: reversing the detection order gives the same map
+        rev = _dets()[::-1]
+        resolved_rev = resolve_confounded(rev, contested)
+        self.assertEqual({k: round(v, 9) for k, v in resolved.items()},
+                         {k: round(v, 9) for k, v in resolved_rev.items()})
+
+    def test_resolve_pruned_confounder_returns_flux_to_incumbent(self):
+        # confounder 'Xx' was pruned from the fit entirely (no detection
+        # record), so its own lines are globally absent and it cannot host
+        # the contested flux.  That flux must RETURN to the incumbent (Mn),
+        # not spawn a phantom Xx: the fit's assignment stands when no viable
+        # rival exists (the :539 sink + the resp_ratio-phantom pathology).
+        from alibz.detections import resolve_confounded
+        dets = [
+            dict(element="Mn", status="confounded", fraction=0.50,
+                 contested_share=1.0, confounder="Xx"),
+            dict(element="Li", status="detected", fraction=0.50,
+                 contested_share=0.0, confounder=None),
+        ]
+        resolved = resolve_confounded(dets, {"Mn": {"resp_ratio": 1.0}})
+        by = {d["element"]: d for d in dets}
+        self.assertNotIn("Xx", by)                    # no phantom record
+        self.assertNotIn("Xx", resolved)              # no phantom mass
+        # Mn keeps its flux (Xx cannot take it); nothing lost, sum is 1
+        self.assertAlmostEqual(by["Mn"]["fraction_resolved"], 0.50, places=6)
+        self.assertAlmostEqual(sum(resolved.values()), 1.0, places=6)
+
+    def test_resolve_amplifying_ratio_cannot_spawn_phantom(self):
+        # a small confounded element (Be 4%) whose rival (Fe) is a weak
+        # emitter (resp_ratio 12) must NOT become a dominant Fe phantom.
+        # With Fe pruned (no record) the flux returns to Be; even were Fe
+        # present, the ratio is clamped at 1 so Fe can gain at most the freed
+        # 4%, never 12x it.
+        from alibz.detections import resolve_confounded
+        # Fe pruned: flux returns to Be
+        dets = [
+            dict(element="Be", status="confounded", fraction=0.04,
+                 contested_share=1.0, confounder="Fe"),
+            dict(element="Al", status="detected", fraction=0.96,
+                 contested_share=0.0, confounder=None),
+        ]
+        resolved = resolve_confounded(dets, {"Be": {"resp_ratio": 12.0}})
+        self.assertNotIn("Fe", resolved)
+        self.assertAlmostEqual(resolved["Be"], 0.04, places=6)  # kept, not 0
+        self.assertAlmostEqual(resolved["Al"], 0.96, places=6)
+        # Fe present (detected): clamp caps its gain at the freed 4%, not 48%
+        dets2 = [
+            dict(element="Be", status="confounded", fraction=0.04,
+                 contested_share=1.0, confounder="Fe"),
+            dict(element="Fe", status="detected", fraction=0.10,
+                 contested_share=0.0, confounder=None),
+            dict(element="Al", status="detected", fraction=0.86,
+                 contested_share=0.0, confounder=None),
+        ]
+        r2 = resolve_confounded(dets2, {"Be": {"resp_ratio": 12.0}})
+        self.assertAlmostEqual(r2["Fe"], 0.14, places=6)  # 0.10 + freed 0.04
+        self.assertAlmostEqual(r2["Be"], 0.0, places=6)
+
+    def test_resolve_hi_and_resolved_share_a_scale(self):
+        # with resp_ratio != 1 the pre-norm sum differs from 1, so both
+        # fraction_hi and fraction_resolved must be renormalised onto the
+        # same scale (each summing to 1) rather than fraction_hi staying the
+        # raw vertex value (the :528 scale-mismatch defect).
+        from alibz.detections import resolve_confounded
+        dets = [
+            dict(element="C", status="confounded", fraction=0.40,
+                 contested_share=1.0, confounder="O"),
+            dict(element="O", status="detected", fraction=0.10,
+                 contested_share=0.0, confounder=None),
+            dict(element="Na", status="detected", fraction=0.50,
+                 contested_share=0.0, confounder=None),
+        ]
+        resolve_confounded(dets, {"C": {"resp_ratio": 0.5}})
+        self.assertAlmostEqual(sum(d["fraction_hi"] for d in dets), 1.0,
+                               places=6)
+        self.assertAlmostEqual(sum(d["fraction_resolved"] for d in dets), 1.0,
+                               places=6)
+
     def test_confounder_catalog_counts_pairs(self):
         from alibz.detections import confounder_catalog
         det_by_sample = [

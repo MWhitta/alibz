@@ -261,6 +261,7 @@ def contested_support(
         e = el_names.index(el)
         contested_idx: set = set()
         rival_flux: Dict[str, float] = {}
+        resp_ratio: Dict[str, list] = {}
         for i in idxs:
             for r, rel in enumerate(el_names):
                 if rel == el or T[i, r] <= RIVAL_MIN_RESPONSE * max(
@@ -270,7 +271,16 @@ def contested_support(
                         >= RIVAL_COVER_FRACTION * obs[i]):
                     contested_idx.add(i)
                     rival_flux[rel] = rival_flux.get(rel, 0.0) + float(obs[i])
-        out[el] = dict(contested=contested_idx, rivals=rival_flux)
+                    # concentration the rival needs vs this element to make
+                    # the same flux at this peak: T_E / T_rival — the factor
+                    # that converts freed E-fraction into rival-fraction on
+                    # reattribution
+                    resp_ratio.setdefault(rel, []).append(
+                        float(T[i, e] / T[i, r]))
+        out[el] = dict(
+            contested=contested_idx, rivals=rival_flux,
+            resp_ratio={rel: float(np.median(v))
+                        for rel, v in resp_ratio.items()})
     return out
 
 
@@ -292,6 +302,7 @@ def merge_contests(
     for el, idxs in sup_idx.items():
         contested_idx: set = set()
         rival_best: Dict[str, float] = {}
+        resp_ratio: Dict[str, list] = {}
         for state in per_state:
             det = state.get(el)
             if not det:
@@ -299,14 +310,21 @@ def merge_contests(
             contested_idx |= det["contested"]
             for rel, fl in det["rivals"].items():
                 rival_best[rel] = max(rival_best.get(rel, 0.0), fl)
+            for rel, rr in det.get("resp_ratio", {}).items():
+                resp_ratio.setdefault(rel, []).append(rr)
         total = sum(float(obs[i]) for i in idxs)
         contested_flux = sum(float(obs[i]) for i in contested_idx)
+        confounder = (max(rival_best, key=rival_best.get)
+                      if rival_best else None)
         out[el] = dict(
             clear_lines=sum(1 for i in idxs if i not in contested_idx),
             contested_share=round(contested_flux / total, 3)
             if total > 0 else 0.0,
-            confounder=(max(rival_best, key=rival_best.get)
-                        if rival_best else None),
+            confounder=confounder,
+            # median response ratio T_E/T_confounder over states — the
+            # factor converting freed E-fraction into confounder-fraction
+            resp_ratio=(float(np.median(resp_ratio[confounder]))
+                        if confounder in resp_ratio else 1.0),
         )
     return out
 
@@ -464,6 +482,10 @@ def classify_detections(
         con = (contested or {}).get(el, {})
         detections.append(dict(
             element=el, status=status, fraction=frac,
+            # fraction_resolved / fraction_hi bracket the true-negative
+            # attribution range; filled by resolve_confounded (default =
+            # the point estimate for elements that are not confounded)
+            fraction_resolved=frac, fraction_hi=frac,
             unc=(std if np.isfinite(std) else None),
             z=(round(min(z, 999.0), 1) if np.isfinite(z) else 999.0),
             n_lines=len(lines),
@@ -477,6 +499,117 @@ def classify_detections(
                                 else None),
         ))
     return detections
+
+
+def resolve_confounded(
+    detections: List[dict],
+    contested: Dict[str, dict],
+) -> Dict[str, float]:
+    """Resolve confounded-element abundances by true-negative attribution.
+
+    A ``confounded`` element is credited only for its CLEAR (uncontested)
+    flux — the share no rival can cover.  Its contested share is reattributed
+    to the ``confounder`` (the rival whose OWN lines are present), scaled by
+    the response ratio ``T_E/T_rival`` that converts freed E-fraction into
+    the rival fraction reproducing the same peak flux — but only up to what
+    the rival can GLOBALLY host, with two guards:
+
+    - the response ratio is clamped at 1 so a weak-emitter rival cannot
+      manufacture composition mass (a rival needing >1x the freed fraction to
+      cover the peak is evidence it is the wrong host, not licence to
+      inflate it — otherwise a 4% confounded element can spawn a 40% phantom
+      of a globally-absent rival);
+    - the rival absorbs contested flux only up to its own evidence ceiling —
+      unbounded if it is independently detected, its ``upper_limit`` if it
+      survives only as an upper limit / weak, and ZERO if the fit pruned it
+      entirely (its other lines are absent).  Whatever the rival cannot host
+      RETURNS to the incumbent element: the fit's own assignment stands when
+      no viable alternative exists.
+
+    So a confounded element resolves toward 0 only when a genuinely-present
+    rival can take its flux (the archetype: Mn -> Mg via the shared Mg II
+    279.5/280.3 region); contested by an absent rival, it keeps its flux.
+
+    Two normalised compositions are written back onto each detection:
+    ``fraction_hi`` (the as-fit composition — for a confounded element the
+    HIGH end of its attribution range) and ``fraction_resolved`` (the
+    true-negative-resolved composition — the LOW end for a confounded
+    element).  Both sum to 1, so they share a scale; note the bracket only
+    reads low->high for the confounded element itself — its confounder
+    GAINS flux, so its ``fraction_resolved`` exceeds its ``fraction_hi``,
+    and bystanders rescale slightly with the renormalisation.  Returns the
+    renormalised ``resolved_fractions`` composition.
+
+    Order-independent under mutual/chained confounding: every element's
+    clear-flux credit is applied before any reattribution, so a confounder
+    that is itself confounded keeps its clear share AND gains the freed
+    flux (a blind ``resolved[el] = keep`` after reattribution would wipe
+    it).
+    """
+    contested = contested or {}
+    records = {d["element"]: d for d in detections}
+    vertex = {d["element"]: float(d["fraction"] or 0.0) for d in detections}
+
+    def _norm(comp):
+        tot = sum(comp.values())
+        return {k: (v / tot if tot > 0 else 0.0) for k, v in comp.items()}
+
+    # HIGH end: the as-fit composition, normalised onto the same scale as
+    # the resolved composition below (so the two columns are comparable)
+    hi = _norm(vertex)
+
+    # LOW end: credit each confounded element only its CLEAR flux, then
+    # collect the contested (freed) flux to reattribute AFTERWARDS.  Doing
+    # all keeps first, all reattributions second, makes the result
+    # independent of element order even when confounders are themselves
+    # confounded (mutual A<->B or chained A->B->C).
+    resolved = dict(vertex)
+    reattributions = []
+    for d in detections:
+        el = d["element"]
+        frac = vertex[el]
+        if d["status"] != "confounded" or frac <= 0:
+            continue
+        cs = float(d.get("contested_share") or 0.0)
+        keep = frac * (1.0 - cs)          # credit only clear flux
+        resolved[el] = keep
+        rival = d.get("confounder")
+        freed = frac - keep
+        if rival and freed > 0:
+            # response ratio converts freed E-fraction into the rival
+            # fraction that reproduces the SAME peak flux; clamp at 1 so a
+            # weak-emitter rival cannot MANUFACTURE composition mass (needing
+            # >1x the freed fraction to cover the peak is itself evidence the
+            # rival is the wrong host, not licence to inflate it)
+            rr = min(float(contested.get(el, {}).get("resp_ratio", 1.0)), 1.0)
+            reattributions.append((el, rival, freed, freed * rr))
+    for el, rival, freed, want in reattributions:
+        # the rival can absorb contested flux only up to its own GLOBAL
+        # evidence: unbounded if it is independently detected (its lines
+        # carry it), its true-negative upper limit if it survives only as an
+        # upper limit / weak, and zero if the fit pruned it entirely (its
+        # other lines are absent, so it cannot host a phantom).  Whatever the
+        # rival cannot host RETURNS to the incumbent element -- the fit's own
+        # assignment stands when no viable alternative exists.
+        rec = records.get(rival)
+        if rec is None:
+            headroom = 0.0
+        elif rec["status"] in ("detected", "single-line"):
+            headroom = float("inf")
+        else:
+            headroom = max(0.0, float(rec.get("upper_limit") or 0.0)
+                           - resolved.get(rival, 0.0))
+        give = want if headroom == float("inf") else min(want, headroom)
+        rho = (give / want) if want > 0 else 0.0     # share the rival hosts
+        if give > 0:                                 # never create a 0 key
+            resolved[rival] = resolved.get(rival, 0.0) + give
+        resolved[el] = resolved.get(el, 0.0) + freed * (1.0 - rho)
+    resolved = _norm(resolved)
+
+    for el, d in records.items():
+        d["fraction_hi"] = hi.get(el, float(d["fraction"] or 0.0))
+        d["fraction_resolved"] = resolved.get(el, float(d["fraction"] or 0.0))
+    return resolved
 
 
 def analyze_detections(
@@ -498,8 +631,12 @@ def analyze_detections(
     ``shift`` maps observed peak centers back to the database frame.
 
     Returns ``{detections, support, contested, element_uncertainty,
-    stats}``.  Set ``contest=False`` to skip the (few-second) confounder
-    grid scan.
+    stats, resolved_fractions}``.  ``resolved_fractions`` is the
+    composition after true-negative attribution (confounded elements
+    credited only their clear flux, the rest reattributed to the
+    confounder; see :func:`resolve_confounded`); each detection also gains
+    ``fraction_resolved`` and ``fraction_hi``.  Set ``contest=False`` to
+    skip the (few-second) confounder grid scan.
     """
     stats = element_uncertainty_stats(indexer, result, area_sigma,
                                       draws=draws, seed=seed)
@@ -518,8 +655,10 @@ def analyze_detections(
             contested = {}
     detections = classify_detections(result, stats, support,
                                      contested=contested)
+    resolved_fractions = resolve_confounded(detections, contested)
     return dict(detections=detections, support=support, contested=contested,
-                element_uncertainty=unc, stats=stats)
+                element_uncertainty=unc, stats=stats,
+                resolved_fractions=resolved_fractions)
 
 
 def confounder_catalog(detections) -> "Counter":

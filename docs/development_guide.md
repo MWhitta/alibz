@@ -335,16 +335,79 @@ The corpus-level confounder catalog is the aggregation of the
 `confounder` column across a run — pairs that recur (Mn⇄Mg here) are the
 corpus's operative confounders under its actual (T, nₑ) range.
 
+### Resolving the quantification (`resolve_confounded`)
+
+The guard also *resolves* the abundance, not just flags it
+([`detections.resolve_confounded`](../alibz/detections.py)). The
+principle is the same true-negative accounting: a `confounded` element is
+credited only its **clear (uncontested) flux** — the share no rival can
+cover — and the contested remainder is reattributed to the `confounder`
+(the rival whose *own* lines are present), scaled by the response ratio
+`T_E/T_rival` that converts freed E-fraction into rival-fraction; the
+whole composition is then renormalised. This is the "group penalty" in
+the honest sense — each member of a confounded set is penalised by its
+own true negatives, so the arbitrary NNLS vertex is replaced by the
+physically-consistent split.
+
+Reported per element: `fraction` (raw NNLS vertex), plus two *normalised*
+compositions — `fraction_hi` (the as-fit split, the HIGH end for a
+confounded element) and `fraction_resolved` (the true-negative-resolved
+split, the defensible value) — all in `detections.csv`; `analyze_spectrum`
+returns the full `resolved_fractions` composition (sums to 1). Both
+`fraction_hi` and `fraction_resolved` are renormalised onto the same scale
+(each sums to 1) so they are directly comparable; the low→high bracket
+reads that way only for the confounded element itself — its confounder
+*gains* flux (so `fraction_resolved` > `fraction_hi` there) and bystanders
+rescale slightly with the renormalisation. Validated on the JChristensen
+samples: **Mn 53% → 0%** (fully contested, no clear line), with the Mg II
+279.5 flux reattributed to **Mg 8% → 31%** (which carries the independent
+Mg I 285.2 line); genuine detections (Li, Al, Ca…) with clear lines are
+untouched apart from renormalisation.
+
+The reattribution only ever moves flux to a rival that can **globally
+host** it, under two guards that stop a small confound from spawning a
+large phantom:
+
+- **No mass creation** — the response ratio `T_E/T_rival` is clamped at 1.
+  A weak-emitter rival needing >1× the freed fraction to cover the peak is
+  evidence it is the *wrong* host, not licence to inflate it. (Measured:
+  Be↔Fe carried `resp_ratio ≈ 12`, so an uncapped reattribution turned a
+  3.8% Be confound into a **42% Fe** phantom.)
+- **Bounded by the rival's own evidence** — a rival absorbs contested flux
+  only up to its evidence ceiling: unbounded if it is independently
+  detected, its `upper_limit` if it survives only as an upper limit / weak,
+  and **zero if the fit pruned it entirely** (its other lines are absent —
+  42% Fe would light up hundreds of Fe lines the spectrum does not show).
+  Whatever the rival cannot host **returns to the incumbent element**: the
+  fit's own assignment stands when no viable alternative exists. So Mn → 0
+  (Mg is present and takes the 279.5 flux) but **Be keeps its 3.8%** when
+  its only rival, Fe, is globally absent.
+
+The reattribution is also **order-independent under mutual or chained
+confounding**: every confounded element's clear-flux credit is applied
+before *any* reattribution, so a confounder that is itself confounded (A↔B
+mutually, or A→B→C chained) keeps its clear share and — since a
+mutually-confounded rival is not independently detected — neither can steal
+the other, so both simply retain their vertex split (the ambiguity is
+flagged, not silently resolved by processing order).
+
+An honest early guard against a too-aggressive metric: a first attempt
+using the ratio of each element's true-negative cap to the concentration
+its own peaks demand **failed** — self-absorption on Li's resonance line
+made it look over-predicted and gutted genuine Li while leaving Mn intact.
+The `clear_lines`/`contested_share` accounting above (which never touches
+an element's own line ratios, only whether a *rival* can cover the peak)
+is the version that behaves.
+
 ### What this does NOT yet do
 
-Quantification is still the NNLS vertex: a `confounded` element's
-*fraction* remains in `summary.csv` unchanged — the guard makes the
-ambiguity visible rather than resolving it. The quantification-side fix
-(couple collinear columns with a ridge/group penalty, or re-solve with
-the confounder reinstated and report the attribution range) is future
-work; until then, treat `confounded` fractions — and totals renormalised
-around them — as upper bounds on attribution confidence, especially in
-low-Si samples where the 279–281 region dominates the UV.
+`fraction_resolved` reattributes contested flux to the *single* strongest
+rival at a first-order response ratio; a full joint re-solve of a
+many-way confounded group (three-plus collinear elements) or a proper
+posterior over the split is future work. `summary.csv` still carries the
+raw vertex `fraction` as the primary column (with the resolved value in
+`detections.csv`) so the two stay comparable; flipping the primary
+composition to resolved is a deliberate downstream choice.
 
 ---
 

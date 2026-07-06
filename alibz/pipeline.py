@@ -7,9 +7,12 @@ writes two artifacts INTO that directory:
    quantitative element abundances (atom fraction of detected emitters)
    plus a per-element uncertainty;
 2. ``detections.csv`` — long-format per-(sample, element) detection report
-   with the classification status, z-score, line support, and upper limits
-   (see :func:`classify_detections`) — the self-consistent record for
-   borderline elements near the limit of detection;
+   with the classification status, z-score, line support, upper limits
+   (see :func:`classify_detections`), and the true-negative confounder
+   analysis: ``fraction_resolved`` credits a ``confounded`` element only
+   its uncontested flux and reattributes the rest to the ``confounder``
+   (see :func:`resolve_confounded`), so it is the defensible quantification
+   where ``fraction`` (the raw NNLS vertex) is confounder-inflated;
 3. ``fit_inspection.ipynb`` — a ready-to-run notebook that reproduces the
    full analysis on any single spectrum in the directory with the standard
    inspection plots (`plot_spectrum_overview`, refinement decisions,
@@ -86,6 +89,7 @@ from alibz.detections import (  # noqa: F401
     element_uncertainties,
     element_uncertainty_stats,
     merge_contests,
+    resolve_confounded,
 )
 
 DEFAULT_PATTERN = "*.csv"
@@ -291,6 +295,7 @@ def analyze_spectrum(
         element_uncertainty=det["element_uncertainty"],
         detections=det["detections"], support=det["support"],
         contested=det["contested"],
+        resolved_fractions=det["resolved_fractions"],
     )
 
 
@@ -535,7 +540,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
     evidence needed to judge them rather than silently included or
     dropped.  Returns the number of detection rows written.
     """
-    header = ["sample", "element", "status", "fraction", "unc", "z",
+    header = ["sample", "element", "status", "fraction", "fraction_resolved",
+              "fraction_hi", "unc", "z",
               "n_lines", "clear_lines", "contested_share", "confounder",
               "strongest_peak_nm", "strongest_obs",
               "upper_limit", "stage_disagreement"]
@@ -551,9 +557,15 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
                 n += 1
                 continue
             for d in row.get("detections", []):
+                fr = d.get("fraction_resolved", d.get("fraction"))
+                fhi = d.get("fraction_hi", d.get("fraction"))
+                # fr/fhi may be a legitimate 0.0 (an element resolved away
+                # by the confounder): render it as "0", not blank
                 w.writerow([
                     row["sample"], d["element"], d["status"],
                     f"{d['fraction']:.4g}" if d["fraction"] else "",
+                    f"{fr:.4g}" if fr is not None else "",
+                    f"{fhi:.4g}" if fhi is not None else "",
                     f"{d['unc']:.3g}" if d.get("unc") is not None else "",
                     d.get("z", ""),
                     d.get("n_lines", ""),
@@ -786,15 +798,16 @@ table and zooms below show what each borderline call actually rests on:
   could hide below the noise (mean + 2σ of the resampled fraction).
 """
     code_borderline = """# detection report for this spectrum + line-evidence zooms
+# 'resolved' is the true-negative-corrected abundance (confounded elements
+# credited only their uncontested flux); 'fraction' is the raw NNLS vertex.
 from alibz import plot_peak_zoom
 
-print(f"{'el':>4} {'status':>12} {'fraction':>9} {'unc':>8} {'z':>6}"
+print(f"{'el':>4} {'status':>12} {'fraction':>9} {'resolved':>9} {'z':>6}"
       f" {'lines':>5} {'clear':>5} {'confounder':>10}"
       f"  {'strongest [nm]':>14} {'upper_lim':>9}")
 for d in sorted(a['detections'], key=lambda d: -(d['fraction'] or 0)):
     print(f"{d['element']:>4} {d['status']:>12}"
-          f" {d['fraction']:9.5f}"
-          f" {d['unc'] if d['unc'] is not None else float('nan'):8.5f}"
+          f" {d['fraction']:9.5f} {d.get('fraction_resolved', d['fraction']):9.5f}"
           f" {d['z']:6.1f} {d['n_lines']:5d}"
           f" {d['clear_lines'] if d.get('clear_lines') is not None else '':>5}"
           f" {d.get('confounder') or '':>10}"
