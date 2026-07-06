@@ -609,9 +609,10 @@ def build_inspection_notebook(
 ) -> dict:
     """Notebook (nbformat-4.5 JSON dict) that inspects this directory.
 
-    Reads ``summary.csv`` for the composition overview and re-runs the
-    full pipeline live on one selectable spectrum for the standard fit
-    inspection views.  ``stimulated_emission`` is baked into the live
+    Reads ``summary.csv`` (raw composition) and ``detections.csv``
+    (confounder-resolved composition) for the as-fit-vs-resolved overview,
+    and re-runs the full pipeline live on one selectable spectrum for the
+    standard fit inspection views.  ``stimulated_emission`` is baked into the live
     cell so the notebook reproduces the SAME configuration that produced
     ``summary.csv`` (a notebook silently disagreeing with the batch would
     be worse than either alone).
@@ -665,32 +666,98 @@ ELEMENTS = sorted([c for c in SUMMARY[0] if c + '_unc' in SUMMARY[0]],
 print("elements:", ELEMENTS)
 print("periodic blocks:", sorted({{element_periodic_block(e) for e in ELEMENTS}}))"""
 
-    code_overview = """# composition overview: per-element abundance across all samples
+    code_overview = """# composition overview: as-fit (raw NNLS vertex) vs true-negative-resolved
+# LEFT  panel = the raw fit composition straight from summary.csv.
+# RIGHT panel = after the confounder correction (fraction_resolved from
+#   detections.csv): a `confounded` element -- one whose every supporting
+#   peak a genuinely-present rival could equally explain -- is credited only
+#   its uncontested flux, the contested remainder reattributed to that rival
+#   (so Mn, read off the shared Mg II 279.5/280.3 region, collapses into Mg;
+#   an element contested only by an ABSENT rival keeps its flux instead).
 ok = [r for r in SUMMARY if r['status'] == 'ok']
-fig, ax = plt.subplots(figsize=(12, 5))
-xpos = np.arange(len(ok))
-bottom = np.zeros(len(ok))
-for el in ELEMENTS:
-    vals = np.array([float(r[el]) if r[el] else 0.0 for r in ok])
-    if vals.max() <= 0:
-        continue
-    ax.bar(xpos, vals, bottom=bottom, color=element_color(el),
-           edgecolor='white', linewidth=0.3, label=el)
-    bottom += vals
-ax.set_xticks(xpos)
-ax.set_xticklabels([r['sample'][:18] for r in ok], rotation=75, fontsize=7)
-ax.set_ylabel('atom fraction of detected emitters')
-seen_elements = []
-for el in ELEMENTS:
-    if any(float(r[el]) if r[el] else 0.0 for r in ok):
-        seen_elements.append(el)
+samples = [r['sample'] for r in ok]
+
+comp_raw = {r['sample']: {el: (float(r[el]) if r[el] else 0.0)
+                          for el in ELEMENTS} for r in ok}
+comp_res = {s: {} for s in samples}
+for d in DETECTIONS:
+    s, v = d['sample'], d.get('fraction_resolved')
+    if s in comp_res and v not in (None, ''):
+        comp_res[s][d['element']] = comp_res[s].get(d['element'], 0.0) + float(v)
+
+order = sorted(set(ELEMENTS) | {d['element'] for d in DETECTIONS
+                                if d.get('fraction_resolved') not in (None, '')},
+               key=element_sort_key)
+
+def _stack(ax, comp, title):
+    xpos = np.arange(len(samples))
+    bottom = np.zeros(len(samples))
+    for el in order:
+        vals = np.array([comp.get(s, {}).get(el, 0.0) for s in samples])
+        if vals.max() <= 0:
+            continue
+        ax.bar(xpos, vals, bottom=bottom, color=element_color(el),
+               edgecolor='white', linewidth=0.3)
+        bottom += vals
+    ax.set_xticks(xpos)
+    ax.set_xticklabels([s[:18] for s in samples], rotation=75, fontsize=6)
+    ax.set_title(title, fontsize=10)
+
+if DETECTIONS:
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(2 + 0.42 * len(samples), 5.5),
+                                   sharey=True)
+    _stack(axL, comp_raw, 'As fit (raw NNLS vertex — confounder-inflated)')
+    _stack(axR, comp_res, 'True-negative resolved (confounded flux reattributed)')
+else:
+    fig, axL = plt.subplots(figsize=(2 + 0.42 * len(samples), 5.5))
+    _stack(axL, comp_raw, 'As fit (raw NNLS vertex)')
+    print('no detections.csv — resolved panel unavailable')
+axL.set_ylabel('atom fraction of detected emitters')
+
+seen = [el for el in order
+        if any(comp_raw.get(s, {}).get(el, 0.0) or comp_res.get(s, {}).get(el, 0.0)
+               for s in samples)]
 handles = [Patch(facecolor=element_color(el), edgecolor='0.4',
-                 label=f"{el} ({element_periodic_block(el)})")
-           for el in seen_elements]
-ax.legend(handles=handles, title='element (periodic block)', ncol=4, fontsize=7,
-          title_fontsize=8)
-ax.set_title('Composition by sample')
+                 label=f"{el} ({element_periodic_block(el)})") for el in seen]
+fig.legend(handles=handles, title='element (periodic block)', ncol=8,
+           fontsize=7, title_fontsize=8, loc='lower center',
+           bbox_to_anchor=(0.5, -0.06))
+fig.suptitle('Composition by sample — as-fit vs confounder-resolved', y=1.02)
 fig.tight_layout()"""
+
+    code_overview_shift = """# corpus-mean composition shift from the confounder correction
+# quantifies the left->right change above: which elements the true-negative
+# resolution strips (their peaks reassigned to a present rival) and which
+# gain, averaged over all samples -- the direct answer to "why so much Mn?".
+if DETECTIONS:
+    raw_mean = {el: float(np.mean([comp_raw[s].get(el, 0.0) for s in samples]))
+                for el in order}
+    res_mean = {el: float(np.mean([comp_res[s].get(el, 0.0) for s in samples]))
+                for el in order}
+    delta = {el: res_mean[el] - raw_mean[el] for el in order}
+    shifted = sorted([el for el in order if abs(delta[el]) > 1e-4],
+                     key=lambda el: delta[el])
+    fig, ax = plt.subplots(figsize=(9, max(2.5, 0.4 * len(shifted))))
+    yp = np.arange(len(shifted))
+    ax.barh(yp, [100 * delta[el] for el in shifted],
+            color=[element_color(el) for el in shifted], edgecolor='0.3')
+    ax.axvline(0, color='k', lw=0.8)
+    ax.set_yticks(yp)
+    ax.set_yticklabels(shifted)
+    ax.set_xlabel('corpus-mean change after resolution (percentage points)')
+    ax.set_title('Confounder correction: mean composition shift '
+                 '(resolved - as-fit)')
+    for i, el in enumerate(shifted):
+        dv = 100 * delta[el]
+        ax.text(dv, i, f"  {100 * raw_mean[el]:.1f}->{100 * res_mean[el]:.1f}%",
+                va='center', ha='left' if dv >= 0 else 'right', fontsize=7)
+    ax.margins(x=0.28)
+    fig.tight_layout()
+    print('largest shifts (percentage points):', ', '.join(
+        f'{el} {100 * delta[el]:+.1f}' for el in
+        sorted(shifted, key=lambda el: -abs(delta[el]))[:6]))
+else:
+    print('no detections.csv — resolved composition unavailable')"""
 
     code_run = f"""SPECTRUM_FILE = FILES[0]   # <-- change to inspect another spectrum
 print(sample_name(SPECTRUM_FILE))
@@ -868,8 +935,14 @@ else:
     cells = [
         _nb_cell("markdown", md_title),
         _nb_cell("code", code_setup),
-        _nb_cell("markdown", "## Composition across all samples"),
+        _nb_cell("markdown", "## Composition across all samples\n\nThe raw "
+                 "NNLS fit (left) beside the true-negative-resolved "
+                 "composition (right), then the corpus-mean shift the "
+                 "confounder correction makes. The raw panel inflates "
+                 "elements like Mn whose peaks sit under a present rival's "
+                 "lines; the resolved panel reattributes that flux."),
         _nb_cell("code", code_overview),
+        _nb_cell("code", code_overview_shift),
         _nb_cell("markdown", md_confounders),
         _nb_cell("code", code_confounders),
         _nb_cell("markdown",

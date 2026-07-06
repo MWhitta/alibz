@@ -184,6 +184,15 @@ class TestNotebook(unittest.TestCase):
         self.assertIn("element_sort_key", src)
         self.assertIn("element_color", src)
         self.assertIn("periodic block", src)
+        # the composition overview shows raw AND confounder-resolved panels
+        self.assertIn("fraction_resolved", src)
+        self.assertIn("comp_res", src)
+        self.assertIn("composition shift", src)
+        # every generated code cell must be syntactically valid Python
+        import ast
+        for c in nb["cells"]:
+            if c["cell_type"] == "code":
+                ast.parse("".join(c["source"]))
 
 
 class _StubIndexer:
