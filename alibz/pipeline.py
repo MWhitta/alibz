@@ -25,7 +25,11 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
             -> refine_fit                       (blends vs self-absorption)
             -> PeakyIndexerV3.fit  [pass 1]     (whole-pattern, sa_doublets)
             -> seed_minor_lines                 (elements from pass 1)
-            -> PeakyIndexerV3.fit  [pass 2]     (warm-started at pass-1 T, ne)
+            -> recover_residual_lines           (element-agnostic residuals)
+            -> PeakyIndexerV3.fit  [pass 2]     (confirms elements present)
+            -> seed_minor_lines (corroboration) (pass-2 elements; line-rich
+                                                 stages like Fe trusted)
+            -> PeakyIndexerV3.fit  [pass 3]     (corroborated composition)
             -> uncertainty resampling           (see below)
 
 Electron density is initialised per shot from the H-alpha Lorentzian width
@@ -202,11 +206,18 @@ def analyze_spectrum(
 ) -> dict:
     """Run the full chain on one spectrum.
 
+    Blind fit -> refine -> pass-1 indexer (rough id) -> element-agnostic
+    residual recovery -> pass-2 indexer (confirms the elements present) ->
+    CORROBORATION seed of those elements' still-unfitted weak (>= 2 sigma)
+    lines (line-rich elements such as Fe, silenced pre-id, are trusted here)
+    -> pass-3 indexer for the corroborated composition -> detection report.
+
     Returns a dict with the intermediate fits (``fit``, ``refined``,
-    ``final``, ``decisions``, ``records``, ``shift``), the pass-2
+    ``final``, ``decisions``, ``records``, ``shift``), the final
     ``result`` (:class:`FitResult`), ``element_uncertainty``, and the
-    ``established`` element list.  Raises on hard failures; the directory
-    driver converts those into an error row.
+    ``established`` element list (the pass-2 confirmed elements that drove
+    corroboration).  Raises on hard failures; the directory driver converts
+    those into an error row.
     """
     from alibz import PeakyFinder, refine_fit, seed_minor_lines
     from alibz.inspection import estimate_peak_uncertainties
@@ -275,16 +286,44 @@ def analyze_spectrum(
                                               exclude=tuple(sa_zones))
     fpeaks = final["sorted_parameter_array"]
 
-    # pass 2: final composition, warm-started at the pass-1 plasma state
+    # pass 2: identify elements + plasma state, warm-started at pass-1 state
     idx2 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
                           temperature_init=res1.temperature,
                           ne_init=res1.ne)
-    result = idx2.run(**run_kwargs)
+    res2 = idx2.run(**run_kwargs)
+
+    # corroboration: pass 2 has now CONFIRMED which elements are present, so
+    # seed their still-unfitted weak (>= 2 sigma) lines using each element's
+    # robust intensity scale.  This is where line-rich elements the pre-ID
+    # pass 1 could not establish (Fe), and that the scale-spread trust gate
+    # would otherwise silence, are finally accounted for -- and the per-line
+    # Boltzmann-SNR + BIC guards keep it from fitting noise (a >= 2 sigma peak
+    # must actually be present at the predicted position).  Re-index so the
+    # composition reflects the corroborating lines.
+    fidx, result = idx2, res2
+    if seed_minor:
+        confirmed = sorted(
+            [el for el, f in res2.element_fractions.items()
+             if f >= ESTABLISHED_MIN_FRACTION],
+            key=element_sort_key)
+        if confirmed:
+            established = confirmed
+            final, corr = seed_minor_lines(x, y, final, db, confirmed,
+                                           shift_nm=shift,
+                                           robust_elements=set(confirmed))
+            records = records + corr
+            fpeaks = final["sorted_parameter_array"]
+            # pass 3: final composition on the corroborated fit
+            idx3 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
+                                  temperature_init=res2.temperature,
+                                  ne_init=res2.ne)
+            result = idx3.run(**run_kwargs)
+            fidx = idx3
 
     # detection report + confounder (true-negative rival) analysis
     bg = np.asarray(final.get("background", np.zeros_like(y)), dtype=float)
     area_sigma = estimate_peak_uncertainties(x, y - bg, fpeaks)[:, 0]
-    det = analyze_detections(idx2, result, area_sigma, shift=shift,
+    det = analyze_detections(fidx, result, area_sigma, shift=shift,
                              dbpath=dbpath, draws=draws)
 
     return dict(

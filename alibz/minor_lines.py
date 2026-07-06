@@ -175,7 +175,9 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
                      accept_snr=2.0, bic_margin=2.0, min_ref_lines=3,
                      max_scale_spread=0.6, min_ref_snr=10.0,
                      consistency_factor=5.0, extrapolation_factor=10.0,
-                     segment_edges=None) -> Tuple[dict, List[dict]]:
+                     segment_edges=None,
+                     robust_elements=None,
+                     robust_min_ref_lines=6) -> Tuple[dict, List[dict]]:
     """Fit predicted-but-unfitted minor lines of established elements.
 
     ``elements`` is the established-element list (from the indexer or
@@ -206,6 +208,19 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
     with ``action == "missing"`` flag CONFIDENT predictions (expected
     SNR >= 10) that the data refused: response/temperature/blacklist
     problems show up here.
+
+    ``robust_elements`` is a set of elements the caller has independently
+    CONFIRMED present (e.g. from the indexer's whole-pattern fit); for a
+    confirmed element's stage that also carries at least
+    ``robust_min_ref_lines`` references the ``max_scale_spread`` trust gate
+    is bypassed, so a line-rich element whose strong references are
+    self-absorbed/blended (Fe) can still predict its weaker lines.  The
+    reference-count floor keeps the bypass from reaching an ABSENT higher ion
+    stage of a confirmed element (whose scale rests on a few coincidence
+    matches).  The median scale is robust and every per-line acceptance is
+    gated as usual, so this only accounts for a confirmed element where the
+    data actually show a >= ``min_expected_snr`` peak — it never manufactures
+    lines for an absent element or stage.
     """
     from alibz.peaky_finder import PeakyFinder
 
@@ -243,9 +258,28 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
         min_ref_amp=min_ref_snr * float(np.median(noise)) / peak_shape0)
 
     # ---- enumerate candidates, strongest expected first -----------------
+    # elements the caller has independently CONFIRMED present (from the
+    # indexer's whole-pattern fit) may bypass the scale-spread trust gate: a
+    # line-rich element whose strong references are self-absorbed/blended
+    # (Fe: log-ratio spread ~2.2 vs the 0.6 limit) is otherwise silenced,
+    # leaving its dozens of genuine weak lines unmodeled.  Its median scale
+    # is already robust (3-MAD trimmed), and every INDIVIDUAL acceptance
+    # still passes the per-line Boltzmann-SNR, extrapolation, and BIC guards
+    # below.  The bypass is keyed per (element, STAGE), not per element: the
+    # caller confirms elements, so an ABSENT higher ion stage (Fe II when
+    # only Fe I is present) reaches here too, with only a handful of faint
+    # COINCIDENCE references whose wide spread is exactly what the gate is
+    # for.  A genuinely-present line-rich stage instead has many references,
+    # so the reference count separates them — bypass demands
+    # ``robust_min_ref_lines`` references, well above the coincidence floor.
+    trusted = frozenset(robust_elements or ())
     candidates = []
     for (el, stage), info in scales.items():
-        if info["n_ref"] < min_ref_lines or info["spread"] > max_scale_spread:
+        if info["n_ref"] < min_ref_lines:
+            continue
+        trusted_stage = (el in trusted
+                         and info["n_ref"] >= robust_min_ref_lines)
+        if info["spread"] > max_scale_spread and not trusted_stage:
             continue
         got = _element_lines(db, el, float(x[0]) - shift_nm,
                              float(x[-1]) - shift_nm)
