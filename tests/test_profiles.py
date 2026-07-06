@@ -162,3 +162,155 @@ class TestElementShapeQuality(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDeblendShoulders(unittest.TestCase):
+    def _shoulder_setup(self, seed=3):
+        # the blind fit converged ONE component onto an unresolved pair --
+        # reproduce that with an actual least-squares refit, exactly as
+        # production produces it (hand-made "merged" parameters are not a
+        # plausible converged state)
+        from scipy.optimize import least_squares
+        main_true = (900.0, 400.0, 0.030, 0.010)
+        hidden = (140.0, 400.09, 0.030, 0.010)
+        x, y = _spectrum(_FLOOR_PEAKS + [main_true, hidden], seed=seed)
+        m = np.abs(x - 400.0) <= 0.5
+        def resid(p):
+            return y[m] - p[0] * voigt_profile(x[m] - p[1], p[2], p[3])
+        merged = tuple(least_squares(
+            resid, x0=np.array(main_true),
+            bounds=([0, 399.5, 1e-4, 1e-4], [np.inf, 400.5, 0.5, 0.5])).x)
+        fit = _fit_dict(_FLOOR_PEAKS + [merged], x)
+        from alibz.profiles import analyze_peak_profiles
+        recs = analyze_peak_profiles(x, y, fit, segment_edges=(340.0,))
+        return x, y, fit, recs, hidden
+
+    def test_deblend_splits_contaminated_peak(self):
+        from alibz.profiles import deblend_shoulders
+        x, y, fit, recs, hidden = self._shoulder_setup()
+        self.assertEqual(recs[-1]["classification"], "shoulder")
+        new_fit, out = deblend_shoulders(x, y, fit, recs,
+                                         segment_edges=(340.0,))
+        acc = [r for r in out if r["action"] == "deblended"]
+        self.assertEqual(len(acc), 1)
+        peaks = new_fit["sorted_parameter_array"]
+        self.assertEqual(peaks.shape[0], len(_FLOOR_PEAKS) + 2)
+        # the new component sits at the hidden line and carries roughly
+        # its area; the main peak sheds the contamination
+        r = acc[0]
+        self.assertAlmostEqual(r["new_center_nm"], hidden[1], delta=0.03)
+        self.assertAlmostEqual(r["area_new"], hidden[0],
+                               delta=0.5 * hidden[0])
+
+    def test_deblend_respects_exclusion_zones(self):
+        from alibz.profiles import deblend_shoulders
+        x, y, fit, recs, _ = self._shoulder_setup()
+        _, out = deblend_shoulders(x, y, fit, recs,
+                                   exclude=((400.0, 0.5),),
+                                   segment_edges=(340.0,))
+        self.assertTrue(all(r["action"] == "excluded" for r in out))
+
+
+class _SAStubSpecies:
+    def __init__(self, element, ion):
+        self.element, self.ion = element, ion
+
+
+class _SAStubIndexer:
+    """Mimics the PeakyIndexerV3 surface recover_sa_areas touches."""
+
+    def __init__(self, obs_wl, obs_amp, A, species, anchored=()):
+        self._obs_wl = np.asarray(obs_wl, dtype=float)
+        self._obs_amp = np.asarray(obs_amp, dtype=float)
+        self._last_A = np.asarray(A, dtype=float)
+        self._species = species
+        self._sa_doublet_info = {k: {} for k in anchored}
+
+    def _solve_concentrations(self, T, ne):
+        # trivial diagonal design: c_j = amp_j
+        return self._obs_amp.copy(), 0.0
+
+    def _aggregate_elements(self, c, A):
+        tot = max(float(np.sum(c)), 1e-300)
+        fr = {}
+        for k, sp in enumerate(self._species):
+            fr[sp.element] = fr.get(sp.element, 0.0) + float(c[k]) / tot
+        return dict(fr), fr, {el: 0.0 for el in fr}
+
+
+def _sa_result(indexer, fractions):
+    import dataclasses
+    from alibz.peaky_indexer_v3 import FitResult
+    n = indexer._obs_amp.size
+    return FitResult(
+        temperature=8000.0, ne=17.0, sigma=0.03, gamma=0.01,
+        species=indexer._species,
+        concentrations=indexer._obs_amp.copy(),
+        predicted=indexer._obs_amp.copy(),
+        observed=indexer._obs_amp.copy(),
+        residuals=np.zeros(n), cost=0.0, r_squared=1.0,
+        peak_assignments=[], unexplained_peaks=[], convergence_info={},
+        element_concentrations=dict(fractions),
+        element_fractions=dict(fractions),
+        stage_disagreement={el: 0.0 for el in fractions})
+
+
+class TestRecoverSAAreas(unittest.TestCase):
+    def _setup(self, clip=0.6, anchored=()):
+        # spectrum: floor peaks + one flat-top (saturated) line, LSQ-refit
+        from scipy.optimize import least_squares
+        line = (1200.0, 400.0, 0.030, 0.010)
+        x, y = _spectrum(_FLOOR_PEAKS, seed=11)
+        prof = line[0] * voigt_profile(x - line[1], line[2], line[3])
+        y += np.minimum(prof, clip * prof.max())
+        m = np.abs(x - line[1]) <= 0.5
+        def resid(p):
+            return y[m] - p[0] * voigt_profile(x[m] - p[1], p[2], p[3])
+        fitp = least_squares(resid, x0=np.array(line),
+                             bounds=([0, 399.5, 1e-4, 1e-4],
+                                     [np.inf, 400.5, 0.5, 0.5])).x
+        rows = _FLOOR_PEAKS + [tuple(fitp)]
+        fit = _fit_dict(rows, x)
+        from alibz.profiles import analyze_peak_profiles
+        recs = analyze_peak_profiles(x, y, fit, segment_edges=(340.0,))
+        peaks = np.asarray(rows, dtype=float)
+        n = peaks.shape[0]
+        species = [_SAStubSpecies("Si", 1)] * (n - 1) + [_SAStubSpecies("Li", 1)]
+        idx = _SAStubIndexer(peaks[:, 1], peaks[:, 0], np.eye(n), species,
+                             anchored=anchored)
+        fr0 = idx._aggregate_elements(idx._obs_amp, idx._last_A)[1]
+        return x, y, fit, recs, idx, _sa_result(idx, fr0), float(fitp[0])
+
+    def test_recovers_emission_area_and_resolves(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, obs_area = self._setup()
+        new_res, out, used = recover_sa_areas(idx, res, x, y, fit, recs)
+        acc = [r for r in out if r["action"] == "sa-recovered"]
+        self.assertTrue(used)
+        self.assertEqual(len(acc), 1)
+        r = acc[0]
+        # emission area exceeds the saturated observed area, within the cap
+        self.assertGreater(r["factor"], 1.0)
+        self.assertLessEqual(r["factor"], 5.0)
+        self.assertGreater(r["emission_area"], obs_area)
+        # the re-solved composition shifted toward the saturated element
+        self.assertGreater(new_res.element_fractions["Li"],
+                           res.element_fractions["Li"])
+        # original indexer amplitudes restored
+        self.assertAlmostEqual(float(idx._obs_amp[-1]), obs_area, places=6)
+
+    def test_anchored_species_skipped(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, _ = self._setup(anchored=(("Li", 1),))
+        new_res, out, used = recover_sa_areas(idx, res, x, y, fit, recs)
+        self.assertFalse(used)
+        self.assertTrue(any(r["action"] == "anchored" for r in out))
+        self.assertIs(new_res, res)
+
+    def test_exclusion_zone_skipped(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, _ = self._setup()
+        new_res, out, used = recover_sa_areas(idx, res, x, y, fit, recs,
+                                              exclude=((400.0, 0.5),))
+        self.assertFalse(used)
+        self.assertTrue(any(r["action"] == "excluded" for r in out))

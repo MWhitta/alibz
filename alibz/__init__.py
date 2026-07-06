@@ -81,8 +81,10 @@ from alibz.detections import (
 )
 from alibz.profiles import (
     analyze_peak_profiles,
+    deblend_shoulders,
     element_shape_quality,
     profile_summary,
+    recover_sa_areas,
     segment_width_floor,
 )
 from alibz.pipeline import analyze_directory, analyze_spectrum
@@ -120,6 +122,8 @@ __all__ = [
     "confounder_catalog",
     # Peak-shape physics (profiles)
     "analyze_peak_profiles",
+    "deblend_shoulders",
+    "recover_sa_areas",
     "element_shape_quality",
     "profile_summary",
     "segment_width_floor",

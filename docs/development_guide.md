@@ -107,13 +107,34 @@ raw spectrum
 ### Current status: ~85% complete
 
 Stages (a) and (b) are functional and tested.  Stage (c) — shape physics
-feeding back into the analysis — now has its first production piece:
-`alibz.profiles` classifies every fitted peak per segment and QCs each
+feeding back into the analysis — is now closed end to end.
+`alibz.profiles` classifies every fitted peak per segment, QCs each
 element's supporting flux (reported in `detections.csv` and flagged in
-`summary.csv` as `dominant-weak-shape`).  What it does NOT yet do: feed a
-physics-informed RE-FIT (shoulder-triggered deblends, SA-model refits of
-saturated lines with growth-curve area recovery) — that is the remaining
-gap.
+`summary.csv` as `dominant-weak-shape`), and FEEDS THE FIT:
+
+- **`deblend_shoulders`** (pre-identification): a `shoulder`-flagged peak
+  (one-sided flank bump = unresolved overlap) is refit as two components
+  plus pedestal, the main confined near its parameters and the new one
+  pinned at the bump, gated by matched-filter SNR (≥4) and window BIC
+  (≥6); refinement's asymmetric-merge zones are excluded.  The pass-2/3
+  indexers then see the decontaminated areas.
+- **`recover_sa_areas`** (post-identification): an `sa-like` peak of a
+  species NOT doublet-anchored is refit with the SA model (`sa_voigt`,
+  whose area parameter is the unattenuated emission area) against a
+  symmetric control; acceptance needs a 10-BIC win, tau below the
+  ceiling, and amplification ≤ 5x.  Accepted emission areas correct the
+  observed amplitudes and the composition is RE-SOLVED linearly at the
+  fitted plasma state (the `element_uncertainty_stats` pattern — no new
+  Bayesian pass, no basin risk), with the collapse guard applied to the
+  corrected composition as final safety.  Doublet-anchored species (K I,
+  Na D, ...) are skipped — their depths already act on the RESPONSE side
+  of the design, and correcting the data side too would double-count.
+
+Measured on JChristensen (38 spectra): deblends fired on 26, SA recovery
+on 24; corpus means moved Si +3.1 pp / K −3.5 pp with no collapse.  On
+MW2-112: deblends split the Mg II 279.75/280.0 and Hg 253.6 regions;
+recovered lines (Al I 396.1 ×1.35, Mg I 383.8 ×1.60) carry physically
+sensible optical depths (τ ≈ 0.5).
 
 An honest measured caveat from JChristensen (2026-07-06): the
 single-element-dominated failures there (Hg 1.000 from one 194 nm line,

@@ -26,6 +26,9 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
             -> PeakyIndexerV3.fit  [pass 1]     (whole-pattern, sa_doublets)
             -> seed_minor_lines                 (elements from pass 1)
             -> recover_residual_lines           (element-agnostic residuals)
+            -> deblend_shoulders                (split shoulder-flagged
+                                                 peaks: one-sided flank bump
+                                                 = unresolved overlap)
             -> PeakyIndexerV3.fit  [pass 2]     (confirms elements present)
             -> seed_minor_lines (corroboration) (pass-2 elements; line-rich
                                                  stages like Fe trusted)
@@ -36,6 +39,11 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
                                                  COLLAPSE_TOP_FRACTION)
             -> alibz.profiles                   (per-segment per-peak shape
                                                  QC of each element support)
+            -> recover_sa_areas                 (growth-curve emission areas
+                                                 for sa-like peaks the
+                                                 doublet channel does not
+                                                 anchor; linear re-solve at
+                                                 the fitted T, ne)
             -> uncertainty resampling           (see below)
 
 Electron density is initialised per shot from the H-alpha Lorentzian width
@@ -326,6 +334,18 @@ def analyze_spectrum(
             sa_zones.append((float(pA[1]), halfw))
     final, recovered = recover_residual_lines(x, y, final,
                                               exclude=tuple(sa_zones))
+
+    # shoulder-triggered deblends: peaks whose profile shows a one-sided
+    # flank bump (an unresolved overlapping line contaminating the fitted
+    # area) are split into two components BEFORE identification, so the
+    # pass-2/3 indexers see the decontaminated areas.  The refinement's
+    # asymmetric-merge zones are excluded (their core residual is
+    # deliberate)
+    from alibz.profiles import (analyze_peak_profiles, deblend_shoulders,
+                                element_shape_quality, recover_sa_areas)
+    prof_pre = analyze_peak_profiles(x, y, final)
+    final, deblends = deblend_shoulders(x, y, final, prof_pre,
+                                        exclude=tuple(sa_zones))
     fpeaks = final["sorted_parameter_array"]
 
     # pass 2: identify elements + plasma state, warm-started at pass-1 state
@@ -390,19 +410,38 @@ def analyze_spectrum(
                 # consumer (detections, area_sigma, profiles) sees one
                 # consistent fit
 
-    # detection report + confounder (true-negative rival) analysis
+    # per-segment, per-peak shape physics (alibz.profiles) on the FINAL
+    # fit, then growth-curve area recovery: sa-like peaks of species NOT
+    # already anchored by the indexer's doublet channel are refit with the
+    # self-absorption model; accepted emission areas correct the observed
+    # amplitudes and the composition is re-solved LINEARLY at the fitted
+    # plasma state (no new Bayesian pass -> no basin risk; a corrected
+    # composition that newly collapses is rejected wholesale)
+    profiles = analyze_peak_profiles(x, y, final)
+    result, sa_records, sa_used = recover_sa_areas(
+        fidx, result, x, y, final, profiles, exclude=tuple(sa_zones))
+
+    # detection report + confounder (true-negative rival) analysis; when
+    # SA recovery was applied, detections see the SAME corrected
+    # amplitudes the re-solved result came from
     bg = np.asarray(final.get("background", np.zeros_like(y)), dtype=float)
     area_sigma = estimate_peak_uncertainties(x, y - bg, fpeaks)[:, 0]
-    det = analyze_detections(fidx, result, area_sigma, shift=shift,
-                             dbpath=dbpath, draws=draws)
+    amp_stash = None
+    if sa_used:
+        amp_stash = fidx._obs_amp.copy()
+        for r in sa_records:
+            if r["action"] == "sa-recovered":
+                fidx._obs_amp[int(r["index"])] *= float(r["factor"])
+    try:
+        det = analyze_detections(fidx, result, area_sigma, shift=shift,
+                                 dbpath=dbpath, draws=draws)
+    finally:
+        if amp_stash is not None:
+            fidx._obs_amp = amp_stash
 
-    # per-segment, per-peak shape physics (alibz.profiles): classify every
-    # fitted peak (instrumental / broadened / shoulder / sa-like / narrow)
-    # and QC each element's supporting flux -- an element whose abundance
-    # rests on saturated (sa-like) or overlap-contaminated (shoulder) peaks
-    # is flagged rather than trusted
-    from alibz.profiles import analyze_peak_profiles, element_shape_quality
-    profiles = analyze_peak_profiles(x, y, final)
+    # QC each element's supporting flux -- an element whose abundance
+    # rests on saturated (sa-like) or overlap-contaminated (shoulder)
+    # peaks is flagged rather than trusted
     shape_quality = element_shape_quality(det.get("support_idx", {}),
                                           profiles)
     for d in det["detections"]:
@@ -423,6 +462,7 @@ def analyze_spectrum(
         resolved_fractions=det["resolved_fractions"],
         profiles=profiles, shape_quality=shape_quality,
         corroboration=corroboration,
+        shape_refit=dict(deblends=deblends, sa=sa_records, sa_used=sa_used),
     )
 
 
@@ -464,6 +504,15 @@ def _summary_row(path: str, analysis: dict) -> dict:
     corro = analysis.get("corroboration") or {}
     if "collapse" in (corro.get("reason") or ""):
         flags.append("corroboration-rejected(collapse)")
+    sr = analysis.get("shape_refit") or {}
+    n_deb = sum(1 for r in sr.get("deblends", [])
+                if r.get("action") == "deblended")
+    n_sa = sum(1 for r in sr.get("sa", [])
+               if r.get("action") == "sa-recovered")
+    if n_deb:
+        flags.append(f"deblended({n_deb})")
+    if sr.get("sa_used") and n_sa:
+        flags.append(f"sa-area-recovered({n_sa})")
     return dict(
         file=os.path.basename(path),
         sample=sample_name(path),
@@ -1084,7 +1133,28 @@ print(f"\\n{len(bad)} saturated/contaminated peaks:")
 for r in sorted(bad, key=lambda r: -abs(r['area']))[:10]:
     print(f"  {r['center_nm']:9.3f}  {r['classification']:9s}"
           f"  area={r['area']:9.1f}  wr={r['width_ratio']:.2f}"
-          f"  gfrac={r['gaussian_fraction']:.2f}")"""
+          f"  gfrac={r['gaussian_fraction']:.2f}")
+
+# shape-refit feedback: shoulder deblends + SA growth-curve area recovery
+sr = a.get('shape_refit') or {}
+deb = [r for r in sr.get('deblends', []) if r['action'] == 'deblended']
+print(f"\\nshoulder deblends: {len(deb)} accepted")
+for r in deb[:8]:
+    print(f"  {r['center_nm']:9.3f} -> new component at"
+          f" {r['new_center_nm']:9.3f}  area={r['area_new']:8.1f}"
+          f"  snr={r['snr']:5.1f}  dBIC={r['delta_bic']:6.1f}")
+sa_rec = [r for r in sr.get('sa', []) if r['action'] == 'sa-recovered']
+print(f"SA area recovery ({'APPLIED' if sr.get('sa_used') else 'not applied'}):"
+      f" {len(sa_rec)} lines")
+for r in sa_rec[:8]:
+    print(f"  {r['center_nm']:9.3f} [{r.get('species','?'):>6s}]"
+          f"  observed={r['observed_area']:8.1f} ->"
+          f" emission={r['emission_area']:8.1f}  (x{r['factor']:.2f},"
+          f" tau={r['tau_a']:.2f})")
+skipped = [r for r in sr.get('sa', []) if r['action'] == 'anchored']
+if skipped:
+    print(f"  ({len(skipped)} peaks left to the indexer's doublet-anchored"
+          f" correction)")"""
 
     md_notes = """## Reading the results
 

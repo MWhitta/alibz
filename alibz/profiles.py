@@ -372,3 +372,328 @@ def element_shape_quality(support_idx: Dict[str, List[int]],
         out[el] = dict(sa_share=sat / tot, shoulder_share=cont / tot,
                        clean_anchors=clean)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Feeding shape classes back into the fit
+# ---------------------------------------------------------------------------
+
+#: deblend acceptance: new-component area must exceed this many
+#: matched-filter sigmas AND improve the window BIC by DEBLEND_BIC_MARGIN.
+DEBLEND_ACCEPT_SNR = 4.0
+DEBLEND_BIC_MARGIN = 6.0
+#: cap on deblends per spectrum (strongest shoulders first).
+DEBLEND_MAX = 12
+#: SA recovery: model A (sa_voigt) must beat the symmetric refit by this
+#: BIC margin, converge below the tau ceiling, and amplify the area by at
+#: most SA_AMPLIFICATION_CAP (a growth-curve correction beyond that is a
+#: model extrapolation, not a measurement).
+SA_BIC_MARGIN = 10.0
+SA_AMPLIFICATION_CAP = 5.0
+
+
+def _window_arrays(x, y_bgsub, peaks, j, half_nm, noise):
+    """(xw, y_iso, nz, others_frozen) for peak j's refit window."""
+    mu = float(peaks[j, 1])
+    m = (x >= mu - half_nm) & (x <= mu + half_nm)
+    if int(np.sum(m)) < 9:
+        return None
+    xw = x[m]
+    own = float(peaks[j, 0]) * _voigt(xw - mu, max(peaks[j, 2], 1e-6),
+                                      max(peaks[j, 3], 1e-6))
+    model_all = _multi_voigt(xw, np.ravel(peaks[:, :4]))
+    return xw, y_bgsub[m] - (model_all - own), noise[m], m
+
+
+def deblend_shoulders(x, y, fit_dict, records,
+                      exclude=(),
+                      accept_snr=DEBLEND_ACCEPT_SNR,
+                      bic_margin=DEBLEND_BIC_MARGIN,
+                      max_new=DEBLEND_MAX,
+                      segment_edges=None):
+    """Split ``shoulder``-classified peaks into two components.
+
+    A one-sided flank bump is an UNRESOLVED OVERLAPPING line whose flux
+    contaminates the main peak's fitted area.  Each flagged peak (strongest
+    shoulder first, capped at ``max_new``) is refit in its window as TWO
+    Voigt components plus a free pedestal — the main component confined
+    near its current parameters, the new one seeded at the bump position
+    with its centre pinned within ~1.5 samples and its shape clamped to
+    0.7–1.3x the main's — with every other fitted component frozen and
+    subtracted (the same confinement discipline as
+    :func:`alibz.minor_lines.recover_residual_lines`).
+
+    Acceptance requires the new component's area to exceed ``accept_snr``
+    matched-filter sigmas AND the window BIC (robust loss on both sides)
+    to improve by ``bic_margin``.  ``exclude`` zones (the refinement's
+    asymmetric-merged self-absorbed lines, whose symmetric proxy leaves a
+    DELIBERATE core residual) are skipped — fitting components into those
+    lobes manufactures phantom satellites.
+
+    Returns ``(new_fit_dict, records)`` with per-peak actions in
+    ``deblended`` / ``rejected`` / ``excluded`` / ``fit-failed``.
+    """
+    from alibz.peaky_finder import PeakyFinder
+    from alibz.refinement import _bic, _fit
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    peaks = np.atleast_2d(np.asarray(fit_dict["sorted_parameter_array"],
+                                     dtype=float))[:, :4].copy()
+    bg = np.asarray(fit_dict.get("background", np.zeros_like(y)), dtype=float)
+    y_bgsub = y - bg
+    if segment_edges is None:
+        segment_edges = PeakyFinder.DEFAULT_SEGMENT_EDGES
+    seg_idx = (np.searchsorted(x, np.sort(np.asarray(segment_edges)))
+               if len(segment_edges) else None)
+    noise = PeakyFinder._noise_scale_local(y_bgsub, segment_indices=seg_idx)
+    pitch = float(np.median(np.abs(np.diff(x)))) if x.size > 1 else 0.01
+
+    shoulders = [r for r in records
+                 if r["classification"] == "shoulder"
+                 and r.get("shoulder_offset_nm") is not None]
+    shoulders.sort(key=lambda r: -float(r.get("shoulder_sigma") or 0.0))
+
+    out, n_done = [], 0
+    for r in shoulders:
+        j = int(r["index"])
+        mu = float(peaks[j, 1])
+        rec = dict(index=j, center_nm=mu,
+                   shoulder_nm=mu + float(r["shoulder_offset_nm"]),
+                   action="rejected")
+        if n_done >= max_new:
+            break
+        if any(abs(mu - c) <= h for c, h in exclude):
+            rec["action"] = "excluded"
+            out.append(rec)
+            continue
+        fwhm = float(_voigt_width(max(peaks[j, 2], 1e-6),
+                                  max(peaks[j, 3], 1e-6)))
+        half_nm = float(np.clip(WINDOW_FWHM_MULT * fwhm, *WINDOW_NM_RANGE))
+        got = _window_arrays(x, y_bgsub, peaks, j, half_nm, noise)
+        if got is None:
+            rec["action"] = "fit-failed"
+            out.append(rec)
+            continue
+        xw, yw, nz, _m = got
+        w = 1.0 / np.maximum(nz, 1e-12)
+        a0, mu0, s0, g0 = peaks[j, :4]
+        mu2 = rec["shoulder_nm"]
+
+        def model_one(xx, p):
+            return (p[0] * _voigt(xx - p[1], max(p[2], 1e-9),
+                                  max(p[3], 1e-9)) + p[4])
+
+        def model_two(xx, p):
+            return (p[0] * _voigt(xx - p[1], max(p[2], 1e-9),
+                                  max(p[3], 1e-9))
+                    + p[4] * _voigt(xx - p[5], max(p[6], 1e-9),
+                                    max(p[7], 1e-9)) + p[8])
+
+        ped = 3.0 * float(np.median(nz))
+        p1, chi1 = _fit(model_one, xw, yw, w,
+                        [a0, mu0, s0, g0, 0.0],
+                        [0.25 * a0, mu0 - 0.03, 0.7 * s0, 0.7 * g0, -ped],
+                        [3.0 * a0, mu0 + 0.03, 1.3 * s0, 1.3 * g0, ped])
+        p2, chi2 = _fit(model_two, xw, yw, w,
+                        [a0, mu0, s0, g0, 0.15 * a0, mu2, s0, g0, 0.0],
+                        [0.25 * a0, mu0 - 0.03, 0.7 * s0, 0.7 * g0,
+                         0.0, mu2 - 1.5 * pitch, 0.7 * s0, 0.7 * g0, -ped],
+                        [3.0 * a0, mu0 + 0.03, 1.3 * s0, 1.3 * g0,
+                         2.0 * a0, mu2 + 1.5 * pitch, 1.3 * s0, 1.3 * g0,
+                         ped])
+        if p1 is None or p2 is None:
+            rec["action"] = "fit-failed"
+            out.append(rec)
+            continue
+        d_bic = _bic(chi1, xw.size, 5) - _bic(chi2, xw.size, 9)
+        v = _voigt(xw - p2[5], max(p2[6], 1e-9), max(p2[7], 1e-9))
+        sigma_area = float(np.median(nz) / max(np.sqrt(np.sum(v ** 2)),
+                                               1e-12))
+        rec.update(area_main=float(p2[0]), area_new=float(p2[4]),
+                   new_center_nm=float(p2[5]),
+                   snr=float(p2[4] / max(sigma_area, 1e-300)),
+                   delta_bic=float(d_bic))
+        if p2[4] >= accept_snr * sigma_area and d_bic >= bic_margin:
+            peaks[j, :4] = p2[:4]
+            peaks = np.vstack([peaks, [p2[4], p2[5], p2[6], p2[7]]])
+            rec["action"] = "deblended"
+            n_done += 1
+        out.append(rec)
+
+    new_fit = dict(fit_dict)
+    order = np.argsort(peaks[:, 1])
+    new_fit["sorted_parameter_array"] = peaks[order]
+    new_fit["profile"] = _multi_voigt(x, np.ravel(peaks[:, :4]))
+    return new_fit, out
+
+
+def recover_sa_areas(indexer, result, x, y, fit_dict, records,
+                     exclude=(),
+                     bic_margin=SA_BIC_MARGIN,
+                     amplification_cap=SA_AMPLIFICATION_CAP,
+                     segment_edges=None):
+    """Growth-curve area recovery for ``sa-like`` peaks + composition re-solve.
+
+    A saturated line's fitted (observed) area under-reports its emission
+    nonlinearly.  Each ``sa-like`` peak is refit in its window with the
+    self-absorption model (:func:`alibz.refinement.sa_voigt` — Voigt
+    emission attenuated by a shifted same-shape absorber; its ``area``
+    parameter IS the unattenuated emission area), against a symmetric
+    control refit with the same robust loss.  Acceptance requires the SA
+    model to win by ``bic_margin`` BIC, converge below the ``TAU_MAX``
+    ceiling, and amplify the area by at most ``amplification_cap`` (beyond
+    that the growth-curve inversion is extrapolation, not measurement).
+
+    Double-counting guard: species the indexer anchored through resonance
+    DOUBLET ratios (``_sa_doublet_info`` — K I 766/770, Na D, ...) already
+    carry their measured optical depth on the RESPONSE side of the design;
+    their peaks are skipped here (``anchored``).  ``exclude`` zones (the
+    refinement's asymmetric merges, corrected the same response-side way)
+    are skipped too.
+
+    Accepted corrections are applied as amplitude factors to the indexer's
+    observed amplitudes and the composition is RE-SOLVED linearly at the
+    already-fitted plasma state (the proven ``element_uncertainty_stats``
+    pattern) — no new Bayesian pass, so no basin risk; as a final safety
+    the corrected composition is rejected wholesale if it newly collapses
+    onto one element (:func:`alibz.pipeline.composition_collapsed`).
+
+    Returns ``(new_result, records, used)`` — ``new_result`` is a
+    dataclass copy with re-solved concentrations/fractions (and refreshed
+    predicted/residuals/r_squared) when ``used`` is True, else ``result``
+    unchanged.
+    """
+    import dataclasses
+
+    from alibz.peaky_finder import PeakyFinder
+    from alibz.refinement import TAU_MAX, _bic, _fit, sa_voigt
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    peaks = np.atleast_2d(np.asarray(fit_dict["sorted_parameter_array"],
+                                     dtype=float))[:, :4]
+    bg = np.asarray(fit_dict.get("background", np.zeros_like(y)), dtype=float)
+    y_bgsub = y - bg
+    if segment_edges is None:
+        segment_edges = PeakyFinder.DEFAULT_SEGMENT_EDGES
+    seg_idx = (np.searchsorted(x, np.sort(np.asarray(segment_edges)))
+               if len(segment_edges) else None)
+    noise = PeakyFinder._noise_scale_local(y_bgsub, segment_indices=seg_idx)
+
+    A = getattr(indexer, "_last_A", None)
+    if A is None or not getattr(result, "concentrations", np.empty(0)).size:
+        return result, [], False
+    n_pk = len(indexer._obs_wl)
+    A_pk = np.asarray(A)[:n_pk]
+    contrib = A_pk * result.concentrations
+    anchored = set(getattr(indexer, "_sa_doublet_info", {}) or {})
+
+    sa_peaks = [r for r in records if r["classification"] == "sa-like"]
+    sa_peaks.sort(key=lambda r: -abs(float(r.get("area") or 0.0)))
+
+    out, factors = [], {}
+    for r in sa_peaks:
+        j = int(r["index"])
+        mu = float(peaks[j, 1])
+        rec = dict(index=j, center_nm=mu, action="rejected")
+        if j >= n_pk:
+            rec["action"] = "unmatched"
+            out.append(rec)
+            continue
+        # dominant species assignment for the double-counting guard
+        if contrib.shape[1] and np.any(contrib[j] > 0):
+            k = int(np.argmax(contrib[j]))
+            sp = result.species[k]
+            rec["species"] = f"{sp.element} {'I' * int(sp.ion)}"
+            if (sp.element, sp.ion) in anchored:
+                rec["action"] = "anchored"
+                out.append(rec)
+                continue
+        if any(abs(mu - c) <= h for c, h in exclude):
+            rec["action"] = "excluded"
+            out.append(rec)
+            continue
+        fwhm = float(_voigt_width(max(peaks[j, 2], 1e-6),
+                                  max(peaks[j, 3], 1e-6)))
+        half_nm = float(np.clip(WINDOW_FWHM_MULT * fwhm, *WINDOW_NM_RANGE))
+        got = _window_arrays(x, y_bgsub, peaks, j, half_nm, noise)
+        if got is None:
+            rec["action"] = "fit-failed"
+            out.append(rec)
+            continue
+        xw, yw, nz, _m = got
+        w = 1.0 / np.maximum(nz, 1e-12)
+        a0, mu0, s0, g0 = peaks[j, :4]
+        ped = 3.0 * float(np.median(nz))
+
+        def model_S(xx, p):
+            return (p[0] * _voigt(xx - p[1], max(p[2], 1e-9),
+                                  max(p[3], 1e-9)) + p[4])
+
+        def model_A_(xx, p):
+            return sa_voigt(xx, p[0], p[1], p[2], p[3], p[4], p[5]) + p[6]
+
+        pS, chiS = _fit(model_S, xw, yw, w,
+                        [a0, mu0, s0, g0, 0.0],
+                        [0.25 * a0, mu0 - 0.03, 0.7 * s0, 0.7 * g0, -ped],
+                        [3.0 * a0, mu0 + 0.03, 1.3 * s0, 1.3 * g0, ped])
+        pA, chiA = _fit(model_A_, xw, yw, w,
+                        [1.2 * a0, mu0, s0, g0, 1.0, 0.0, 0.0],
+                        [a0 * 0.5, mu0 - 0.03, 0.7 * s0, 0.7 * g0,
+                         0.0, -0.05, -ped],
+                        [amplification_cap * a0, mu0 + 0.03,
+                         1.3 * s0, 1.3 * g0, TAU_MAX, 0.05, ped])
+        if pS is None or pA is None:
+            rec["action"] = "fit-failed"
+            out.append(rec)
+            continue
+        d_bic = _bic(chiS, xw.size, 5) - _bic(chiA, xw.size, 7)
+        emission = float(pA[0])
+        factor = emission / max(a0, 1e-300)
+        rec.update(emission_area=emission, observed_area=float(a0),
+                   tau_a=float(pA[4]), delta_nm=float(pA[5]),
+                   factor=round(factor, 3), delta_bic=float(d_bic))
+        if (d_bic >= bic_margin and pA[4] < 0.98 * TAU_MAX
+                and 1.0 < factor <= amplification_cap):
+            rec["action"] = "sa-recovered"
+            factors[j] = factor
+        out.append(rec)
+
+    if not factors:
+        return result, out, False
+
+    # linear re-solve at the fitted plasma state with corrected amplitudes
+    from alibz.pipeline import composition_collapsed
+    amp0 = indexer._obs_amp.copy()
+    try:
+        amp = amp0.copy()
+        for j, f in factors.items():
+            amp[j] = amp[j] * f
+        indexer._obs_amp = amp
+        c, _cost = indexer._solve_concentrations(result.temperature,
+                                                 result.ne)
+        A_new = np.asarray(indexer._last_A)[:n_pk]
+        conc, fracs, dis = indexer._aggregate_elements(c, indexer._last_A)
+    finally:
+        indexer._obs_amp = amp0
+    if composition_collapsed(result.element_fractions, fracs):
+        for r in out:
+            if r["action"] == "sa-recovered":
+                r["action"] = "rejected-collapse"
+        # regenerate the solver state (_last_A) at the ORIGINAL amplitudes
+        # so downstream support/detection analysis stays consistent with
+        # the unchanged result
+        indexer._solve_concentrations(result.temperature, result.ne)
+        return result, out, False
+
+    predicted = A_new @ c
+    residuals = amp[:n_pk] - predicted
+    ss_tot = float(np.sum((amp[:n_pk] - np.mean(amp[:n_pk])) ** 2))
+    r2 = 1.0 - float(np.sum(residuals ** 2)) / max(ss_tot, 1e-300)
+    new_result = dataclasses.replace(
+        result, concentrations=c, observed=amp[:n_pk].copy(),
+        predicted=predicted, residuals=residuals, r_squared=r2,
+        element_concentrations=conc, element_fractions=fracs,
+        stage_disagreement=dis)
+    return new_result, out, True
