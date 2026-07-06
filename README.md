@@ -151,10 +151,9 @@ Both commands accept `--gpu` / `--no-gpu` flags and support multiple input direc
 
 ## Notebooks
 
-- `notebooks/fit_inspection.ipynb`: fit inspection workflow
-- `notebooks/peaky_demo_v1.ipynb`: peak finding, fitting, and elemental indexing workflow
-- `notebooks/peaky_data.ipynb`: corpus-level PCA, peak width statistics, peak-shape decomposition, and PC-based peak characterisation
-- `notebooks/peaky_syndexer.ipynb`: end-to-end synthetic spectrum generation, fitting, and indexing stress tests
+- `notebooks/demo_notebook.ipynb`: end-to-end production demo — one-call `analyze_spectrum`, the confounder-resolved detection report, fit-inspection plots, and the directory/`alibz-analyze` workflow
+- `notebooks/fit_inspection.ipynb`: fit inspection for one live spectrum (the notebook `alibz-analyze` generates), with fit plots, refinement decisions, seeded minor lines, and the raw-vs-resolved composition charts
+- `notebooks/peaky_data.ipynb`: corpus-level PCA, peak width statistics, peak-shape decomposition, and PC-based peak characterisation (a visual record of the whole-corpus development target)
 
 ## Tests
 

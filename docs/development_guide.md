@@ -97,7 +97,6 @@ raw spectrum
 | Module | Stage | Status |
 |--------|-------|--------|
 | `peaky_finder.py` | (a) Fast peak detection via local-maxima search; FFT-based background subtraction; multi-Voigt least-squares fitting with adaptive bounds; fast-mode parameter estimation without optimiser. | **Working** |
-| `peaky_fitter.py` | (a,c) Legacy ion-by-ion fitting path. Removed from the supported API pending a ground-up rebuild against current finder/indexer interfaces. | **Retired** |
 | `peaky_corpus.py` | (a,b) Batch fitting across a corpus; common-grid standardisation (GPU-accelerated); FWHM width statistics; GMM mode detection. | **Working** |
 | `peaky_pca.py` | (b) PCA decomposition of normalised peak windows; perturbation analysis mapping each PC to a physical broadening mechanism (Doppler, Stark, self-absorption); peak classification. | **Working** |
 | `gpu.py` | All | GPU acceleration (CuPy): batch interpolation, SVD-based PCA, pseudo-Voigt evaluation, window extraction. | **Working** |
