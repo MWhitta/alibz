@@ -130,19 +130,35 @@ ELEMENT_PERIODIC_BLOCK = {
     for el in elements
 }
 PERIODIC_BLOCK_COLORS = {
-    "reactive nonmetal": "#eef8ff",
-    "group 1": "#dff1fc",
-    "group 2": "#cfe9f8",
-    "3d-block": "#bde0f1",
-    "4d-block": "#aad6e9",
-    "5d-block": "#96cbe0",
-    "4f-block": "#82bfd5",
-    "5f-block": "#6eb2c9",
-    "post-transition metal": "#5aa5bd",
-    "metalloid": "#4697b0",
-    "halogen": "#32889f",
-    "noble gas": "#1e7790",
-    "other": "#0b5f78",
+    "reactive nonmetal": "#dc2626",
+    "group 1": "#e11d48",
+    "group 2": "#d97706",
+    "3d-block": "#2563eb",
+    "4d-block": "#0d9488",
+    "5d-block": "#7c3aed",
+    "4f-block": "#c026d3",
+    "5f-block": "#92400e",
+    "post-transition metal": "#64748b",
+    "metalloid": "#65a30d",
+    "halogen": "#16a34a",
+    "noble gas": "#0891b2",
+    "other": "#52525b",
+}
+PERIODIC_BLOCK_COLOR_STYLE = {
+    # hue degrees, saturation, light shade, dark shade
+    "reactive nonmetal": (4.0, 0.76, 0.82, 0.38),
+    "group 1": (342.0, 0.78, 0.84, 0.38),
+    "group 2": (36.0, 0.82, 0.84, 0.36),
+    "3d-block": (215.0, 0.78, 0.82, 0.34),
+    "4d-block": (174.0, 0.74, 0.80, 0.32),
+    "5d-block": (262.0, 0.72, 0.82, 0.36),
+    "4f-block": (292.0, 0.68, 0.84, 0.38),
+    "5f-block": (22.0, 0.72, 0.82, 0.35),
+    "post-transition metal": (210.0, 0.34, 0.78, 0.36),
+    "metalloid": (78.0, 0.66, 0.78, 0.34),
+    "halogen": (132.0, 0.68, 0.78, 0.34),
+    "noble gas": (190.0, 0.68, 0.78, 0.34),
+    "other": (0.0, 0.0, 0.60, 0.40),
 }
 
 
@@ -157,23 +173,25 @@ def _rgb01_to_hex(rgb: Tuple[float, float, float]) -> str:
 
 
 def _build_element_colors() -> Dict[str, str]:
-    """Unique same-hue shades, grouped by periodic block/family."""
-    ordered_elements = [
-        el
-        for _block, members in PERIODIC_BLOCK_MEMBERS.items()
-        for el in sorted(members, key=lambda el: (ATOMIC_NUMBER[el], el))
-    ]
+    """Unique shades grouped by periodic-table chemistry/position."""
     colors = {}
-    n = len(ordered_elements)
-    hue = 202.0 / 360.0
-    saturation = 0.72
-    light_min, light_max = 0.30, 0.92
-    for i, el in enumerate(ordered_elements):
-        frac = i / (n - 1)
-        lightness = light_max - (light_max - light_min) * frac
-        colors[el] = _rgb01_to_hex(colorsys.hls_to_rgb(
-            hue, lightness, saturation
-        ))
+    for block, members in PERIODIC_BLOCK_MEMBERS.items():
+        hue_deg, saturation, light_hi, light_lo = PERIODIC_BLOCK_COLOR_STYLE[
+            block
+        ]
+        ordered = sorted(members, key=lambda el: (ATOMIC_NUMBER[el], el))
+        n = len(ordered)
+        for i, el in enumerate(ordered):
+            frac = 0.5 if n == 1 else i / (n - 1)
+            # A small within-family hue drift plus a wide lightness span
+            # keeps related elements grouped without making adjacent
+            # members look like repeated colors in stacked bars.
+            hue = ((hue_deg + (frac - 0.5) * 28.0) % 360.0) / 360.0
+            lightness = light_hi - (light_hi - light_lo) * frac
+            sat = max(0.20, min(0.90, saturation + 0.06 * (0.5 - frac)))
+            colors[el] = _rgb01_to_hex(colorsys.hls_to_rgb(
+                hue, lightness, sat
+            ))
     return colors
 
 ELEMENT_COLORS = _build_element_colors()
@@ -356,10 +374,142 @@ def element_uncertainties(
             for el in result.element_fractions}
 
 
+#: a supporting peak is contested when a rival element — at the LARGEST
+#: concentration its own true negatives allow — still covers at least
+#: this fraction of the peak's amplitude.
+RIVAL_COVER_FRACTION = 0.5
+#: rival template response at the peak must be at least this fraction of
+#: the claiming element's response to count as a potential rival at all.
+RIVAL_MIN_RESPONSE = 0.05
+#: plasma-state grid the contest scans.  The fitted (T, n_e) cannot be
+#: trusted for this: a wrong attribution drags the fit to a plasma state
+#: where the rival's lines vanish and then "confirms" itself (measured:
+#: Mn booking the Mg II 279.5 flux pulled T to 5.0 kK, where Mg is
+#: neutral and Mg II cannot respond — the rival became invisible to its
+#: own contest).  A peak is contested if a rival is viable at ANY
+#: corpus-plausible state.
+CONTEST_T_GRID = (6000.0, 8000.0, 10000.0, 12000.0)
+CONTEST_LOGNE_GRID = (16.5, 17.5)
+
+
+def _contested_support(
+    A_pk: np.ndarray,
+    cols: Dict[str, List[int]],
+    el_names: List[str],
+    obs: np.ndarray,
+    area_sigma: np.ndarray,
+    sup_idx: Dict[str, List[int]],
+    A_nonres: Optional[np.ndarray] = None,
+) -> Dict[str, dict]:
+    """True-negative-weighted contest analysis of each element's support.
+
+    For each rival element the spectrum itself caps its concentration:
+    ``c_max = min_j (obs_j + 3 sigma_j) / T_j`` over every peak position
+    where the rival's template responds — the rival can be no more
+    abundant than its FAINTEST expected line allows (its true negatives).
+    A supporting peak of element E is CONTESTED when some rival at that
+    cap still covers >= :data:`RIVAL_COVER_FRACTION` of the peak's
+    amplitude: attribution between E and the rival is then a model
+    choice, not evidence.  Archetype: Mg (capped by its observed Mg I
+    285.2 line) can still cover the Mg II 279.5/280.3 flux booked to
+    Mn — contested; genuine 50% Mn would need its absent 403 nm triplet,
+    so Mn's own cap collapses in samples that lack it.
+
+    Returns per-element ``{clear_lines, contested_share, confounder}``:
+    supporting peaks NO rival can cover, the fraction of supporting flux
+    on contested peaks, and the rival contesting the most flux.
+    """
+    sig = np.where(np.isfinite(area_sigma), area_sigma,
+                   0.1 * np.abs(obs))
+    allow = np.abs(obs) + 3.0 * sig + 1e-12
+    # per-element unit-concentration template response at each peak
+    T = np.stack([A_pk[:, cols[el]].sum(axis=1) for el in el_names],
+                 axis=1)
+    # Concentration caps come from the element's NON-RESONANCE response
+    # when available (``A_nonres``: the same design with Ei <= 0.2 eV
+    # lines zeroed): resonance lines self-absorb, so their observed
+    # amplitudes UNDERSTATE the element and would strangle the cap
+    # (measured: the classic self-absorbed Mg I 285.2 capped Mg at 12%
+    # of the Mg II 279.5 flux it can physically supply, letting a 50%
+    # "Mn" reading stand uncontested).
+    T_cap = T
+    if A_nonres is not None:
+        T_cap = np.stack([A_nonres[:, cols[el]].sum(axis=1)
+                          for el in el_names], axis=1)
+    # per-element concentration cap from its true negatives: the minimum
+    # of allow/T over the positions where the element's template responds
+    # at a meaningful level (tiny wing responses would set absurd caps)
+    c_max = np.full(len(el_names), np.inf)
+    for r in range(len(el_names)):
+        resp = T_cap[:, r]
+        if not np.any(resp > 0):
+            resp = T[:, r]  # no non-resonance lines: fall back
+        active = resp > 1e-3 * float(np.max(resp)) if np.any(resp > 0) \
+            else np.zeros_like(resp, dtype=bool)
+        if np.any(active):
+            c_max[r] = float(np.min(allow[active] / resp[active]))
+    out: Dict[str, dict] = {}
+    for el, idxs in sup_idx.items():
+        if el not in el_names:
+            out[el] = dict(contested=set(), rivals={})
+            continue
+        e = el_names.index(el)
+        contested_idx = set()
+        rival_flux: Dict[str, float] = {}
+        for i in idxs:
+            for r, rel in enumerate(el_names):
+                if rel == el or T[i, r] <= RIVAL_MIN_RESPONSE * max(
+                        T[i, e], 1e-300):
+                    continue
+                if (np.isfinite(c_max[r]) and c_max[r] * T[i, r]
+                        >= RIVAL_COVER_FRACTION * obs[i]):
+                    contested_idx.add(i)
+                    rival_flux[rel] = rival_flux.get(rel, 0.0) + float(obs[i])
+        out[el] = dict(contested=contested_idx, rivals=rival_flux)
+    return out
+
+
+def _merge_contests(
+    sup_idx: Dict[str, List[int]],
+    obs: np.ndarray,
+    per_state: List[Dict[str, dict]],
+) -> Dict[str, dict]:
+    """Merge per-plasma-state contest results (existential over states).
+
+    A supporting peak is contested if ANY scanned (T, n_e) makes a rival
+    viable; ``clear_lines`` counts peaks no state can contest.  The
+    ``confounder`` is the rival contesting the most flux, maximised over
+    states so a rival strong at one temperature is not diluted by states
+    where it cannot respond.
+    """
+    out: Dict[str, dict] = {}
+    for el, idxs in sup_idx.items():
+        contested_idx: set = set()
+        rival_best: Dict[str, float] = {}
+        for state in per_state:
+            det = state.get(el)
+            if not det:
+                continue
+            contested_idx |= det["contested"]
+            for rel, fl in det["rivals"].items():
+                rival_best[rel] = max(rival_best.get(rel, 0.0), fl)
+        total = sum(float(obs[i]) for i in idxs)
+        contested_flux = sum(float(obs[i]) for i in contested_idx)
+        out[el] = dict(
+            clear_lines=sum(1 for i in idxs if i not in contested_idx),
+            contested_share=round(contested_flux / total, 3)
+            if total > 0 else 0.0,
+            confounder=(max(rival_best, key=rival_best.get)
+                        if rival_best else None),
+        )
+    return out
+
+
 def classify_detections(
     result,
     stats: Dict[str, Dict[str, float]],
     support: Dict[str, List[Tuple[float, float, float]]],
+    contested: Optional[Dict[str, dict]] = None,
 ) -> List[dict]:
     """Per-element detection records for the long-format report.
 
@@ -375,6 +525,12 @@ def classify_detections(
     - ``blended-only`` z >= 3 with NO peak dominated by this element (all
       fitted flux sits under peaks assigned to other species) — maximum
       suspicion;
+    - ``confounded``   would be detected/single-line, but EVERY
+      supporting peak could equally be a viable rival element's line
+      (see :func:`_contested_support`) — the attribution, and therefore
+      the abundance, is a model choice between this element and the
+      named ``confounder`` (measured archetype: Mn "detected" at 50%
+      entirely from the Mg II 279.5/280.3 nm region);
     - ``marginal``     2 <= z < 3;
     - ``weak``         z < 2 (consistent with zero at ~95%);
     - ``upper-limit``  the best fit zeroed the element but its candidate
@@ -426,6 +582,16 @@ def classify_detections(
                 status = "marginal"
             else:
                 status = "weak"
+            # true-negative demotion: a "detection" whose EVERY
+            # supporting peak could equally be a rival's line (and the
+            # rival's own predictions check out elsewhere) is an
+            # attribution choice, not a detection — e.g. Mn "detected"
+            # at 50% purely from the Mg II 279.5/280.3 region
+            con = (contested or {}).get(el, {})
+            if (status in ("detected", "single-line")
+                    and con.get("clear_lines", 1) == 0
+                    and con.get("contested_share", 0.0) >= 0.5):
+                status = "confounded"
         else:
             if not st or not np.isfinite(std):
                 continue  # not in the candidate design at all
@@ -439,11 +605,15 @@ def classify_detections(
                 continue  # never activated in any draw: no design support
             status, z = "upper-limit", 0.0
         d = result.stage_disagreement.get(el, float("nan"))
+        con = (contested or {}).get(el, {})
         detections.append(dict(
             element=el, status=status, fraction=frac,
             unc=(std if np.isfinite(std) else None),
             z=(round(min(z, 999.0), 1) if np.isfinite(z) else 999.0),
             n_lines=len(lines),
+            clear_lines=con.get("clear_lines"),
+            contested_share=con.get("contested_share"),
+            confounder=con.get("confounder"),
             strongest_peak_nm=(round(strongest[1], 3) if strongest else None),
             strongest_obs=(round(strongest[2], 1) if strongest else None),
             upper_limit=upper,
@@ -473,6 +643,7 @@ def analyze_spectrum(
     """
     from alibz import PeakyFinder, refine_fit, seed_minor_lines
     from alibz.inspection import estimate_peak_uncertainties
+    from alibz.minor_lines import recover_residual_lines
     from alibz.peaky_indexer_v3 import PeakyIndexerV3
     from alibz.utils.wavelength import estimate_wavelength_shift
 
@@ -516,6 +687,25 @@ def analyze_spectrum(
     if seed_minor and established:
         final, records = seed_minor_lines(x, y, refined, db, established,
                                           shift_nm=shift)
+    # element-agnostic recovery: significant positive residual peaks are
+    # real lines the seeder could not predict (e.g. Fe lines when the Fe
+    # stage scale fails the Boltzmann trust gate) — fit them from the
+    # data alone; the pass-2 indexer then identifies them.  The
+    # asymmetric-merged self-absorbed lines are EXCLUDED: their symmetric
+    # table proxy leaves a core-shaped residual by design (see
+    # refine_fit), and fitting components there re-splits the merge.
+    from alibz.utils.voigt import voigt_width as _vw
+    sa_zones = []
+    for dec in decisions:
+        if (dec.get("action") == "merge"
+                and str(dec.get("verdict", "")).startswith("asymmetric")
+                and dec.get("params_asym") is not None):
+            pA = dec["params_asym"]
+            halfw = 1.5 * max(float(_vw(max(pA[2], 1e-6),
+                                        max(pA[3], 1e-6))), 0.15)
+            sa_zones.append((float(pA[1]), halfw))
+    final, recovered = recover_residual_lines(x, y, final,
+                                              exclude=tuple(sa_zones))
     fpeaks = final["sorted_parameter_array"]
 
     # pass 2: final composition, warm-started at the pass-1 plasma state
@@ -539,10 +729,12 @@ def analyze_spectrum(
     # each other are merged (strongest kept) so a phantom-split strong
     # line cannot count as two independent lines.
     support: Dict[str, List[Tuple[float, float, float]]] = {}
+    contested: Dict[str, dict] = {}
     A = getattr(idx2, "_last_A", None)
     if A is not None and result.concentrations.size:
         n_pk = len(idx2._obs_wl)
-        contrib = np.asarray(A)[:n_pk] * result.concentrations
+        A_pk = np.asarray(A)[:n_pk]
+        contrib = A_pk * result.concentrations
         el_names = sorted({sp.element for sp in result.species})
         cols = {el: [j for j, sp in enumerate(result.species)
                      if sp.element == el] for el in el_names}
@@ -550,6 +742,7 @@ def analyze_spectrum(
                      axis=1)                       # (n_peaks, n_elements)
         obs = np.asarray(idx2._obs_amp[:n_pk], dtype=float)
         dom = np.argmax(E, axis=1)
+        sup_idx: Dict[str, List[int]] = {}
         for i in range(n_pk):
             el = el_names[dom[i]]
             con = float(E[i, dom[i]])
@@ -557,6 +750,7 @@ def analyze_spectrum(
                 wl_obs = float(idx2._obs_wl[i]) + shift
                 support.setdefault(el, []).append((con, wl_obs,
                                                    float(obs[i])))
+                sup_idx.setdefault(el, []).append(i)
         for el, lines in support.items():
             lines.sort(reverse=True)
             merged: List[Tuple[float, float, float]] = []
@@ -564,13 +758,57 @@ def analyze_spectrum(
                 if all(abs(ln[1] - m[1]) > 0.15 for m in merged):
                     merged.append(ln)
             support[el] = merged
-    detections = classify_detections(result, stats, support)
+        # The contest must see the FULL candidate space, not the fit's
+        # survivors: the NNLS vertex hands collinear flux to one species
+        # and prune_and_refit then deletes the rival (measured: Mg II —
+        # 183 candidate lines — pruned after Mn I took the 279.5/280.1
+        # region, leaving 50% "Mn" unfalsifiable inside the fitted
+        # design).  Rebuild the un-pruned design at the fitted plasma
+        # state and contest against every candidate element.
+        try:
+            # Build the contest candidate table at a NEUTRAL corpus-central
+            # plasma state, never the fitted one: build_candidate_matrix's
+            # Saha prefilter prunes species using T_init/ne_init, and a fit
+            # whose misattribution dragged T to 5 kK would prune the very
+            # rival (Mg II) the contest exists to consider.
+            idx_c = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
+                                   temperature_init=9000.0, ne_init=17.0)
+            idx_c.build_candidate_matrix()
+            el_full = sorted({sp.element for sp in idx_c.line_table.species})
+            cols_full = {el: [j for j, sp
+                              in enumerate(idx_c.line_table.species)
+                              if sp.element == el] for el in el_full}
+            per_state = []
+            for T_c in CONTEST_T_GRID:
+                for ne_c in CONTEST_LOGNE_GRID:
+                    lw = idx_c._line_weights(T_c, ne_c)
+                    A_full = np.asarray(
+                        idx_c._build_design_matrix(lw))[:n_pk]
+                    # non-resonance design for the concentration caps
+                    # (resonance lines self-absorb and understate the
+                    # element)
+                    lw_nr = np.where(idx_c.line_table.Ei > 0.2, lw, 0.0)
+                    A_nr = np.asarray(
+                        idx_c._build_design_matrix(lw_nr))[:n_pk]
+                    per_state.append(_contested_support(
+                        A_full, cols_full, el_full, obs,
+                        area_sigma[:n_pk], sup_idx, A_nonres=A_nr))
+            contested = _merge_contests(sup_idx, obs, per_state)
+        except Exception:  # noqa: BLE001 - contest is best-effort QC
+            traceback.print_exc(file=sys.stderr)
+            print("contested-support: full-candidate scan failed; "
+                  "borderline confounder columns will be empty",
+                  file=sys.stderr)
+            contested = {}
+    detections = classify_detections(result, stats, support,
+                                     contested=contested)
 
     return dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
-        records=records, shift=shift, n_anchor=n_anchor, ne_init=ne_init,
+        records=records, recovered=recovered, shift=shift,
+        n_anchor=n_anchor, ne_init=ne_init,
         result=result, element_uncertainty=unc, established=established,
-        detections=detections,
+        detections=detections, support=support, contested=contested,
     )
 
 
@@ -587,6 +825,11 @@ def _summary_row(path: str, analysis: dict) -> dict:
                             key=lambda item: element_sort_key(item[0]))
         if np.isfinite(d) and d > STAGE_FLAG_THRESHOLD
         and res.element_fractions.get(el, 0.0) > 0
+    ]
+    flags += [
+        f"{d['element']}:confounded({d['confounder']})"
+        for d in analysis.get("detections", [])
+        if d["status"] == "confounded" and d.get("confounder")
     ]
     return dict(
         file=os.path.basename(path),
@@ -811,7 +1054,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
     dropped.  Returns the number of detection rows written.
     """
     header = ["sample", "element", "status", "fraction", "unc", "z",
-              "n_lines", "strongest_peak_nm", "strongest_obs",
+              "n_lines", "clear_lines", "contested_share", "confounder",
+              "strongest_peak_nm", "strongest_obs",
               "upper_limit", "stage_disagreement"]
     n = 0
     with open(path, "w", newline="") as fh:
@@ -820,8 +1064,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
         for row in rows:
             if row.get("status", "") != "ok" and not row.get("detections"):
                 # errored samples must be VISIBLE here, not silently absent
-                w.writerow([row["sample"], "", row.get("status", ""),
-                            "", "", "", "", "", "", "", ""])
+                w.writerow([row["sample"], "", row.get("status", "")]
+                           + [""] * (len(header) - 3))
                 n += 1
                 continue
             for d in row.get("detections", []):
@@ -831,6 +1075,11 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
                     f"{d['unc']:.3g}" if d.get("unc") is not None else "",
                     d.get("z", ""),
                     d.get("n_lines", ""),
+                    (d["clear_lines"]
+                     if d.get("clear_lines") is not None else ""),
+                    (d["contested_share"]
+                     if d.get("contested_share") is not None else ""),
+                    d.get("confounder") or "",
                     d.get("strongest_peak_nm") or "",
                     d.get("strongest_obs") or "",
                     (f"{d['upper_limit']:.3g}"
@@ -887,15 +1136,21 @@ Generated by `alibz-analyze` on {stamp}.
   `stage_disagreement` diagnostic below is their first-order indicator.
 - Set `SPECTRUM_FILE` below to inspect any spectrum in the directory.
 """
-    code_setup = f"""import csv, glob, os
+    code_setup = f"""import csv, glob, importlib, os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
 from alibz import plot_spectrum_overview
-from alibz.pipeline import (analyze_spectrum, element_color,
-                            element_periodic_block, element_sort_key,
-                            load_spectrum_csv, sample_name)
+import alibz.pipeline as alibz_pipeline
+
+alibz_pipeline = importlib.reload(alibz_pipeline)
+analyze_spectrum = alibz_pipeline.analyze_spectrum
+element_color = alibz_pipeline.element_color
+element_periodic_block = alibz_pipeline.element_periodic_block
+element_sort_key = alibz_pipeline.element_sort_key
+load_spectrum_csv = alibz_pipeline.load_spectrum_csv
+sample_name = alibz_pipeline.sample_name
 
 DATA_DIR = {data_dir!r}
 DB_PATH  = {dbpath!r}
@@ -995,6 +1250,31 @@ for r in sorted(added, key=lambda r: r['wavelength_db']):
           f" {r['wavelength_db']:9.3f}  fitted={r['area']:8.1f}"
           f"  snr={r['snr']:5.1f}")"""
 
+    md_recovered = """### Residual-recovered lines
+
+Positive residual peaks that survived the blind fit, refinement, AND the
+Boltzmann seeder are usually real lines the seeder could not predict —
+most often a line-rich element (Fe) whose per-stage Boltzmann scale fails
+the trust gate on real rock. The element-agnostic recovery pass fits each
+significant positive residual maximum (> 4σ local noise) as a new
+component from the data alone; the whole-pattern indexer then identifies
+it, so recovered lines flow into the composition and `detections.csv`
+through the normal channels. Anything still listed `rejected` below
+remains visible in the overview residual — genuinely unexplained flux.
+"""
+    code_recovered = """# element-agnostic residual recovery for this spectrum
+rec_added = [r for r in a['recovered'] if r['action'] == 'added']
+rej = [r for r in a['recovered'] if r['action'] == 'rejected']
+print(f"{len(rec_added)} residual lines recovered, {len(rej)} rejected")
+for r in sorted(rec_added, key=lambda r: r['center']):
+    print(f"  {r['center']:9.3f}  area={r['area']:8.1f}"
+          f"  snr={r['snr']:6.1f}  dBIC={r['delta_bic']:7.1f}")
+if rej:
+    print('rejected (still unexplained):')
+    for r in sorted(rej, key=lambda r: -r.get('resid0', 0)):
+        print(f"  {r['center0']:9.3f}  resid={r['resid0']:7.0f}"
+              f"  snr0={r['snr0']:5.1f}")"""
+
     md_borderline = """### Borderline elements: the evidence, not just the number
 
 Near the limit of detection an abundance value alone is not a claim. The
@@ -1007,6 +1287,12 @@ table and zooms below show what each borderline call actually rests on:
   plausibly below noise?);
 - **blended-only** — z ≥ 3 but no peak is dominated by this element
   (all fitted flux hides under other species' peaks) — maximum suspicion;
+- **confounded** — every supporting peak could equally be the named
+  `confounder` element's line, and the confounder's own predicted lines
+  check out elsewhere in the spectrum: the abundance is an attribution
+  choice, not a measurement (archetype: Mn "detected" at 50% purely from
+  the Mg II 279.5/280.3 nm region — genuine Mn at that level would light
+  its 403 nm triplet, which is absent);
 - **marginal** (2 ≤ z < 3) / **weak** (z < 2, consistent with zero);
 - **upper-limit** — the fit zeroed the element; the value is how much
   could hide below the noise (mean + 2σ of the resampled fraction).
@@ -1015,18 +1301,21 @@ table and zooms below show what each borderline call actually rests on:
 from alibz import plot_peak_zoom
 
 print(f"{'el':>4} {'status':>12} {'fraction':>9} {'unc':>8} {'z':>6}"
-      f" {'lines':>5}  {'strongest [nm]':>14} {'upper_lim':>9}")
+      f" {'lines':>5} {'clear':>5} {'confounder':>10}"
+      f"  {'strongest [nm]':>14} {'upper_lim':>9}")
 for d in sorted(a['detections'], key=lambda d: -(d['fraction'] or 0)):
     print(f"{d['element']:>4} {d['status']:>12}"
           f" {d['fraction']:9.5f}"
           f" {d['unc'] if d['unc'] is not None else float('nan'):8.5f}"
           f" {d['z']:6.1f} {d['n_lines']:5d}"
+          f" {d['clear_lines'] if d.get('clear_lines') is not None else '':>5}"
+          f" {d.get('confounder') or '':>10}"
           f"  {d['strongest_peak_nm'] or '':>14}"
           f" {d['upper_limit'] if d['upper_limit'] is not None else '':>9}")
 
 borderline = [d for d in a['detections']
               if d['status'] in ('single-line', 'blended-only',
-                                 'marginal', 'weak')
+                                 'confounded', 'marginal', 'weak')
               and d.get('strongest_peak_nm')]
 for d in borderline[:6]:
     fig, axs = plot_peak_zoom(x, y, a['final'], d['strongest_peak_nm'],
@@ -1066,6 +1355,8 @@ for d in borderline[:6]:
         _nb_cell("code", code_decisions),
         _nb_cell("markdown", "### Seeded minor lines"),
         _nb_cell("code", code_minor),
+        _nb_cell("markdown", md_recovered),
+        _nb_cell("code", code_recovered),
         _nb_cell("markdown", md_borderline),
         _nb_cell("code", code_borderline),
         _nb_cell("markdown", md_notes),

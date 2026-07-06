@@ -281,6 +281,73 @@ and standards-validated reporting are still future work.
 
 ---
 
+## Spectral confounders: the true-negative contest (implemented 2026-07-05)
+
+### The archetype
+
+On the JChristensen drill cores the whole-pattern fit reported Mn at
+40–53% atom fraction in several samples — resting on exactly two peaks at
+279.49/279.76 nm, inside the **Mg II 279.553/280.270** resonance doublet
+region (Mn I/II have lines at 279.48/279.83/280.11). Mg itself read
+`single-line` from Mg I 285.2. The chain that lets this happen:
+
+1. the NNLS design has nearly collinear Mn and Mg columns in 279–281 nm;
+   the solve lands on a vertex and hands ALL the flux to one of them;
+2. `prune_and_refit` then deletes the zeroed rival (Mg II, 183 candidate
+   lines) from the design — the alternative hypothesis becomes
+   *unrepresentable*;
+3. the misattribution drags the fitted temperature (measured: T → 5.0 kK,
+   where Mg is neutral), so even a post-hoc check at the fitted plasma
+   state finds Mg II unable to respond — the error certifies itself.
+
+### The general method
+
+For each element E with fitted support, and each rival element E', ask:
+**could E' cover E's supporting peaks without violating its own true
+negatives?** Concretely (`pipeline._contested_support`):
+
+- cap the rival's concentration by its own absent/weak lines:
+  ``c_max(E') = min_j (obs_j + 3σ_j) / T_j(E')`` over every fitted peak
+  position where E''s template responds — computed from E''s
+  **non-resonance lines only** (Eᵢ > 0.2 eV), because resonance lines
+  self-absorb and understate the element (measured: the classic
+  self-absorbed Mg I 285.2 line otherwise caps Mg at 12% of the flux it
+  can physically supply);
+- a supporting peak of E is **contested** if some rival at its cap still
+  covers ≥ 50% of the peak amplitude;
+- the scan runs over a **corpus-plausible plasma grid**
+  (T ∈ {6, 8, 10, 12} kK × log nₑ ∈ {16.5, 17.5}), existentially — never
+  only at the fitted state (see failure 3 above) — and against the
+  **pre-prune candidate table** built at a neutral 9 kK / 17.0 state
+  (see failures 1–2).
+
+`detections.csv` reports per element: `clear_lines` (supporting peaks no
+rival can cover at any scanned state), `contested_share` (fraction of
+supporting flux on contested peaks), and `confounder` (the rival
+contesting the most flux). An element whose *every* supporting peak is
+contested is demoted from `detected`/`single-line` to **`confounded`**
+and flagged in `summary.csv` (`Mn:confounded(Mg)`); its abundance is an
+attribution choice, not a measurement. Validated: both hot-Mn samples
+demote (contested = 1.0, confounder = Mg) while Li/Al/Na detections with
+genuinely independent lines are untouched.
+
+The corpus-level confounder catalog is the aggregation of the
+`confounder` column across a run — pairs that recur (Mn⇄Mg here) are the
+corpus's operative confounders under its actual (T, nₑ) range.
+
+### What this does NOT yet do
+
+Quantification is still the NNLS vertex: a `confounded` element's
+*fraction* remains in `summary.csv` unchanged — the guard makes the
+ambiguity visible rather than resolving it. The quantification-side fix
+(couple collinear columns with a ridge/group penalty, or re-solve with
+the confounder reinstated and report the attribution range) is future
+work; until then, treat `confounded` fractions — and totals renormalised
+around them — as upper bounds on attribution confidence, especially in
+low-Si samples where the 279–281 region dominates the UV.
+
+---
+
 ## Future work — instrument line-spread function (forward model)
 
 **Status: planned, not started. Interim mitigation (robust loss) is in place.**

@@ -31,6 +31,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 from scipy.special import voigt_profile as _voigt
 
+from alibz.refinement import SA_ROBUST_F_SCALE as _SA_F_SCALE
 from alibz.refinement import _fit, _weighted_median
 from alibz.utils.voigt import multi_voigt as _multi_voigt
 from alibz.utils.voigt import voigt_width as _voigt_width
@@ -495,6 +496,264 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
         else:
             rec["action"] = ("missing" if cand["expected_snr"] >= 10.0
                              else "rejected")
+        records.append(rec)
+
+    if added_mu:
+        order = np.argsort(peaks[:, 0])[::-1]
+        peaks = peaks[order]
+        new_fit = dict(fit_dict)
+        new_fit["sorted_parameter_array"] = peaks
+        new_fit["profile"] = _multi_voigt(x, np.ravel(peaks[:, :4]))
+        new_fit["residual_data"] = y_bgsub - new_fit["profile"]
+        for stale in ("peak_dictionary", "spectrum_dictionary"):
+            new_fit.pop(stale, None)
+        return new_fit, records
+    return fit_dict, records
+
+
+def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
+                           bic_margin=6.0, max_new=40,
+                           exclude=(),
+                           segment_edges=None) -> Tuple[dict, List[dict]]:
+    """Element-agnostic recovery of significant positive residual peaks.
+
+    The Boltzmann seeder (:func:`seed_minor_lines`) can only predict lines
+    of elements whose per-stage scale passes its trust gate — a line-rich
+    element like Fe on real rock routinely FAILS that gate (measured:
+    Fe I log-ratio spread 2.2 over 72 references vs the 0.6 limit,
+    because strong references are self-absorbed/blended), silencing every
+    Fe prediction while hundreds of counts of genuinely present Fe lines
+    sit unmodeled in the residual.  This pass needs no prior at all: any
+    local maximum of the POSITIVE residual whose PROMINENCE above the
+    window's median residual exceeds ``snr_min`` local noise is refit as
+    a candidate new Voigt component, jointly with the existing components
+    whose centers share its window (out-of-window components are frozen
+    and subtracted).  The candidate's center floats only within +-1.5
+    samples of the residual maximum and its shape is clamped near the
+    instrument profile — this is recovery of a line the data already
+    show, not blind detection.
+
+    Guards (each closes a measured failure mode):
+
+    - ``exclude`` — (center_nm, halfwidth_nm) zones where candidates are
+      skipped with action ``excluded``.  The caller passes the
+      asymmetric-merged self-absorbed lines from ``refine_fit``: their
+      symmetric table proxy DELIBERATELY leaves a core-shaped residual
+      (see refinement docs), and fitting components to those lobes
+      manufactures phantom satellites while gutting the merged row
+      (measured: K I 766.49 proxy area 1096 -> 58 with two phantoms
+      accepted).
+    - prominence, not level: the significance test subtracts the window's
+      median residual, and BOTH window fits carry a free constant
+      pedestal, so a broad positive background residual (junction ledge,
+      wing pedestal) cannot be converted into carpets of narrow phantom
+      lines (measured pre-fix: a 5-sigma ledge produced 29 accepted
+      phantoms).
+    - frozen confinement: existing components are confined about their
+      PRE-RECOVERY values, so acceptances in overlapping windows cannot
+      compound the +-0.03 nm / 0.7-1.3x limits multiplicatively.
+
+    Acceptance is intentionally stricter than the seeder's (there is no
+    physics prior standing behind the candidate): fitted area >=
+    ``accept_snr`` x its matched-filter uncertainty AND the window BIC
+    must improve by ``bic_margin`` over the no-new-line refit (same
+    robust loss on both sides).  Accepted components are appended to the
+    table; downstream identification is the indexer's job (their element
+    assignments then appear in the detection report through the normal
+    support counting).
+
+    Returns ``(new_fit_dict, records)``; records carry ``action`` in
+    ``added`` / ``rejected`` / ``fit-failed`` / ``excluded`` /
+    ``absorbed`` (residual at the candidate collapsed after an earlier
+    acceptance in the same region).
+    """
+    from alibz.peaky_finder import PeakyFinder
+
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    bg = np.asarray(fit_dict.get("background", np.zeros_like(y)), dtype=float)
+    y_bgsub = y - bg
+    peaks = np.atleast_2d(np.asarray(fit_dict["sorted_parameter_array"],
+                                     dtype=float))[:, :4].copy()
+    if peaks.size == 0 or x.size < 16:
+        return fit_dict, []
+
+    if segment_edges is None:
+        segment_edges = PeakyFinder.DEFAULT_SEGMENT_EDGES
+    segment_edges = tuple(np.atleast_1d(np.asarray(segment_edges,
+                                                   dtype=float)).ravel())
+    segment_indices = (np.searchsorted(x, np.sort(np.asarray(segment_edges)))
+                       if len(segment_edges) and x.size else None)
+    noise = PeakyFinder._noise_scale_local(y_bgsub,
+                                           segment_indices=segment_indices)
+    pitch = float(np.median(np.abs(np.diff(x))))
+
+    fwhm = _voigt_width(np.maximum(peaks[:, 2], 1e-6),
+                        np.maximum(peaks[:, 3], 1e-6))
+    wmed = _weighted_median(fwhm, np.maximum(peaks[:, 0], 1e-12))
+    narrow = fwhm <= 2.0 * wmed
+    sig_med = float(np.median(peaks[narrow, 2])) if np.any(narrow) else 0.05
+    gam_med = float(np.median(peaks[narrow, 3])) if np.any(narrow) else 0.02
+    sig_med, gam_med = max(sig_med, 1e-3), max(gam_med, 0.0)
+
+    # candidate residual maxima on the CURRENT model, strongest first.
+    # Significance is PROMINENCE above the window's median residual, not
+    # the absolute level: a broad pedestal (junction ledge, wing residue)
+    # raises the level of every local maximum riding it without making
+    # any of them a line (measured pre-fix: a 5-sigma ledge yielded 29
+    # accepted phantoms).
+    finder = PeakyFinder.__new__(PeakyFinder)
+    resid0 = y_bgsub - _multi_voigt(x, np.ravel(peaks))
+    pos = np.where(resid0 > 0, resid0, 0.0)
+    span = max(3.0 * wmed, 0.3)
+    cand_idx = []
+    for k in finder.find_peaks(pos)[0]:
+        k = int(k)
+        if resid0[k] <= snr_min * noise[k]:
+            continue
+        mwin = (x >= x[k] - span) & (x <= x[k] + span)
+        sub = resid0[mwin]
+        # the baseline reference is the QUIET pixels: in a crowded line
+        # forest the raw window median is elevated by the neighbouring
+        # real lines and would veto them all, while a genuine pedestal
+        # has no quiet pixels at all and correctly falls back to its own
+        # level (prominence ~ 0)
+        quiet = sub[sub < 2.0 * noise[k]]
+        base_lvl = (float(np.median(quiet))
+                    if quiet.size >= max(4, 0.25 * sub.size)
+                    else float(np.median(sub)))
+        prominence = resid0[k] - base_lvl
+        if prominence > snr_min * noise[k]:
+            cand_idx.append(k)
+    cand_idx.sort(key=lambda k: -resid0[k])
+    cand_idx = cand_idx[: int(max_new)]
+
+    # confinement anchors are FROZEN at the pre-recovery table: deriving
+    # bounds from already-mutated rows lets +-0.03 nm / 0.7-1.3x compound
+    # across overlapping windows (measured: 0.49x width walk in two
+    # acceptances)
+    peaks0 = peaks.copy()
+
+    def _robust_chi(res_w):
+        # identical metric to _fit's soft_l1 2*cost: the BIC baseline
+        # and the candidate fit MUST share one loss, or the plain
+        # squared baseline (inflated exactly at the >8-sigma residual
+        # peak under test) biases d_bic toward acceptance
+        z = (np.asarray(res_w) / _SA_F_SCALE) ** 2
+        return float(np.sum(_SA_F_SCALE ** 2
+                            * 2.0 * (np.sqrt(1.0 + z) - 1.0)))
+
+    def _model_off(xx, pp):
+        # Voigt components plus a free constant pedestal: without it the
+        # only way the window fit can explain broad background residue is
+        # narrow components, which manufactures lines from ledges
+        prof = _multi_voigt(xx, np.asarray(pp[:-1]))
+        return prof + pp[-1]
+
+    records: List[dict] = []
+    added_mu: List[float] = []
+    for k in cand_idx:
+        mu0 = float(x[k])
+        rec = dict(center0=mu0, resid0=float(resid0[k]),
+                   snr0=float(resid0[k] / max(noise[k], 1e-12)))
+        if any(abs(mu0 - c) <= hw for c, hw in exclude):
+            # asymmetric-merged self-absorbed line: its symmetric table
+            # proxy leaves a core-shaped residual BY DESIGN — fitting it
+            # would re-split the merge (see docstring)
+            rec.update(action="excluded")
+            records.append(rec)
+            continue
+        if any(abs(mu0 - m) <= max(0.06, 0.5 * wmed) for m in added_mu):
+            rec.update(action="absorbed")
+            records.append(rec)
+            continue
+        m = (x >= mu0 - span) & (x <= mu0 + span)
+        if int(np.sum(m)) < 12:
+            rec.update(action="rejected", reason="no-data")
+            records.append(rec)
+            continue
+        xw = x[m]
+        w = 1.0 / np.maximum(noise[m], 1e-12)
+        n = xw.size
+        nmed = float(np.median(noise[m]))
+
+        # re-check against the CURRENT model: an earlier acceptance in
+        # this region may already explain the flux
+        inwin = np.flatnonzero(np.abs(peaks[:, 1] - mu0) <= span)
+        others = np.delete(np.arange(peaks.shape[0]), inwin)
+        model_others = (_multi_voigt(x, np.ravel(peaks[others, :4]))
+                        if others.size else np.zeros_like(x))
+        yw = (y_bgsub - model_others)[m]
+        r_now = yw - (_multi_voigt(xw, np.ravel(peaks[inwin, :4]))
+                      if inwin.size else 0.0)
+        off0 = float(np.median(r_now))
+        k_loc = int(np.argmin(np.abs(xw - mu0)))
+        if r_now[k_loc] - off0 < snr_min * noise[m][k_loc]:
+            rec.update(action="absorbed")
+            records.append(rec)
+            continue
+
+        # joint refit of the window: current values as start, bounds
+        # anchored to the FROZEN pre-recovery table
+        p0, lo, hi = [], [], []
+        for j in inwin:
+            if j < peaks0.shape[0]:
+                a0, mu_j, sg0, gm0 = peaks0[j]
+            else:
+                # a row this pass itself added: anchor to its own values
+                a0, mu_j, sg0, gm0 = peaks[j]
+            a, mu, sg, gm = peaks[j]
+            p0 += [a, mu, max(sg, 1e-4), max(gm, 0.0)]
+            lo += [0.0, mu_j - 0.03, max(0.7 * sg0, 1e-4), 0.7 * gm0]
+            hi += [4.0 * a0 + 1e-12, mu_j + 0.03,
+                   1.3 * sg0 + 1e-3, 1.3 * gm0 + 1e-3]
+        off_lo = min(0.0, off0) - 3.0 * nmed
+        off_hi = max(0.0, off0) + 3.0 * nmed
+
+        p_re, chi_re = _fit(_model_off, xw, yw, w,
+                            p0 + [off0], lo + [off_lo], hi + [off_hi])
+        if p_re is not None:
+            peaks_win = list(p_re[:-1])
+        else:
+            peaks_win = list(p0)
+            chi_re = _robust_chi(
+                (yw - _model_off(xw, np.array(p0 + [off0]))) * w)
+
+        # add the candidate: center within +-1.5 samples of the residual
+        # maximum, near-instrument shape (recovery, not blind detection)
+        amp0 = max(float(r_now[k_loc]) - off0, nmed) / max(
+            _voigt(0.0, sig_med, max(gam_med, 1e-9)), 1e-12)
+        p0n = peaks_win + [amp0, mu0, sig_med, gam_med, off0]
+        lon = lo + [0.0, mu0 - 1.5 * pitch, 0.85 * sig_med,
+                    0.85 * gam_med, off_lo]
+        hin = hi + [50.0 * amp0 + 1e-12, mu0 + 1.5 * pitch,
+                    1.2 * sig_med + 1e-3, 1.2 * gam_med + 1e-3, off_hi]
+        p_new, chi_new = _fit(_model_off, xw, yw, w, p0n, lon, hin)
+        if p_new is None:
+            rec.update(action="fit-failed")
+            records.append(rec)
+            continue
+
+        new_a, new_mu, new_sg, new_gm, _new_off = (float(v)
+                                                   for v in p_new[-5:])
+        v = _voigt(xw - new_mu, max(new_sg, 1e-9), max(new_gm, 1e-9))
+        sigma_area = float(nmed
+                           / max(np.sqrt(np.sum(v ** 2) * pitch), 1e-12)
+                           * np.sqrt(pitch))
+        # both models carry the pedestal, so the new component still
+        # costs exactly 4 extra parameters
+        d_bic = chi_re - (chi_new + 4.0 * np.log(max(n, 2)))
+        rec.update(area=new_a, area_sigma=sigma_area,
+                   snr=new_a / max(sigma_area, 1e-300),
+                   delta_bic=float(d_bic), center=new_mu)
+        if new_a >= accept_snr * sigma_area and d_bic >= bic_margin:
+            rec["action"] = "added"
+            for slot, j in enumerate(inwin):
+                peaks[j, :4] = p_new[4 * slot: 4 * slot + 4]
+            peaks = np.vstack([peaks, [new_a, new_mu, new_sg, new_gm]])
+            added_mu.append(new_mu)
+        else:
+            rec["action"] = "rejected"
         records.append(rec)
 
     if added_mu:

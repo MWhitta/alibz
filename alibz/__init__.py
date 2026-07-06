@@ -40,7 +40,8 @@ from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
 from alibz.detector import DetectorModel
 from alibz.refinement import classify_feature, refine_fit, sa_voigt
-from alibz.minor_lines import match_and_scale, seed_minor_lines
+from alibz.minor_lines import (match_and_scale, recover_residual_lines,
+                               seed_minor_lines)
 from alibz.inspection import (
     estimate_peak_uncertainties,
     format_peak_table,
@@ -68,6 +69,7 @@ __all__ = [
     "refine_fit",
     "classify_feature",
     "sa_voigt",
+    "recover_residual_lines",
     "seed_minor_lines",
     "match_and_scale",
     # Indexer data types

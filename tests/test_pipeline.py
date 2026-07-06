@@ -106,6 +106,14 @@ class TestSummaryCsv(unittest.TestCase):
 
 
 class TestElementOrderingAndColors(unittest.TestCase):
+    @staticmethod
+    def _color_distance(a, b):
+        def rgb(color):
+            color = color.lstrip("#")
+            return tuple(int(color[i:i + 2], 16) / 255.0
+                         for i in (0, 2, 4))
+        return float(np.linalg.norm(np.subtract(rgb(a), rgb(b))))
+
     def test_periodic_sort_key_orders_by_atomic_number(self):
         self.assertLess(element_sort_key("Li"), element_sort_key("K"))
         self.assertLess(element_sort_key("K"), element_sort_key("Rb"))
@@ -147,6 +155,16 @@ class TestElementOrderingAndColors(unittest.TestCase):
         self.assertEqual(element_color("Fe"), ELEMENT_COLORS["Fe"])
         self.assertNotEqual(element_color("Li"), element_color("Na"))
         self.assertNotEqual(element_color("Fe"), element_color("Mn"))
+        jchristensen_elements = [
+            "Li", "Be", "Na", "Mg", "Al", "Si", "K", "Ca", "Ti",
+            "Mn", "Fe", "As", "Rb", "Sr", "Mo", "Pd", "Ba", "Eu",
+        ]
+        distances = [
+            self._color_distance(element_color(a), element_color(b))
+            for i, a in enumerate(jchristensen_elements)
+            for b in jchristensen_elements[i + 1:]
+        ]
+        self.assertGreater(min(distances), 0.12)
 
 
 class TestNotebook(unittest.TestCase):
@@ -307,6 +325,112 @@ class TestElementUncertainties(unittest.TestCase):
         u2 = element_uncertainties(idx, _StubResult(), np.array([6.0, 4.0]),
                                    draws=16, seed=7)
         self.assertEqual(u1, u2)
+
+
+class TestContestedSupport(unittest.TestCase):
+    """True-negative rival test: the Mn/Mg 279.5 nm archetype in miniature.
+
+    Peaks: [0] the contested resonance-region peak, [1] the rival's
+    independent non-resonance line, [2] the claimer's independent line.
+    """
+
+    def _run(self, rival_other_obs):
+        from alibz.pipeline import _contested_support, _merge_contests
+        # species columns: 0 = Mn-like claimer, 1 = Mg-like rival
+        A = np.array([[10.0, 8.0],     # both respond at the blend peak
+                      [0.0, 5.0],      # rival's independent line
+                      [6.0, 0.0]])     # claimer's independent line
+        obs = np.array([900.0, rival_other_obs, 300.0])
+        sig = np.array([10.0, 10.0, 10.0])
+        cols = {"Mn": [0], "Mg": [1]}
+        sup = {"Mn": [0, 2]}
+        per = [_contested_support(A, cols, ["Mg", "Mn"], obs, sig, sup,
+                                  A_nonres=A * np.array([[0, 0],
+                                                         [0, 1],
+                                                         [1, 0]]))]
+        return _merge_contests(sup, obs, per)["Mn"]
+
+    def test_blend_peak_contested_when_rival_cap_allows(self):
+        # rival's independent line is bright: its cap covers the blend
+        out = self._run(rival_other_obs=800.0)
+        self.assertEqual(out["clear_lines"], 1)       # peak 2 stays clear
+        self.assertGreater(out["contested_share"], 0.5)
+        self.assertEqual(out["confounder"], "Mg")
+
+    def test_blend_peak_clear_when_rival_true_negatives_forbid(self):
+        # rival's independent line is nearly absent: cap collapses
+        out = self._run(rival_other_obs=5.0)
+        self.assertEqual(out["clear_lines"], 2)
+        self.assertEqual(out["contested_share"], 0.0)
+        self.assertIsNone(out["confounder"])
+
+    def test_merge_is_existential_over_states(self):
+        from alibz.pipeline import _merge_contests
+        sup = {"X": [0, 1]}
+        obs = np.array([100.0, 50.0])
+        per = [
+            {"X": dict(contested={0}, rivals={"Y": 100.0})},   # state A
+            {"X": dict(contested=set(), rivals={})},           # state B
+        ]
+        out = _merge_contests(sup, obs, per)["X"]
+        self.assertEqual(out["clear_lines"], 1)   # peak 0 contested SOMEWHERE
+        self.assertEqual(out["confounder"], "Y")
+
+
+class TestRecoverResidualLines(unittest.TestCase):
+    def _make(self, include_third):
+        from alibz.utils.voigt import multi_voigt
+        rng = np.random.default_rng(3)
+        x = np.arange(300.0, 320.0, 1.0 / 30.0)
+        comps = [[500.0, 305.0, 0.05, 0.02],
+                 [300.0, 312.0, 0.05, 0.02],
+                 [80.0, 308.0, 0.05, 0.02]]   # the "missed" line
+        y = multi_voigt(x, np.ravel(comps)) + rng.normal(0.0, 1.5, x.size)
+        table = comps if include_third else comps[:2]
+        fit = dict(sorted_parameter_array=np.array(table, dtype=float),
+                   background=np.zeros_like(y))
+        return x, y, fit
+
+    def test_recovers_missing_line(self):
+        from alibz.minor_lines import recover_residual_lines
+        x, y, fit = self._make(include_third=False)
+        new_fit, recs = recover_residual_lines(x, y, fit, segment_edges=())
+        added = [r for r in recs if r["action"] == "added"]
+        self.assertEqual(len(added), 1)
+        self.assertAlmostEqual(added[0]["center"], 308.0, delta=0.05)
+        self.assertAlmostEqual(added[0]["area"] / 80.0, 1.0, delta=0.25)
+        self.assertEqual(new_fit["sorted_parameter_array"].shape[0], 3)
+
+    def test_no_false_positives_when_fully_modeled(self):
+        from alibz.minor_lines import recover_residual_lines
+        x, y, fit = self._make(include_third=True)
+        new_fit, recs = recover_residual_lines(x, y, fit, segment_edges=())
+        self.assertEqual([r for r in recs if r["action"] == "added"], [])
+        self.assertIs(new_fit, fit)   # untouched fit dict returned
+
+    def test_broad_ledge_produces_no_phantom_carpet(self):
+        """A multi-nm positive pedestal is background residue, not lines
+        (review repro: a 5-sigma ledge yielded 29 accepted phantoms
+        pre-fix)."""
+        from alibz.minor_lines import recover_residual_lines
+        x, y, fit = self._make(include_third=True)
+        y = y + np.where(x > 310.0, 10.0, 0.0)   # 5-sigma ledge onward
+        _new_fit, recs = recover_residual_lines(x, y, fit,
+                                                segment_edges=())
+        added = [r for r in recs if r["action"] == "added"]
+        self.assertLessEqual(len(added), 1)   # ledge edge at worst
+
+    def test_exclusion_zone_blocks_sa_lobe_resplit(self):
+        """Candidates inside a caller-declared self-absorption zone are
+        skipped with action='excluded' (review repro: K I 766.49 merged
+        row collapsed 1368 -> 0 with two phantoms accepted pre-fix)."""
+        from alibz.minor_lines import recover_residual_lines
+        x, y, fit = self._make(include_third=False)   # residual at 308
+        new_fit, recs = recover_residual_lines(
+            x, y, fit, exclude=((308.0, 0.3),), segment_edges=())
+        self.assertEqual([r for r in recs if r["action"] == "added"], [])
+        self.assertTrue(any(r["action"] == "excluded" for r in recs))
+        self.assertIs(new_fit, fit)
 
 
 class TestCli(unittest.TestCase):
