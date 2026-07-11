@@ -647,6 +647,38 @@ class TestRecoverResidualLines(unittest.TestCase):
         self.assertTrue(any(r["action"] == "excluded" for r in recs))
         self.assertIs(new_fit, fit)
 
+    def test_exclusion_zone_row_frozen_in_neighbour_refit(self):
+        """A merged row inside an exclude zone must survive a NEIGHBOURING
+        window's joint refit bit-identically: its table area is the
+        observed-area proxy of an asymmetric profile, deliberately
+        different from what a symmetric refit would choose (measured on
+        MW2-112: the 248.99 merged row walked +30 pm and lost 40% of its
+        area to the recovery refit next door)."""
+        from alibz.minor_lines import recover_residual_lines
+        rng = np.random.default_rng(5)
+        x = np.arange(300.0, 320.0, 0.02)
+        # truth: a 500-area line at 305.0 and an unmodeled 80-area line
+        # at 305.35; the TABLE undercounts the 305 row (350 vs 500) the
+        # way a merged asymmetric proxy does — an unfrozen joint refit
+        # would pull it toward 500
+        truth = [[500.0, 305.0, 0.05, 0.02], [80.0, 305.35, 0.05, 0.02],
+                 [300.0, 312.0, 0.05, 0.02]]
+        from alibz.utils.voigt import multi_voigt
+        y = multi_voigt(x, np.ravel(truth)) + rng.normal(0.0, 1.5, x.size)
+        table = np.array([[350.0, 305.0, 0.05, 0.02],
+                          [300.0, 312.0, 0.05, 0.02]])
+        fit = dict(sorted_parameter_array=table.copy(),
+                   background=np.zeros_like(y))
+        new_fit, recs = recover_residual_lines(
+            x, y, fit, exclude=((305.0, 0.25),), segment_edges=())
+        pk = np.atleast_2d(new_fit["sorted_parameter_array"])
+        row = pk[np.argmin(np.abs(pk[:, 1] - 305.0))]
+        np.testing.assert_array_equal(row, table[0])
+        added = [r for r in recs if r["action"] == "added"]
+        self.assertTrue(any(abs(r["center"] - 305.35) < 0.06
+                            for r in added),
+                        f"305.35 line not recovered: {recs}")
+
 
 class TestCli(unittest.TestCase):
     def test_help_exits_zero(self):

@@ -424,8 +424,13 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
         # ones that merely reach in with a wing are frozen — freeing a
         # parameterised profile whose core lies outside the data window
         # is ill-posed (measured: a 45-count addition at 615.60 halved
-        # its 616.13 neighbour through exactly this hole)
+        # its 616.13 neighbour through exactly this hole).  Exclude-zone
+        # rows (asymmetric merges) are frozen the same way: their
+        # observed-area proxy must survive neighbouring refits intact.
         inwin = np.flatnonzero(np.abs(peaks[:, 1] - mu_pred) <= span)
+        inwin = np.array([k for k in inwin
+                          if not any(abs(peaks[k, 1] - c) <= hw
+                                     for c, hw in exclude)], dtype=int)
         others = np.delete(np.arange(peaks.shape[0]), inwin)
         model_others = (_multi_voigt(x, np.ravel(peaks[others, :4]))
                         if others.size else np.zeros_like(x))
@@ -732,8 +737,15 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
         nmed = float(np.median(noise[m]))
 
         # re-check against the CURRENT model: an earlier acceptance in
-        # this region may already explain the flux
+        # this region may already explain the flux.  Rows inside an
+        # exclude zone are dropped from the JOINT refit too (they render
+        # through model_others, frozen): the zone only blocks new
+        # components, and a floating merged row measurably walked +30 pm
+        # and lost 40% of its area to a neighbouring window's refit.
         inwin = np.flatnonzero(np.abs(peaks[:, 1] - mu0) <= span)
+        inwin = np.array([j for j in inwin
+                          if not any(abs(peaks[j, 1] - c) <= hw
+                                     for c, hw in exclude)], dtype=int)
         others = np.delete(np.arange(peaks.shape[0]), inwin)
         model_others = (_multi_voigt(x, np.ravel(peaks[others, :4]))
                         if others.size else np.zeros_like(x))

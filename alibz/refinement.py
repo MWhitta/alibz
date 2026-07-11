@@ -387,13 +387,20 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
             verdict = "blend"
         elif margin >= BIC_MARGIN_UNSUPPORTED:
             verdict = "blend-unassigned"
-        elif (bic["A"] - bic["B"] <= BIC_MARGIN
+        elif (not (db is not None and blend_supported)
+              and bic["A"] - bic["B"] <= BIC_MARGIN
               and bic["A"] <= bic["S"] - BIC_MARGIN):
             # B is nominally best but A is statistically competitive
             # (within the decision margin) — an SA model must never be
             # claimed when the two-Voigt model DECISIVELY beats it, or
             # every unlisted genuine blend gets merged into a fictitious
-            # self-absorbed line.
+            # self-absorbed line.  When the database SUPPORTS the blend
+            # (two DISTINCT lines match the two centers with a consistent
+            # separation) this escape is barred entirely: near-degenerate
+            # statistics must not override line-list evidence (measured:
+            # Fe I 248.814/249.064 on MW2-112 merged into a fictitious
+            # tau=2.7 line at 248.99, whose exclusion zone then blocked
+            # recovery of the real 248.73/249.10 residuals).
             verdict = "asymmetric"
     elif best == "A" and bic["S"] - bic["A"] >= BIC_MARGIN:
         verdict = "asymmetric"

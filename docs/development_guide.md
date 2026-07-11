@@ -173,6 +173,19 @@ against).  The merge zones are now computed BEFORE seeding, and
 deblending — seeds landing inside a merge zone measurably eroded the
 merged rows' observed areas by 21–93% (K, Ca, Si archetypes).
 
+Two follow-up defects found by eye on the MW2-112 248.3–249.5 nm window
+(dense Fe forest): (1) when the DATABASE supports a blend (two distinct
+lines matching both fitted centers with a consistent separation), the
+near-degenerate-statistics escape that let `classify_feature` call a
+pair "asymmetric" anyway is now barred — Fe I 248.814/249.064 had been
+merged into a fictitious τ≈2.7 line whose exclusion zone then blocked
+recovery of the real residuals; (2) exclude-zone rows are now FROZEN in
+neighbouring joint refits of both the seeder and residual recovery (they
+render through `model_others`) — a merged row's observed-area proxy
+previously walked +30 pm and lost 40% of its area to the refit next
+door.  Remaining known gap in that window: features below recovery's 4σ
+prominence bar (e.g. the small 248.55 nm bump) stay unmodeled.
+
 **Per-segment wavelength shift (2026-07-09).**
 `estimate_wavelength_shift_segments` estimates one shift per detector
 segment from the refined table, but applies a segment's own median only

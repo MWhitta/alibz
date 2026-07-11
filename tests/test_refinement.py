@@ -257,6 +257,28 @@ class TestBlends(unittest.TestCase):
                 self.assertAlmostEqual(centers[0], wl_a, delta=0.04)
                 self.assertAlmostEqual(centers[1], wl_b, delta=0.04)
 
+    def test_db_supported_blend_never_merged_asymmetric(self):
+        """Two REAL Fe I lines (248.8143 / 249.0644, both resonance-capable,
+        250 pm ~ 1.2 FWHM apart) — the measured MW2-112 defect where
+        near-degenerate S/A/B statistics merged a db-supported blend into
+        a fictitious tau~2.7 self-absorbed line at 248.99, whose exclusion
+        zone then blocked recovery of the real residuals."""
+        wl_a, wl_b = 248.8143, 249.0644
+        for seed in SEEDS:
+            with self.subTest(seed=seed):
+                x, y = synth([(4.0e3, wl_a, 0.07, 0.04),
+                              (1.24e4, wl_b, 0.07, 0.04)],
+                             w_lo=245.0, w_hi=253.0, seed=seed)
+                fit = run_pipeline(x, y)
+                new_fit, decisions = refine_fit(x, y, fit, db=self.db)
+                dec = decision_at(decisions, 0.5 * (wl_a + wl_b), tol=0.4)
+                if dec is not None:
+                    self.assertNotEqual(dec["action"], "merge",
+                                        f"verdict {dec['verdict']}")
+                pk = new_fit["sorted_parameter_array"]
+                near = pk[np.abs(pk[:, 1] - 0.5 * (wl_a + wl_b)) < 0.4]
+                self.assertGreaterEqual(near.shape[0], 2)
+
     def test_shift_frame_conversion(self):
         """The same db pair displaced by +0.15 nm with shift_nm=+0.15
         must be db-SUPPORTED (verdict 'blend', not 'blend-unassigned'):
