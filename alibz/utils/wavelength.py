@@ -36,40 +36,19 @@ def vacuum_to_air(wavelength_vac_nm):
     return np.where(wl >= 200.0, converted, wl)
 
 
-def estimate_wavelength_shift(
-    peak_array,
-    db,
-    tolerance_nm=0.15,
-    n_peaks=40,
-    min_gA=1e6,
-    ambiguity_ratio=3.0,
-):
-    """Systematic instrument wavelength shift from bright matched lines.
+#: fewest unambiguous anchor matches for a trustworthy median shift.
+MIN_SHIFT_MATCHES = 5
 
-    Spectrometers calibrated against a standard (e.g. a steel shot) drift
-    with instrument temperature, producing a systematic line shift that
-    must be removed before database matching (measured ~-28 pm on
-    MW2-112 data).  For the ``n_peaks`` strongest peaks, the nearest
-    database line within ``tolerance_nm`` is taken as the match when it
-    is UNAMBIGUOUS (the second-nearest line is at least
-    ``ambiguity_ratio`` times farther); the shift is the median of the
-    matched (fitted - database) differences, robust to the occasional
-    misassignment.
 
-    Returns ``(shift_nm, n_matches)``; subtract ``shift_nm`` from the
-    peak centers (or add it to the database positions).  Returns
-    ``(0.0, 0)`` when fewer than 5 unambiguous matches exist.
+def _anchor_catalog(db, min_gA=1e6):
+    """Locally-dominant bright-line catalog for shift estimation.
+
+    The raw database is too dense for nearest-neighbour matching (a
+    shifted peak's nearest line is usually a DIFFERENT line near the
+    shifted position, collapsing the median to zero).  Keep only lines
+    that DOMINATE their +-0.3 nm neighbourhood in Boltzmann-weighted
+    strength — the classic calibration-line property.
     """
-    peaks = np.atleast_2d(np.asarray(peak_array, dtype=float))
-    if peaks.size == 0:
-        return 0.0, 0
-
-    # Anchor-line catalog: the raw database is too dense for
-    # nearest-neighbour matching (a shifted peak's nearest line is usually
-    # a DIFFERENT line near the shifted position, collapsing the median
-    # to zero).  Keep only lines that DOMINATE their +-0.3 nm
-    # neighbourhood in Boltzmann-weighted strength — the classic
-    # calibration-line property.
     kT = 0.9  # eV; only used to rank line strengths locally
     wl_all, s_all = [], []
     for el in db.elements:
@@ -114,12 +93,17 @@ def estimate_wavelength_shift(
         neighbours = np.concatenate([s_all[lo:i], s_all[i + 1 : hi]])
         if neighbours.size == 0 or s_all[i] >= 10.0 * np.max(neighbours):
             anchors.append(wl_all[i])
-    anchor_wl = np.asarray(anchors)
-    if anchor_wl.size == 0:
-        return 0.0, 0
+    return np.asarray(anchors)
 
+
+def _match_deltas(peaks, anchor_wl, tolerance_nm, n_peaks, ambiguity_ratio):
+    """(fitted - database) offsets of unambiguously matched bright peaks.
+
+    Returns ``(deltas, matched_wl)`` — matched_wl are the peak centers,
+    so callers can group the offsets by detector segment.
+    """
+    deltas, where = [], []
     strongest = np.argsort(peaks[:, 0])[::-1][: int(n_peaks)]
-    deltas = []
     for mu in peaks[strongest, 1]:
         j = np.searchsorted(anchor_wl, mu)
         cand = anchor_wl[max(j - 2, 0) : j + 2]
@@ -133,7 +117,157 @@ def estimate_wavelength_shift(
         if d_sorted.size > 1 and d_sorted[1] < ambiguity_ratio * max(d_sorted[0], 1e-6):
             continue
         deltas.append(mu - cand[k])
+        where.append(mu)
+    return np.asarray(deltas), np.asarray(where)
 
-    if len(deltas) < 5:
-        return 0.0, len(deltas)
-    return float(np.median(deltas)), len(deltas)
+
+def estimate_wavelength_shift(
+    peak_array,
+    db,
+    tolerance_nm=0.15,
+    n_peaks=40,
+    min_gA=1e6,
+    ambiguity_ratio=3.0,
+):
+    """Systematic instrument wavelength shift from bright matched lines.
+
+    Spectrometers calibrated against a standard (e.g. a steel shot) drift
+    with instrument temperature, producing a systematic line shift that
+    must be removed before database matching (measured ~-28 pm on
+    MW2-112 data).  For the ``n_peaks`` strongest peaks, the nearest
+    database line within ``tolerance_nm`` is taken as the match when it
+    is UNAMBIGUOUS (the second-nearest line is at least
+    ``ambiguity_ratio`` times farther); the shift is the median of the
+    matched (fitted - database) differences, robust to the occasional
+    misassignment.
+
+    Returns ``(shift_nm, n_matches)``; subtract ``shift_nm`` from the
+    peak centers (or add it to the database positions).  Returns
+    ``(0.0, 0)`` when fewer than ``MIN_SHIFT_MATCHES`` unambiguous
+    matches exist.
+    """
+    peaks = np.atleast_2d(np.asarray(peak_array, dtype=float))
+    if peaks.size == 0:
+        return 0.0, 0
+    anchor_wl = _anchor_catalog(db, min_gA=min_gA)
+    if anchor_wl.size == 0:
+        return 0.0, 0
+    deltas, _ = _match_deltas(peaks, anchor_wl, tolerance_nm, n_peaks,
+                              ambiguity_ratio)
+    if deltas.size < MIN_SHIFT_MATCHES:
+        return 0.0, int(deltas.size)
+    return float(np.median(deltas)), int(deltas.size)
+
+
+class SegmentShift:
+    """Per-detector-segment instrument wavelength shift.
+
+    The three detector segments are independently calibrated and drift
+    independently (measured on MW2-112: segments differ by ~33 pm while
+    the pooled global shift splits the difference, leaving 15-25 pm of
+    systematic matching error in two of the three segments).  Convention
+    matches :func:`estimate_wavelength_shift`: observed = db + shift.
+
+    ``at(wl)`` evaluates the shift at wavelength(s) ``wl`` — either frame
+    is acceptable, the shifts (tens of pm) are negligible against the
+    segment widths.  ``float()`` returns the pooled global shift, so
+    summary consumers keep working.
+    """
+
+    __slots__ = ("edges", "shifts", "global_shift", "n_matches", "applied")
+
+    def __init__(self, edges, shifts, global_shift, n_matches, applied=None):
+        self.edges = tuple(float(e) for e in edges)
+        self.shifts = np.asarray(shifts, dtype=float)
+        self.global_shift = float(global_shift)
+        self.n_matches = tuple(int(n) for n in n_matches)
+        self.applied = (tuple(bool(a) for a in applied)
+                        if applied is not None
+                        else (False,) * len(self.shifts))
+
+    def at(self, wl):
+        """Shift [nm] at wavelength(s) ``wl`` (scalar in, scalar out)."""
+        arr = np.asarray(wl, dtype=float)
+        out = self.shifts[np.digitize(arr, self.edges)]
+        return float(out) if arr.ndim == 0 else out
+
+    def __float__(self):
+        return self.global_shift
+
+    def __repr__(self):
+        pm = ", ".join(f"{1000 * s:+.1f}" + ("" if a else "(=global)")
+                       for s, a in zip(self.shifts, self.applied))
+        return (f"SegmentShift([{pm}] pm, global "
+                f"{1000 * self.global_shift:+.1f} pm, n={self.n_matches})")
+
+
+def shift_at(shift, wl):
+    """Evaluate a scalar or :class:`SegmentShift` at wavelength(s) ``wl``.
+
+    Every consumer of ``shift_nm`` should convert through this helper so
+    plain floats (legacy, tests) and per-segment shifts both work.
+    """
+    if hasattr(shift, "at"):
+        return shift.at(wl)
+    return shift
+
+
+def estimate_wavelength_shift_segments(
+    peak_array,
+    db,
+    segment_edges=(365.0, 620.0),
+    tolerance_nm=0.15,
+    n_peaks=60,
+    min_gA=1e6,
+    ambiguity_ratio=3.0,
+):
+    """Per-detector-segment wavelength shifts from bright matched lines.
+
+    Same anchor matching as :func:`estimate_wavelength_shift`, but the
+    matched offsets are grouped by detector segment.  A segment gets its
+    OWN median only when that median is trustworthy: at least
+    ``MIN_SHIFT_MATCHES`` unambiguous matches AND a deviation from the
+    pooled global median that exceeds twice the median's standard error
+    (1.2533 x 1.4826 x MAD / sqrt(n)).  Everything else falls back to the
+    global (which itself falls back to 0.0 below the match floor, exactly
+    like the scalar estimator).  The significance gate matters: measured
+    on MW2-112 BLIND-fit tables, a segment's median can sit 35 pm from
+    the global purely because the blind centers of split/merged bright
+    lines are displaced (per-segment MAD ~60 pm) — call this on the
+    REFINED table, whose bright-line centers are physical, for the gate
+    to pass on genuine calibration drift.
+
+    ``n_peaks`` is higher than the scalar default so each segment keeps
+    a usable share of the matches.
+
+    Returns ``(SegmentShift, n_matches_total)``.
+    """
+    edges = tuple(float(e) for e in np.sort(np.atleast_1d(
+        np.asarray(segment_edges, dtype=float))))
+    peaks = np.atleast_2d(np.asarray(peak_array, dtype=float))
+    n_seg = len(edges) + 1
+    if peaks.size == 0:
+        return SegmentShift(edges, [0.0] * n_seg, 0.0, [0] * n_seg), 0
+    anchor_wl = _anchor_catalog(db, min_gA=min_gA)
+    deltas, where = (np.empty(0), np.empty(0)) if anchor_wl.size == 0 else \
+        _match_deltas(peaks, anchor_wl, tolerance_nm, n_peaks,
+                      ambiguity_ratio)
+    if deltas.size < MIN_SHIFT_MATCHES:
+        return (SegmentShift(edges, [0.0] * n_seg, 0.0, [0] * n_seg),
+                int(deltas.size))
+    global_shift = float(np.median(deltas))
+    seg = np.digitize(where, edges)
+    shifts, counts, applied = [], [], []
+    for s in range(n_seg):
+        ds = deltas[seg == s]
+        counts.append(int(ds.size))
+        use_own = False
+        if ds.size >= MIN_SHIFT_MATCHES:
+            med = float(np.median(ds))
+            mad = float(np.median(np.abs(ds - med)))
+            se = 1.2533 * 1.4826 * mad / np.sqrt(ds.size)
+            use_own = abs(med - global_shift) > 2.0 * max(se, 1e-6)
+        shifts.append(med if use_own else global_shift)
+        applied.append(use_own)
+    return (SegmentShift(edges, shifts, global_shift, counts, applied),
+            int(deltas.size))

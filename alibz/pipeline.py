@@ -21,10 +21,19 @@ writes two artifacts INTO that directory:
 Per-spectrum chain (the same sequence validated interactively on MW2-112):
 
    load CSV -> PeakyFinder.fit_spectrum        (blind fit)
-            -> estimate_wavelength_shift        (global shift, db frame)
-            -> refine_fit                       (blends vs self-absorption)
-            -> PeakyIndexerV3.fit  [pass 1]     (whole-pattern, sa_doublets)
-            -> seed_minor_lines                 (elements from pass 1)
+            -> estimate_wavelength_shift_segments (per-detector-segment
+                                                 instrument shift, db frame)
+            -> refine_fit [3a, data-only]       (blend splits/single-merges
+                                                 from model evidence; the
+                                                 asymmetric family DEFERRED)
+            -> PeakyIndexerV3.fit  [pass 1]     (whole-pattern, sa_doublets;
+                                                 provisional posterior)
+            -> refine_fit [3b, physics]         (asymmetric merges
+                                                 adjudicated with resonance
+                                                 gates conditioned on the
+                                                 retained candidate species)
+            -> seed_minor_lines                 (elements from pass 1;
+                                                 merge zones excluded)
             -> recover_residual_lines           (element-agnostic residuals)
             -> deblend_shoulders                (split shoulder-flagged
                                                  peaks: one-sided flank bump
@@ -42,8 +51,11 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
             -> recover_sa_areas                 (growth-curve emission areas
                                                  for sa-like peaks the
                                                  doublet channel does not
-                                                 anchor; linear re-solve at
-                                                 the fitted T, ne)
+                                                 anchor, PLUS the refinement
+                                                 merges' pre-measured
+                                                 emission/observed ratios for
+                                                 unanchored species; linear
+                                                 re-solve at the fitted T, ne)
             -> uncertainty resampling           (see below)
 
 Electron density is initialised per shot from the H-alpha Lorentzian width
@@ -250,7 +262,10 @@ def analyze_spectrum(
 ) -> dict:
     """Run the full chain on one spectrum.
 
-    Blind fit -> refine -> pass-1 indexer (rough id) -> element-agnostic
+    Blind fit -> data-only refinement (3a: blend/single actions; the
+    asymmetric family deferred) -> pass-1 indexer (rough id) -> physics
+    adjudication (3b: asymmetric merges with resonance gates conditioned
+    on the retained candidate species) -> seeding + element-agnostic
     residual recovery -> pass-2 indexer (confirms the elements present) ->
     CORROBORATION seed of those elements' still-unfitted weak (>= 2 sigma)
     lines (line-rich elements such as Fe, silenced pre-id, are trusted here)
@@ -273,7 +288,9 @@ def analyze_spectrum(
     from alibz.inspection import estimate_peak_uncertainties
     from alibz.minor_lines import recover_residual_lines
     from alibz.peaky_indexer_v3 import PeakyIndexerV3
-    from alibz.utils.wavelength import estimate_wavelength_shift
+    from alibz.utils.wavelength import (estimate_wavelength_shift,
+                                        estimate_wavelength_shift_segments,
+                                        shift_at)
 
     db = _get_db(dbpath)
     finder = PeakyFinder.__new__(PeakyFinder)  # fit_spectrum needs no data dir
@@ -283,9 +300,25 @@ def analyze_spectrum(
     if peaks.size == 0:
         raise ValueError("blind fit found no peaks")
 
-    shift, n_anchor = estimate_wavelength_shift(peaks, db)
-    refined, decisions = refine_fit(x, y, fit, db=db, shift_nm=shift)
+    # pooled global shift from the blind table (robust median) — enough
+    # for stage 3a's coarse db evidence windows
+    shift0, n_anchor = estimate_wavelength_shift(peaks, db)
+
+    # stage 3a — DATA-ONLY refinement: blend splits and single-merges are
+    # pure model evidence; the asymmetric (self-absorption) family needs
+    # resonance physics of elements actually PRESENT, so those verdicts
+    # are recorded but deferred until pass 1 provides an element posterior
+    refined, dec_data = refine_fit(x, y, fit, db=db, shift_nm=shift0,
+                                   asymmetric="defer")
     rpeaks = refined["sorted_parameter_array"]
+
+    # per-detector-segment shifts, from the REFINED table: the three
+    # segments drift independently (measured ~25-35 pm apart on MW2-112),
+    # but blind centers of split/merged bright lines are displaced by up
+    # to ~150 pm, so only the refined table's medians are clean enough
+    # for the estimator's significance gate to separate genuine drift
+    # from fit noise (segments failing the gate keep the global shift)
+    shift, _ = estimate_wavelength_shift_segments(rpeaks, db)
 
     ne_init, ne_bounds = _halpha_ne(rpeaks)
     idx_kwargs = dict(dbpath=dbpath)
@@ -297,12 +330,13 @@ def analyze_spectrum(
 
     def _db_frame(peaks: np.ndarray) -> np.ndarray:
         # indexer matches peak centers against db positions within its
-        # shift_tolerance; remove the measured instrument shift first
+        # shift_tolerance; remove each peak's SEGMENT shift first
         out = peaks.copy()
-        out[:, 1] -= shift
+        out[:, 1] -= shift_at(shift, out[:, 1])
         return out
 
-    # pass 1: establish elements
+    # pass 1: establish elements (a PROVISIONAL posterior — its basin can
+    # be wrong; its outputs only license seeding and condition stage 3b)
     idx1 = PeakyIndexerV3(_db_frame(rpeaks), **idx_kwargs)
     res1 = idx1.run(**run_kwargs)
     established = sorted(
@@ -311,19 +345,29 @@ def analyze_spectrum(
         key=element_sort_key,
     )
 
-    final, records = refined, []
-    if seed_minor and established:
-        final, records = seed_minor_lines(x, y, refined, db, established,
-                                          shift_nm=shift)
-    # element-agnostic recovery: significant positive residual peaks are
-    # real lines the seeder could not predict (e.g. Fe lines when the Fe
-    # stage scale fails the Boltzmann trust gate) — fit them from the
-    # data alone; the pass-2 indexer then identifies them.  The
-    # asymmetric-merged self-absorbed lines are EXCLUDED: their symmetric
-    # table proxy leaves a core-shaped residual by design (see
-    # refine_fit), and fitting components there re-splits the merge.
+    # stage 3b — PHYSICS adjudication of the deferred asymmetric features,
+    # now that an element posterior exists.  The posterior is the
+    # candidate-species set the whole-pattern solve RETAINED (its
+    # evidence prefilter already removed elements with no plausible line
+    # pattern) rather than the established list: a wrong pass-1 basin
+    # must not veto a real resonance line's merge, but conditioning on
+    # retained candidates still replaces "any line in the periodic
+    # table" with "species plausibly in this plasma".
+    posterior = sorted({sp.element for sp in res1.species})
+    refined, dec_phys = refine_fit(x, y, refined, db=db,
+                                   elements=posterior or None,
+                                   shift_nm=shift, asymmetric="only")
+    decisions = dec_data + dec_phys
+    rpeaks = refined["sorted_parameter_array"]
+
+    # asymmetric-merge zones + their measured emission/observed ratios,
+    # computed BEFORE any seeding so every downstream fitter (seeder,
+    # residual recovery, deblending, SA recovery) respects them: the
+    # merged rows' symmetric table proxy leaves a core-shaped residual by
+    # design (see refine_fit), and fitting components there re-splits the
+    # merge (measured 21-93% area erosion when the seeder lacked this).
     from alibz.utils.voigt import voigt_width as _vw
-    sa_zones = []
+    sa_zones, sa_merges = [], []
     for dec in decisions:
         if (dec.get("action") == "merge"
                 and str(dec.get("verdict", "")).startswith("asymmetric")
@@ -332,6 +376,27 @@ def analyze_spectrum(
             halfw = 1.5 * max(float(_vw(max(pA[2], 1e-6),
                                         max(pA[3], 1e-6))), 0.15)
             sa_zones.append((float(pA[1]), halfw))
+            # the merge's measured emission/observed ratio: the ONLY
+            # correction channel for merged lines of species the doublet
+            # anchors do not cover (recover_sa_areas skips the zones)
+            obs = float(dec.get("observed_area") or 0.0)
+            if obs > 0.0 and dec.get("emission_area"):
+                sa_merges.append(dict(
+                    center_nm=float(pA[1]),
+                    factor=float(dec["emission_area"]) / obs,
+                    tau_a=float(dec.get("tau_a", 0.0)),
+                    observed_area=obs,
+                    emission_area=float(dec["emission_area"])))
+
+    final, records = refined, []
+    if seed_minor and established:
+        final, records = seed_minor_lines(x, y, refined, db, established,
+                                          shift_nm=shift,
+                                          exclude=tuple(sa_zones))
+    # element-agnostic recovery: significant positive residual peaks are
+    # real lines the seeder could not predict (e.g. Fe lines when the Fe
+    # stage scale fails the Boltzmann trust gate) — fit them from the
+    # data alone; the pass-2 indexer then identifies them.
     final, recovered = recover_residual_lines(x, y, final,
                                               exclude=tuple(sa_zones))
 
@@ -375,7 +440,8 @@ def analyze_spectrum(
             established = confirmed
             final_c, corr = seed_minor_lines(x, y, final, db, confirmed,
                                              shift_nm=shift,
-                                             robust_elements=set(confirmed))
+                                             robust_elements=set(confirmed),
+                                             exclude=tuple(sa_zones))
             n_added = sum(1 for r in corr if r.get("action") == "added")
             if n_added == 0:
                 # nothing new to quantify: keep the pass-2 result rather
@@ -419,7 +485,8 @@ def analyze_spectrum(
     # composition that newly collapses is rejected wholesale)
     profiles = analyze_peak_profiles(x, y, final)
     result, sa_records, sa_used = recover_sa_areas(
-        fidx, result, x, y, final, profiles, exclude=tuple(sa_zones))
+        fidx, result, x, y, final, profiles, exclude=tuple(sa_zones),
+        premeasured=tuple(sa_merges))
 
     # detection report + confounder (true-negative rival) analysis; when
     # SA recovery was applied, detections see the SAME corrected
@@ -518,7 +585,7 @@ def _summary_row(path: str, analysis: dict) -> dict:
         sample=sample_name(path),
         status="ok",
         n_peaks=int(analysis["final"]["sorted_parameter_array"].shape[0]),
-        shift_pm=round(1000.0 * analysis["shift"], 1),
+        shift_pm=round(1000.0 * float(analysis["shift"]), 1),
         T_K=round(float(res.temperature), 0),
         log_ne=round(float(res.ne), 2),
         r_squared=round(float(res.r_squared), 4),

@@ -186,13 +186,15 @@ def element_support(
                  if sp.element == el] for el in el_names}
     E = np.stack([contrib[:, cols[el]].sum(axis=1) for el in el_names],
                  axis=1)
+    from alibz.utils.wavelength import shift_at
     obs = np.asarray(indexer._obs_amp[:n_pk], dtype=float)
     dom = np.argmax(E, axis=1)
     for i in range(n_pk):
         el = el_names[dom[i]]
         con = float(E[i, dom[i]])
         if obs[i] > 0 and con >= MIN_SUPPORT_FRACTION * obs[i]:
-            wl_obs = float(indexer._obs_wl[i]) + shift
+            wl = float(indexer._obs_wl[i])
+            wl_obs = wl + float(shift_at(shift, wl))
             support.setdefault(el, []).append((con, wl_obs, float(obs[i])))
             sup_idx.setdefault(el, []).append(i)
     for el, lines in support.items():

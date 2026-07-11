@@ -141,6 +141,91 @@ class TestSelfAbsorption(unittest.TestCase):
         cls.db = Database("db")
 
 
+class TestStagedRefinement(unittest.TestCase):
+    """Stage 3a (data-only, asymmetric deferred) followed by stage 3b
+    (physics adjudication with an element posterior)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db = Database("db")
+
+    def _sa_fit(self):
+        x, y = synth([(5e4, 670.776, 0.05, 0.03)],
+                     sa={670.776: (2.5, 0.0)})
+        return x, y, run_pipeline(x, y)
+
+    def test_defer_records_but_does_not_merge(self):
+        x, y, fit = self._sa_fit()
+        n0 = int(np.sum(np.abs(
+            fit["sorted_parameter_array"][:, 1] - 670.78) < 0.3))
+        new_fit, decisions = refine_fit(x, y, fit, db=self.db,
+                                        asymmetric="defer")
+        dec = decision_at(decisions, 670.78, tol=0.2)
+        self.assertIsNotNone(dec)
+        self.assertEqual(dec["verdict"], "asymmetric")
+        self.assertEqual(dec["action"], "deferred")
+        # the model evidence is recorded for the adjudication pass
+        self.assertIn("emission_area", dec)
+        # ... but the feature is untouched
+        pk = new_fit["sorted_parameter_array"]
+        self.assertEqual(int(np.sum(np.abs(pk[:, 1] - 670.78) < 0.3)), n0)
+
+    def test_adjudication_merges_with_posterior_element(self):
+        x, y, fit = self._sa_fit()
+        step_a, _ = refine_fit(x, y, fit, db=self.db, asymmetric="defer")
+        new_fit, decisions = refine_fit(x, y, step_a, db=self.db,
+                                        elements=["Li", "Na", "K"],
+                                        asymmetric="only")
+        dec = decision_at(decisions, 670.78, tol=0.2)
+        self.assertIsNotNone(dec)
+        self.assertEqual(dec["verdict"], "asymmetric")
+        self.assertEqual(dec["action"], "merge")
+        pk = new_fit["sorted_parameter_array"]
+        near = pk[np.abs(pk[:, 1] - 670.78) < 0.3]
+        self.assertEqual(near.shape[0], 1)
+        self.assertAlmostEqual(float(near[0, 0]), dec["observed_area"],
+                               places=6)
+
+    def test_adjudication_vetoes_without_posterior_element(self):
+        # posterior lacking any element with a resonance line at 670.78:
+        # the merge must be vetoed as nonresonant, feature untouched
+        x, y, fit = self._sa_fit()
+        step_a, _ = refine_fit(x, y, fit, db=self.db, asymmetric="defer")
+        n0 = int(np.sum(np.abs(
+            step_a["sorted_parameter_array"][:, 1] - 670.78) < 0.3))
+        new_fit, decisions = refine_fit(x, y, step_a, db=self.db,
+                                        elements=["Fe", "Mg", "Si"],
+                                        asymmetric="only")
+        dec = decision_at(decisions, 670.78, tol=0.2)
+        self.assertIsNotNone(dec)
+        self.assertIn(dec["verdict"],
+                      ("asymmetric-nonresonant", "ambiguous"))
+        self.assertEqual(dec["action"], "none")
+        pk = new_fit["sorted_parameter_array"]
+        self.assertEqual(int(np.sum(np.abs(pk[:, 1] - 670.78) < 0.3)), n0)
+
+    def test_only_mode_does_not_touch_blends(self):
+        # a true db-supported blend: 3a splits it; the 3b pass must not
+        # act on (or re-merge) blend/single verdicts
+        wl_a, wl_b = 645.4506, 645.5986
+        x, y = synth([(2.5e4, wl_a, 0.05, 0.03),
+                      (1.8e4, wl_b, 0.05, 0.03)])
+        fit = run_pipeline(x, y)
+        step_a, dec_a = refine_fit(x, y, fit, db=self.db,
+                                   asymmetric="defer")
+        pk_a = step_a["sorted_parameter_array"]
+        n_a = int(np.sum(np.abs(pk_a[:, 1] - 645.52) < 0.4))
+        self.assertGreaterEqual(n_a, 2)
+        new_fit, dec_b = refine_fit(x, y, step_a, db=self.db,
+                                    elements=["Fe", "Si"],
+                                    asymmetric="only")
+        pk_b = new_fit["sorted_parameter_array"]
+        self.assertEqual(int(np.sum(np.abs(pk_b[:, 1] - 645.52) < 0.4)), n_a)
+        for d in dec_b:
+            if abs(d["center"] - 645.52) < 0.4:
+                self.assertEqual(d["action"], "none")
+
+
 class TestBlends(unittest.TestCase):
 
     @classmethod

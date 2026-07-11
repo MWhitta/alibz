@@ -120,5 +120,93 @@ class TestWavelengthShiftEstimation(unittest.TestCase):
         self.assertLess(n, 5)
 
 
+class TestSegmentShiftEstimation(unittest.TestCase):
+    """The three detector segments are independently calibrated and drift
+    independently (measured ~33 pm apart on MW2-112); the per-segment
+    estimator recovers each segment's own shift with a global fallback for
+    under-anchored segments."""
+
+    EDGES = (365.0, 620.0)
+
+    @classmethod
+    def setUpClass(cls):
+        from alibz.utils.wavelength import _anchor_catalog
+        cls.db = Database("db")
+        cls.anchors = _anchor_catalog(cls.db)
+
+    def _refs(self, per_segment=(1, 8, 8)):
+        """Well-separated anchor positions, ``per_segment[i]`` from segment i.
+
+        Sampling the catalog itself keeps the synthetic peaks exactly on
+        anchor positions — the hand-picked line list of the scalar test
+        sits up to tens of pm off the strength-weighted cluster centroids,
+        which the pooled median tolerates but a 5-anchor segment median
+        does not (and need not: real spectra give 15+ anchors/segment).
+        """
+        seg = np.digitize(self.anchors, self.EDGES)
+        refs = []
+        for s, want in enumerate(per_segment):
+            got, last = [], -np.inf
+            for wl in self.anchors[seg == s]:
+                if wl - last >= 2.0:
+                    got.append(float(wl))
+                    last = wl
+                if len(got) == want:
+                    break
+            refs.extend(got)
+        return np.asarray(refs)
+
+    def _peaks(self, seg_shifts, per_segment=(1, 8, 8)):
+        refs = self._refs(per_segment)
+        seg = np.digitize(refs, self.EDGES)
+        shifted = refs + np.asarray(seg_shifts)[seg]
+        n = refs.size
+        return np.column_stack([np.linspace(1000.0, 300.0, n), shifted,
+                                np.full(n, 0.08), np.full(n, 0.02)])
+
+    def test_recovers_per_segment_shifts_with_fallback(self):
+        from alibz.utils.wavelength import estimate_wavelength_shift_segments
+
+        # segment 0 has ONE anchor (below the match floor): falls back to
+        # the pooled global; segments 1 and 2 recover their own shifts
+        shift, n = estimate_wavelength_shift_segments(
+            self._peaks([-0.030, -0.030, +0.010]), self.db)
+        self.assertGreaterEqual(n, 10)
+        self.assertAlmostEqual(shift.at(500.0), -0.030, delta=0.008)
+        self.assertAlmostEqual(shift.at(700.0), +0.010, delta=0.008)
+        self.assertAlmostEqual(shift.at(300.0), float(shift), delta=1e-12)
+        # vectorised evaluation follows the segment boundaries
+        vals = shift.at(np.array([500.0, 700.0]))
+        self.assertAlmostEqual(vals[0], -0.030, delta=0.008)
+        self.assertAlmostEqual(vals[1], +0.010, delta=0.008)
+
+    def test_uniform_shift_matches_scalar_estimator(self):
+        from alibz.utils.wavelength import (estimate_wavelength_shift,
+                                            estimate_wavelength_shift_segments)
+
+        pk = self._peaks([-0.020, -0.020, -0.020], per_segment=(5, 8, 8))
+        seg_shift, _ = estimate_wavelength_shift_segments(pk, self.db)
+        scalar, _ = estimate_wavelength_shift(pk, self.db, n_peaks=60)
+        self.assertAlmostEqual(float(seg_shift), scalar, delta=0.002)
+        for wl in (250.0, 500.0, 800.0):
+            self.assertAlmostEqual(seg_shift.at(wl), -0.020, delta=0.008)
+
+    def test_too_few_matches_returns_zeros(self):
+        from alibz.utils.wavelength import estimate_wavelength_shift_segments
+
+        shift, n = estimate_wavelength_shift_segments(
+            np.array([[100.0, 500.123, 0.08, 0.02]]), self.db)
+        self.assertLess(n, 5)
+        self.assertEqual(float(shift), 0.0)
+        self.assertEqual(shift.at(700.0), 0.0)
+
+    def test_shift_at_scalar_passthrough(self):
+        from alibz.utils.wavelength import shift_at
+
+        self.assertEqual(shift_at(-0.015, 700.0), -0.015)
+        np.testing.assert_allclose(
+            shift_at(-0.015, np.array([200.0, 700.0])), -0.015)
+
+
 if __name__ == "__main__":
     unittest.main()

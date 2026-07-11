@@ -336,11 +336,14 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
     n_db, resonance_primary = None, None
     blend_supported = db is None
     if db is not None:
-        # shift_nm follows estimate_wavelength_shift: observed = db + shift
+        # shift_nm follows estimate_wavelength_shift (observed = db +
+        # shift); scalar or per-segment — evaluate at this feature
+        from alibz.utils.wavelength import shift_at
+        s_loc = float(shift_at(shift_nm, mu0))
         wl_db, s_db, ei_db = db_lines_in(
-            db, mu0 - span - shift_nm, mu0 + span - shift_nm,
+            db, mu0 - span - s_loc, mu0 + span - s_loc,
             elements=elements)
-        wl_db = wl_db + shift_nm  # into the observed frame
+        wl_db = wl_db + s_loc  # into the observed frame
         n_db = int(wl_db.size)
         if wl_db.size:
             # The primary is the line most plausibly producing the
@@ -439,7 +442,8 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
 
 def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
                snr_min=4.0, segment_edges=None,
-               s2_action_max=50.0) -> Tuple[dict, List[dict]]:
+               s2_action_max=50.0,
+               asymmetric="apply") -> Tuple[dict, List[dict]]:
     """Second-iteration refinement of a fitted spectrum.
 
     Enumerates ambiguous features (significant residual structure next to
@@ -477,6 +481,23 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
     a decision whose ``noise_rescale`` exceeds ``s2_action_max`` is
     recorded but NOT applied (the best model explains nothing at the
     stated noise level, so model preference is not trustworthy).
+
+    ``asymmetric`` stages the DATA evidence apart from the PHYSICS
+    adjudication (the resonance-capability gates behind an asymmetric
+    merge are the only verdicts that depend on which elements are
+    actually present — with ``elements=None`` they run against the whole
+    periodic table):
+
+    - ``"apply"`` (default): single-pass behaviour, everything above;
+    - ``"defer"``: blend splits and single-merges (pure model evidence)
+      are applied, but the whole asymmetric family is recorded with
+      ``action="deferred"`` and left untouched — run this BEFORE any
+      element identification;
+    - ``"only"``: only asymmetric verdicts act (blend/single verdicts
+      are recorded with ``action="none"``); run this AFTER an element
+      posterior exists, passing it as ``elements`` so the resonance
+      gates are conditioned on species plausibly in the plasma instead
+      of on any line in the database.
 
     ``segment_edges`` (same convention and default as
     ``PeakyFinder.fit_spectrum``) keeps the local noise estimate from
@@ -546,6 +567,9 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
             decisions.append(dec)
             continue
         if v in ("blend", "blend-unassigned") and dec["params_blend"] is not None:
+            if asymmetric == "only":
+                decisions.append(dec)   # data-only actions ran in the
+                continue                # deferred pass; record, don't act
             dec["action"] = "split"
             pB = dec["params_blend"]
             for i in list(indices) + absorbed:
@@ -567,13 +591,18 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
             dec["emission_area"] = float(pA[0])
             dec["tau_a"] = float(pA[4])
             dec["delta_nm"] = float(pA[5])
-            if v == "asymmetric":
+            if asymmetric == "defer":
+                dec["action"] = "deferred"
+            elif v == "asymmetric":
                 dec["action"] = "merge"
                 for i in list(indices) + absorbed:
                     drop.add(int(i))
                 add.append([observed_area, pA[1], pA[2], pA[3]])
         elif (v == "single" and kind == "pair"
               and dec["params_single"] is not None):
+            if asymmetric == "only":
+                decisions.append(dec)
+                continue
             dec["action"] = "merge"
             pS = dec["params_single"]
             for i in list(indices) + absorbed:

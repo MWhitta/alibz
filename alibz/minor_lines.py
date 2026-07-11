@@ -35,6 +35,7 @@ from alibz.refinement import SA_ROBUST_F_SCALE as _SA_F_SCALE
 from alibz.refinement import _fit, _weighted_median
 from alibz.utils.voigt import multi_voigt as _multi_voigt
 from alibz.utils.voigt import voigt_width as _voigt_width
+from alibz.utils.wavelength import shift_at as _shift_at
 
 #: Default plasma temperature for Boltzmann line ratios (corpus median
 #: T = 8818 K for MW2-112).
@@ -107,7 +108,8 @@ def match_and_scale(peak_array, db, elements, kT_ev=DEFAULT_KT_EV,
     if x_range is None:
         x_range = (float(np.min(peaks[:, 1])) - 1.0,
                    float(np.max(peaks[:, 1])) + 1.0)
-    lo, hi = x_range[0] - shift_nm, x_range[1] - shift_nm
+    lo = x_range[0] - float(_shift_at(shift_nm, x_range[0]))
+    hi = x_range[1] - float(_shift_at(shift_nm, x_range[1]))
 
     scales, matched = {}, set()
     for el in elements:
@@ -126,7 +128,8 @@ def match_and_scale(peak_array, db, elements, kT_ev=DEFAULT_KT_EV,
                 near = np.abs(wl_s - wl_j) <= isolation_nm
                 if np.sum(s_s[near]) - s_j > 0.1 * s_j:
                     continue  # same-element multiplet contamination
-                d = np.abs(peaks[:, 1] - (wl_j + shift_nm))
+                d = np.abs(peaks[:, 1]
+                           - (wl_j + float(_shift_at(shift_nm, wl_j))))
                 k = int(np.argmin(d))
                 if d[k] > tol_nm or peaks[k, 0] < min_ref_amp:
                     continue
@@ -164,8 +167,10 @@ def match_and_scale(peak_array, db, elements, kT_ev=DEFAULT_KT_EV,
                 # a per-segment response step (uncorrected 620 nm gain)
                 # collapses the references onto one segment, and
                 # predicting into the other would be wrong by the step
-                "ref_segments": {_segment_of(w + shift_nm, segment_edges)
-                                 for w in kept_wl},
+                "ref_segments": {
+                    _segment_of(w + float(_shift_at(shift_nm, w)),
+                                segment_edges)
+                    for w in kept_wl},
             }
     return scales, matched
 
@@ -177,7 +182,8 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
                      consistency_factor=5.0, extrapolation_factor=10.0,
                      segment_edges=None,
                      robust_elements=None,
-                     robust_min_ref_lines=6) -> Tuple[dict, List[dict]]:
+                     robust_min_ref_lines=6,
+                     exclude=()) -> Tuple[dict, List[dict]]:
     """Fit predicted-but-unfitted minor lines of established elements.
 
     ``elements`` is the established-element list (from the indexer or
@@ -221,6 +227,15 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
     gated as usual, so this only accounts for a confirmed element where the
     data actually show a >= ``min_expected_snr`` peak — it never manufactures
     lines for an absent element or stage.
+
+    ``exclude`` lists ``(center_nm, half_width_nm)`` zones no candidate
+    may seed into — the refinement's asymmetric merges, whose symmetric
+    table proxy leaves a core-shaped residual BY DESIGN.  Seeding a
+    component there converts the design residual into a phantom
+    satellite whose joint refit erodes the merged row's observed-area
+    proxy (measured 21-93% area loss on MW2-112/K, Ca, Si archetypes
+    before this gate existed).  Same convention as
+    :func:`recover_residual_lines`.
     """
     from alibz.peaky_finder import PeakyFinder
 
@@ -281,8 +296,9 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
                          and info["n_ref"] >= robust_min_ref_lines)
         if info["spread"] > max_scale_spread and not trusted_stage:
             continue
-        got = _element_lines(db, el, float(x[0]) - shift_nm,
-                             float(x[-1]) - shift_nm)
+        got = _element_lines(
+            db, el, float(x[0]) - float(_shift_at(shift_nm, float(x[0]))),
+            float(x[-1]) - float(_shift_at(shift_nm, float(x[-1]))))
         ion, wl, gA, Ek = got
         s = _strength(gA, Ek, kT_ev)
         wl_stage, s_stage = wl[ion == stage], s[ion == stage]
@@ -303,7 +319,8 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
             j_str = int(np.argmax(s_stage))
             pred_str = info["scale"] * float(s_stage[j_str])
             if pred_str > extrapolation_factor * info["max_ref_area"]:
-                mu_str = float(wl_stage[j_str]) + shift_nm
+                mu_str = float(wl_stage[j_str])
+                mu_str += float(_shift_at(shift_nm, mu_str))
                 d_str = np.abs(peaks[:, 1] - mu_str)
                 k_str = int(np.argmin(d_str))
                 observed = (peaks[k_str, 0] if d_str[k_str] <= 2 * tol_nm
@@ -314,7 +331,10 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
         for wl_j, s_j in zip(wl_stage, s_stage):
             if float(wl_j) in matched:
                 continue
-            mu_pred = wl_j + shift_nm
+            mu_pred = float(wl_j) + float(_shift_at(shift_nm, wl_j))
+            if any(abs(mu_pred - c) <= h for c, h in exclude):
+                # asymmetric-merge zone: its core residual is deliberate
+                continue
             # don't predict into a detector segment the scale was never
             # calibrated in — across an uncorrected 620 nm response step
             # the gain differs and the prediction is off by the step

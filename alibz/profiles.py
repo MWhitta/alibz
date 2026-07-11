@@ -530,6 +530,7 @@ def deblend_shoulders(x, y, fit_dict, records,
 
 def recover_sa_areas(indexer, result, x, y, fit_dict, records,
                      exclude=(),
+                     premeasured=(),
                      bic_margin=SA_BIC_MARGIN,
                      amplification_cap=SA_AMPLIFICATION_CAP,
                      segment_edges=None):
@@ -549,8 +550,19 @@ def recover_sa_areas(indexer, result, x, y, fit_dict, records,
     DOUBLET ratios (``_sa_doublet_info`` — K I 766/770, Na D, ...) already
     carry their measured optical depth on the RESPONSE side of the design;
     their peaks are skipped here (``anchored``).  ``exclude`` zones (the
-    refinement's asymmetric merges, corrected the same response-side way)
-    are skipped too.
+    refinement's asymmetric merges) are skipped by the growth-curve refit
+    because their symmetric table proxy leaves a core residual by design.
+
+    ``premeasured`` closes the resulting gap: each entry is a refinement
+    asymmetric-merge record (``center_nm``, ``factor`` =
+    emission/observed, ``tau_a``) whose table row carries the OBSERVED
+    (attenuated) area.  For a merge whose dominant species is NOT
+    doublet-anchored, no channel would otherwise ever apply the measured
+    correction (audited 2026-07-09: Li I x1.4, Mg I x1.5, Fe I x2-7
+    dropped per MW2-112 spectrum), so its already-measured factor joins
+    the same amplitude correction + linear re-solve below, under the same
+    tau/amplification guards.  Anchored-species merges stay response-side
+    corrected and are skipped here exactly like the sa-like peaks.
 
     Accepted corrections are applied as amplitude factors to the indexer's
     observed amplitudes and the composition is RE-SOLVED linearly at the
@@ -655,6 +667,45 @@ def recover_sa_areas(indexer, result, x, y, fit_dict, records,
                    tau_a=float(pA[4]), delta_nm=float(pA[5]),
                    factor=round(factor, 3), delta_bic=float(d_bic))
         if (d_bic >= bic_margin and pA[4] < 0.98 * TAU_MAX
+                and 1.0 < factor <= amplification_cap):
+            rec["action"] = "sa-recovered"
+            factors[j] = factor
+        out.append(rec)
+
+    # pre-measured corrections from the refinement's asymmetric merges:
+    # their table rows carry the OBSERVED (attenuated) area and their
+    # windows sit in ``exclude``, so the emission/observed ratio already
+    # measured by the asymmetric-profile fit is the only channel that can
+    # correct an UNANCHORED merged line
+    for pm in premeasured:
+        mu_p = float(pm["center_nm"])
+        rec = dict(center_nm=mu_p, action="rejected",
+                   source="refinement-merge",
+                   factor=round(float(pm["factor"]), 3),
+                   tau_a=float(pm.get("tau_a", np.nan)),
+                   observed_area=float(pm.get("observed_area", np.nan)),
+                   emission_area=float(pm.get("emission_area", np.nan)))
+        d = np.abs(peaks[:, 1] - mu_p)
+        j = int(np.argmin(d)) if d.size else -1
+        if j < 0 or d[j] > 0.02 or j >= n_pk:
+            rec["action"] = "unmatched"
+            out.append(rec)
+            continue
+        rec["index"] = j
+        if j in factors:
+            # the growth-curve refit somehow reached it first: keep that
+            out.append(rec)
+            continue
+        if contrib.shape[1] and np.any(contrib[j] > 0):
+            k = int(np.argmax(contrib[j]))
+            sp = result.species[k]
+            rec["species"] = f"{sp.element} {'I' * int(sp.ion)}"
+            if (sp.element, sp.ion) in anchored:
+                rec["action"] = "anchored"
+                out.append(rec)
+                continue
+        factor = float(pm["factor"])
+        if (float(pm.get("tau_a", 0.0)) < 0.98 * TAU_MAX
                 and 1.0 < factor <= amplification_cap):
             rec["action"] = "sa-recovered"
             factors[j] = factor

@@ -11,7 +11,9 @@ from alibz.utils.stark import (
     stark_shape_factor,
 )
 from alibz.utils.voigt import voigt_width, multi_voigt
-from alibz.utils.wavelength import estimate_wavelength_shift, vacuum_to_air
+from alibz.utils.wavelength import (SegmentShift, estimate_wavelength_shift,
+                                    estimate_wavelength_shift_segments,
+                                    shift_at, vacuum_to_air)
 from alibz.utils.absorption import escape_factor, doublet_ratio
 from alibz.utils.dataloader import Data
 
@@ -32,6 +34,9 @@ __all__ = [
     "multi_voigt",
     "vacuum_to_air",
     "estimate_wavelength_shift",
+    "estimate_wavelength_shift_segments",
+    "SegmentShift",
+    "shift_at",
     "escape_factor",
     "doublet_ratio",
     "Data",

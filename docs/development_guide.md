@@ -129,6 +129,14 @@ element's supporting flux (reported in `detections.csv` and flagged in
   corrected composition as final safety.  Doublet-anchored species (K I,
   Na D, ...) are skipped — their depths already act on the RESPONSE side
   of the design, and correcting the data side too would double-count.
+  The same re-solve also propagates the refinement merges' PRE-MEASURED
+  emission/observed ratios (`premeasured=`): a merged row carries the
+  observed area, its zone is excluded from the growth-curve refit, and —
+  audited 2026-07-09 — for species the doublet channel does not anchor
+  (Li I is *never* anchorable: its 670.776/.791 doublet is unresolved)
+  the asymmetric fit's measured correction (Li I ×1.4, Mg I ×1.5,
+  Al I ×1.6, Fe I ×2–7 per MW2-112 spectrum) was previously computed and
+  then dropped by every channel.
 
 Measured on JChristensen (38 spectra): deblends fired on 26, SA recovery
 on 24; corpus means moved Si +3.1 pp / K −3.5 pp with no collapse.  On
@@ -150,6 +158,31 @@ corroborated re-index is rejected when its top fraction newly collapses
 (measured A/B: Pam Hg 1.000 -> K/Li/Si; MDD006 Fe 0.991 -> Si/K/Li), and
 `summary.csv` records `corroboration-rejected(collapse)`.  Shape QC and
 the basin guard are complementary constraints, not substitutes.
+
+**Staged refinement (2026-07-09).**  `refine_fit` is now split into a
+DATA-ONLY pass and a PHYSICS pass (`asymmetric='defer'|'only'`):
+stage 3a applies blend splits and single-merges (pure model evidence,
+BIC) before any identification and defers the whole asymmetric family;
+after pass 1, stage 3b re-adjudicates the deferred features with the
+resonance gates conditioned on the *retained candidate species* of the
+whole-pattern solve (broader than the established list, so a wrong
+pass-1 basin cannot veto a real resonance merge — but far tighter than
+the whole periodic table, which is what the old single-pass had to gate
+against).  The merge zones are now computed BEFORE seeding, and
+`seed_minor_lines` gained the same `exclude=` gate as recovery and
+deblending — seeds landing inside a merge zone measurably eroded the
+merged rows' observed areas by 21–93% (K, Ca, Si archetypes).
+
+**Per-segment wavelength shift (2026-07-09).**
+`estimate_wavelength_shift_segments` estimates one shift per detector
+segment from the refined table, but applies a segment's own median only
+when it deviates from the pooled global by more than twice the median's
+standard error.  Measured honestly: on MW2-112 the per-segment medians
+differ by 10–35 pm but with 26–71 pm MADs (even post-refinement), so the
+gate refuses and behavior is identical to the global shift — the
+machinery is armed for sessions where a segment genuinely drifts.  An
+UNGATED per-segment shift measurably corrupted matching (a +20 pm
+segment-1 pseudo-shift conjured 25% Ti on MW2-112 #1000).
 
 ### What needs to happen next
 

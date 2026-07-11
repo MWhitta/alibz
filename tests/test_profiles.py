@@ -314,3 +314,65 @@ class TestRecoverSAAreas(unittest.TestCase):
                                               exclude=((400.0, 0.5),))
         self.assertFalse(used)
         self.assertTrue(any(r["action"] == "excluded" for r in out))
+
+    def _premeasured(self, fit, factor=1.5, tau=0.6):
+        mu = float(fit["sorted_parameter_array"][-1, 1])
+        obs = float(fit["sorted_parameter_array"][-1, 0])
+        return dict(center_nm=mu, factor=factor, tau_a=tau,
+                    observed_area=obs, emission_area=factor * obs)
+
+    def test_premeasured_merge_applied_inside_exclusion(self):
+        # the pipeline excludes merge zones from the growth-curve refit;
+        # the pre-measured refinement factor must still correct the row
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, obs_area = self._setup()
+        pm = self._premeasured(fit)
+        new_res, out, used = recover_sa_areas(
+            idx, res, x, y, fit, recs,
+            exclude=((400.0, 0.5),), premeasured=(pm,))
+        self.assertTrue(used)
+        acc = [r for r in out if r["action"] == "sa-recovered"]
+        self.assertEqual(len(acc), 1)
+        self.assertEqual(acc[0]["source"], "refinement-merge")
+        self.assertGreater(new_res.element_fractions["Li"],
+                           res.element_fractions["Li"])
+        # original indexer amplitudes restored after the re-solve
+        self.assertAlmostEqual(float(idx._obs_amp[-1]), obs_area, places=6)
+
+    def test_premeasured_anchored_species_skipped(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, _ = self._setup(anchored=(("Li", 1),))
+        pm = self._premeasured(fit)
+        new_res, out, used = recover_sa_areas(
+            idx, res, x, y, fit, recs,
+            exclude=((400.0, 0.5),), premeasured=(pm,))
+        self.assertFalse(used)
+        self.assertIn("anchored",
+                      [r["action"] for r in out
+                       if r.get("source") == "refinement-merge"])
+        self.assertIs(new_res, res)
+
+    def test_premeasured_amplification_cap_rejected(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, _ = self._setup()
+        pm = self._premeasured(fit, factor=8.0)
+        new_res, out, used = recover_sa_areas(
+            idx, res, x, y, fit, recs,
+            exclude=((400.0, 0.5),), premeasured=(pm,))
+        self.assertFalse(used)
+        self.assertIn("rejected",
+                      [r["action"] for r in out
+                       if r.get("source") == "refinement-merge"])
+
+    def test_premeasured_unmatched_center(self):
+        from alibz.profiles import recover_sa_areas
+        x, y, fit, recs, idx, res, _ = self._setup()
+        pm = self._premeasured(fit)
+        pm["center_nm"] = 405.0
+        new_res, out, used = recover_sa_areas(
+            idx, res, x, y, fit, recs,
+            exclude=((400.0, 0.5),), premeasured=(pm,))
+        self.assertFalse(used)
+        self.assertIn("unmatched",
+                      [r["action"] for r in out
+                       if r.get("source") == "refinement-merge"])
