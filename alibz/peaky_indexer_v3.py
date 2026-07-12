@@ -1861,6 +1861,70 @@ class PeakyIndexerV3:
         )
         cost += self._width_cost(best_ne)
 
+        return self._build_result(
+            best_T, best_ne, best_sigma, best_gamma, concentrations, cost,
+            extra_convergence={
+                'n_evaluations': eval_count[0],
+                'best_params': result.x,
+                'all_costs': result.func_vals.tolist(),
+            },
+            verbose=verbose,
+        )
+
+    def solve_at(
+        self,
+        temperature: float,
+        log_ne: float,
+        sigma: float,
+        gamma: float,
+        verbose: bool = False,
+    ) -> FitResult:
+        """Composition at a FIXED plasma state — no Bayesian optimisation.
+
+        The candidate matrix must already be built (call
+        :meth:`build_candidate_matrix` first, or run this on an indexer
+        constructed for a grown peak set).  Rebuilds the overlap kernel at
+        ``(sigma, gamma)``, runs the same NNLS solve + evidence prune +
+        width cost + result assembly as the final stage of :meth:`fit`, and
+        returns a full :class:`FitResult` — but WITHOUT re-optimising
+        ``(T, nₑ)``, so it cannot drift into a different plasma basin.
+
+        This is the basin-safe re-solve used by the iterative line-deepening
+        loop (:func:`alibz.pipeline.analyze_spectrum`): after an ion is
+        anchored by its intense lines, its weak lines are fitted and the
+        composition is re-solved here at the already-trusted state.
+        Verified on MW2-112 to reproduce the optimiser's final solve to
+        machine precision when given its own ``(T, nₑ, σ, γ)``.
+        """
+        if self.n_peaks == 0:
+            return self._empty_result("empty_peak_table")
+        self._rebuild_overlap(sigma, gamma)
+        concentrations, cost = self._solve_concentrations(temperature, log_ne)
+        concentrations, cost = self._prune_and_refit(
+            temperature, log_ne, sigma, gamma, concentrations, cost)
+        cost += self._width_cost(log_ne)
+        return self._build_result(
+            temperature, log_ne, sigma, gamma, concentrations, cost,
+            extra_convergence={'fixed_plasma_state': True}, verbose=verbose)
+
+    def _build_result(
+        self,
+        best_T: float,
+        best_ne: float,
+        best_sigma: float,
+        best_gamma: float,
+        concentrations: np.ndarray,
+        cost: float,
+        extra_convergence: Optional[dict] = None,
+        verbose: bool = False,
+    ) -> FitResult:
+        """Assemble a :class:`FitResult` from a completed concentration solve.
+
+        Shared by :meth:`fit` (after Bayesian optimisation) and
+        :meth:`solve_at` (fixed plasma state); ``extra_convergence`` carries
+        the caller-specific bits (optimiser evaluations vs a fixed-state
+        marker) merged into the physics-derived convergence diagnostics.
+        """
         # Predicted amplitudes from the physical design matrix and
         # physical concentrations (identical to the normalised product).
         A = self._last_A
@@ -1929,6 +1993,25 @@ class PeakyIndexerV3:
             self._aggregate_elements(concentrations, A)
         )
 
+        convergence_info = {
+            'gamma_inst': self._last_gamma_inst,
+            'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
+            'sa_converged': self._last_sa_converged,
+            'sa_doublet_taus': {
+                f'{el}_{ion}': info['tau_weak']
+                for (el, ion), info in self._sa_doublet_info.items()
+            },
+            'sa_tau_at_bound': (
+                bool(self._sa_fit and self._sa_tau_scale > 0 and min(
+                    abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[0]),
+                    abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[1]),
+                ) < 0.05 * (self._sa_log_tau_bounds[1] - self._sa_log_tau_bounds[0]))
+                if self._sa_fit else None
+            ),
+        }
+        if extra_convergence:
+            convergence_info.update(extra_convergence)
+
         return FitResult(
             temperature=best_T,
             ne=best_ne,
@@ -1943,25 +2026,7 @@ class PeakyIndexerV3:
             r_squared=r_squared,
             peak_assignments=peak_assignments,
             unexplained_peaks=unexplained,
-            convergence_info={
-                'n_evaluations': eval_count[0],
-                'best_params': result.x,
-                'all_costs': result.func_vals.tolist(),
-                'gamma_inst': self._last_gamma_inst,
-                'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
-                'sa_converged': self._last_sa_converged,
-                'sa_doublet_taus': {
-                    f'{el}_{ion}': info['tau_weak']
-                    for (el, ion), info in self._sa_doublet_info.items()
-                },
-                'sa_tau_at_bound': (
-                    bool(self._sa_fit and self._sa_tau_scale > 0 and min(
-                        abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[0]),
-                        abs(np.log10(self._sa_tau_scale) - self._sa_log_tau_bounds[1]),
-                    ) < 0.05 * (self._sa_log_tau_bounds[1] - self._sa_log_tau_bounds[0]))
-                    if self._sa_fit else None
-                ),
-            },
+            convergence_info=convergence_info,
             element_concentrations=element_concentrations,
             element_fractions=element_fractions,
             stage_disagreement=stage_disagreement,

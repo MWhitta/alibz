@@ -39,12 +39,15 @@ Per-spectrum chain (the same sequence validated interactively on MW2-112):
                                                  peaks: one-sided flank bump
                                                  = unresolved overlap)
             -> PeakyIndexerV3.fit  [pass 2]     (confirms elements present)
-            -> seed_minor_lines (corroboration) (pass-2 elements; line-rich
-                                                 stages like Fe trusted)
-            -> PeakyIndexerV3.fit  [pass 3]     (corroborated composition;
-                                                 rejected by the basin guard
-                                                 if it newly collapses onto
-                                                 one element -- see
+            -> iterative deepening              (for ions quantified from
+               (seed + guarded recover +         intense peaks: seed their
+                solve_at, 3->2 sigma)            weak lines AND recover faint
+                                                 residuals near their own db
+                                                 lines at progressively lower
+                                                 bars; each round re-solves at
+                                                 the FIXED pass-2 plasma state
+                                                 (no basin drift), rejected if
+                                                 it newly collapses -- see
                                                  COLLAPSE_TOP_FRACTION)
             -> alibz.profiles                   (per-segment per-peak shape
                                                  QC of each element support)
@@ -152,6 +155,24 @@ DETECTIONS_NAME = "detections.csv"
 #: by at least COLLAPSE_JUMP over the pass-2 top fraction.
 COLLAPSE_TOP_FRACTION = 0.9
 COLLAPSE_JUMP = 0.2
+#: an ion is "confident" — quantified from its intense peaks, and so
+#: trustworthy enough to license a lowered recovery bar on its weak lines
+#: — when some ion stage carries at least this many clean reference lines
+#: (measured on MW2-112 #1000: Fe 60/46, Si 16, Ti 17/20 vs marginal Li 3).
+CONFIDENT_MIN_REFS = 4
+#: iterative deepening: after the confident ions are quantified from their
+#: intense peaks, their weak lines are seeded and recovered at these
+#: progressively lower local-noise bars (the 4 sigma one-shot recovery has
+#: already run pre-identification; 2.0 is the noise floor below which peaks
+#: are not distinguishable from noise).  Each round re-solves the
+#: composition at the FIXED pass-2 plasma state (no re-optimisation, so no
+#: basin drift) and is rejected wholesale if it collapses.
+DEEPEN_BARS = (3.0, 2.5, 2.0)
+#: gA floor for a confident ion's database line to mark "coverage" for the
+#: guarded low-bar agnostic recovery (a bump near a strong line of a
+#: present ion is very likely that ion's faint line, not noise).
+SUPPORT_GA_FLOOR = 1.0e6
+SUPPORT_TOL_NM = 0.06
 
 
 def composition_collapsed(fr_before: dict, fr_after: dict) -> bool:
@@ -267,22 +288,26 @@ def analyze_spectrum(
     adjudication (3b: asymmetric merges with resonance gates conditioned
     on the retained candidate species) -> seeding + element-agnostic
     residual recovery -> pass-2 indexer (confirms the elements present) ->
-    CORROBORATION seed of those elements' still-unfitted weak (>= 2 sigma)
-    lines (line-rich elements such as Fe, silenced pre-id, are trusted here)
-    -> pass-3 indexer for the corroborated composition, accepted only if it
-    does not newly collapse onto a single element (basin guard; see
-    ``COLLAPSE_TOP_FRACTION``) -> detection report + per-peak shape QC
-    (:mod:`alibz.profiles`).
+    ITERATIVE DEEPENING: for the ions quantified from their intense peaks
+    (>= ``CONFIDENT_MIN_REFS`` clean reference lines), seed their weak
+    lines and recover faint residuals near their own database lines at
+    progressively lower local-noise bars (``DEEPEN_BARS``, 3 -> 2 sigma),
+    re-solving the composition at the FIXED pass-2 plasma state each round
+    (:meth:`PeakyIndexerV3.solve_at` -- no re-optimisation, so no basin
+    drift), stopping if a round newly collapses onto one element (basin
+    guard; see ``COLLAPSE_TOP_FRACTION``) -> detection report + per-peak
+    shape QC (:mod:`alibz.profiles`).
 
     Returns a dict with the intermediate fits (``fit``, ``refined``,
     ``final``, ``decisions``, ``records``, ``shift``), the final
     ``result`` (:class:`FitResult`), ``element_uncertainty``, the
     ``established`` element list (the pass-2 confirmed elements when
-    corroboration ran; the pass-1 list otherwise),
+    deepening ran; the pass-1 list otherwise),
     ``profiles``/``shape_quality`` (per-peak shape physics
-    and per-element support QC), and ``corroboration`` (whether the pass-3
-    re-index was used, and why not).  Raises on hard failures; the
-    directory driver converts those into an error row.
+    and per-element support QC), and ``corroboration`` (the deepening
+    summary: confident ions, per-round seeded/recovered counts, and why it
+    stopped).  Raises on hard failures; the directory driver converts
+    those into an error row.
     """
     from alibz import PeakyFinder, refine_fit, seed_minor_lines
     from alibz.inspection import estimate_peak_uncertainties
@@ -419,17 +444,22 @@ def analyze_spectrum(
                           ne_init=res1.ne)
     res2 = idx2.run(**run_kwargs)
 
-    # corroboration: pass 2 has now CONFIRMED which elements are present, so
-    # seed their still-unfitted weak (>= 2 sigma) lines using each element's
-    # robust intensity scale.  This is where line-rich elements the pre-ID
-    # pass 1 could not establish (Fe), and that the scale-spread trust gate
-    # would otherwise silence, are finally accounted for -- and the per-line
-    # Boltzmann-SNR + BIC guards keep it from fitting noise (a >= 2 sigma peak
-    # must actually be present at the predicted position).  Re-index so the
-    # composition reflects the corroborating lines.
+    # ITERATIVE DEEPENING: pass 2 has now CONFIRMED which elements are
+    # present and quantified the confident ones from their intense peaks.
+    # Each confident ion's weak lines are then seeded (Boltzmann prior) AND
+    # recovered from the data (element-agnostic, but with the local-noise
+    # bar lowered ONLY near that ion's own database lines) at progressively
+    # lower bars -- so refinement can progress through the faint lines the
+    # one-shot 4 sigma recovery leaves behind, without re-admitting the
+    # chance-coincidence noise a globally-lowered bar would.  Each round
+    # RE-SOLVES the composition at the FIXED pass-2 plasma state
+    # (PeakyIndexerV3.solve_at -- no re-optimisation, so no basin drift;
+    # the pass-2 T, ne came from the intense lines and the weak lines only
+    # corroborate) and is rejected wholesale if it newly collapses.
     fidx, result = idx2, res2
     corroboration = dict(used=False, added=0, reason="seed_minor disabled")
     if seed_minor:
+        from alibz.minor_lines import match_and_scale
         confirmed = sorted(
             [el for el, f in res2.element_fractions.items()
              if f >= ESTABLISHED_MIN_FRACTION],
@@ -438,43 +468,91 @@ def analyze_spectrum(
                              reason="no confirmed elements")
         if confirmed:
             established = confirmed
-            final_c, corr = seed_minor_lines(x, y, final, db, confirmed,
-                                             shift_nm=shift,
-                                             robust_elements=set(confirmed),
-                                             exclude=tuple(sa_zones))
-            n_added = sum(1 for r in corr if r.get("action") == "added")
-            if n_added == 0:
-                # nothing new to quantify: keep the pass-2 result rather
-                # than re-running the optimizer for no reason (a bare
-                # re-index can still wander into a worse basin)
-                corroboration = dict(used=False, added=0,
-                                     reason="no corroborating lines added")
-            else:
-                fpeaks_c = final_c["sorted_parameter_array"]
-                # pass 3: composition on the corroborated fit
-                idx3 = PeakyIndexerV3(_db_frame(fpeaks_c), dbpath=dbpath,
-                                      temperature_init=res2.temperature,
-                                      ne_init=res2.ne)
-                res3 = idx3.run(**run_kwargs)
-                # basin guard: see composition_collapsed above
-                fr2, fr3 = res2.element_fractions, res3.element_fractions
-                collapsed = composition_collapsed(fr2, fr3)
-                top2 = max(fr2.values(), default=0.0)
-                top3 = max(fr3.values(), default=0.0)
-                corroboration = dict(used=not collapsed, added=n_added,
-                                     top_before=round(float(top2), 3),
-                                     top_after=round(float(top3), 3),
-                                     reason=("composition collapse in "
-                                             "corroborated re-index"
-                                             if collapsed else ""))
-                if not collapsed:
-                    final, fpeaks = final_c, fpeaks_c
-                    records = records + corr
-                    fidx, result = idx3, res3
-                # on rejection: quantify from the pass-2 basin; final/
-                # fpeaks/records stay pre-corroboration so every downstream
-                # consumer (detections, area_sigma, profiles) sees one
-                # consistent fit
+            # confident ions = quantified from intense peaks (>= CONFIDENT_
+            # MIN_REFS clean reference lines in some stage)
+            scales, _ = match_and_scale(fpeaks, db, confirmed, shift_nm=shift)
+            confident = sorted(
+                {el for (el, _stg), info in scales.items()
+                 if info["n_ref"] >= CONFIDENT_MIN_REFS},
+                key=element_sort_key)
+            # instrument-frame db lines of confident ions -> coverage map
+            sup = []
+            for el in confident:
+                if el in db.no_lines:
+                    continue
+                arr = db.lines(el)
+                if arr.size == 0:
+                    continue
+                mk = ((arr[:, 0].astype(float) <= 2)
+                      & (arr[:, 3].astype(float) >= SUPPORT_GA_FLOOR))
+                wl = arr[mk, 1].astype(float)
+                if wl.size:
+                    sup.append(wl + shift_at(shift, wl))
+            supported = (np.concatenate(sup) if sup
+                         else np.empty(0, dtype=float))
+
+            work = final
+            n_seed_tot = n_rec_tot = 0
+            rounds = []
+            collapsed_at = None
+            for bar in DEEPEN_BARS:
+                if not confident:
+                    break
+                work, corr = seed_minor_lines(
+                    x, y, work, db, confident, shift_nm=shift,
+                    accept_snr=bar, min_expected_snr=bar,
+                    robust_elements=set(confident),
+                    exclude=tuple(sa_zones))
+                n_seed = sum(1 for r in corr if r.get("action") == "added")
+                work, rec = recover_residual_lines(
+                    x, y, work, exclude=tuple(sa_zones),
+                    supported_lines=supported,
+                    snr_min_supported=bar, accept_snr_supported=bar,
+                    support_tol_nm=SUPPORT_TOL_NM)
+                n_rec = sum(1 for r in rec if r.get("action") == "added")
+                if n_seed + n_rec == 0:
+                    rounds.append(dict(bar=bar, seeded=0, recovered=0,
+                                       used=False))
+                    continue
+                # basin-safe fixed re-solve on the grown peak table
+                idxN = PeakyIndexerV3(
+                    _db_frame(work["sorted_parameter_array"]), dbpath=dbpath,
+                    temperature_init=res2.temperature, ne_init=res2.ne)
+                idxN.build_candidate_matrix(
+                    sa_doublets=True,
+                    sa_stimulated_emission=bool(stimulated_emission))
+                resN = idxN.solve_at(res2.temperature, res2.ne,
+                                     res2.sigma, res2.gamma)
+                # guard against the TRUSTED pass-2 baseline (catches slow
+                # cumulative drift, not just round-to-round)
+                if composition_collapsed(res2.element_fractions,
+                                         resN.element_fractions):
+                    collapsed_at = bar
+                    rounds.append(dict(bar=bar, seeded=n_seed,
+                                       recovered=n_rec, used=False,
+                                       reason="collapse"))
+                    break
+                records = records + corr + rec
+                n_seed_tot += n_seed
+                n_rec_tot += n_rec
+                final, fpeaks, fidx, result = (
+                    work, work["sorted_parameter_array"], idxN, resN)
+                rounds.append(dict(bar=bar, seeded=n_seed, recovered=n_rec,
+                                   used=True))
+            total = n_seed_tot + n_rec_tot
+            reason = ""
+            if total == 0:
+                reason = "no corroborating lines added"
+            elif collapsed_at is not None:
+                reason = f"deepening collapse at {collapsed_at} sigma"
+            corroboration = dict(
+                used=total > 0, added=total, seeded=n_seed_tot,
+                recovered=n_rec_tot, confident=confident, rounds=rounds,
+                top_before=round(float(max(res2.element_fractions.values(),
+                                           default=0.0)), 3),
+                top_after=round(float(max(result.element_fractions.values(),
+                                          default=0.0)), 3),
+                reason=reason)
 
     # per-segment, per-peak shape physics (alibz.profiles) on the FINAL
     # fit, then growth-curve area recovery: sa-like peaks of species NOT
@@ -570,7 +648,10 @@ def _summary_row(path: str, analysis: dict) -> dict:
                 flags.append(f"{top_el}:dominant-weak-shape")
     corro = analysis.get("corroboration") or {}
     if "collapse" in (corro.get("reason") or ""):
-        flags.append("corroboration-rejected(collapse)")
+        flags.append("deepening-stopped(collapse)")
+    n_deep = int(corro.get("added") or 0)
+    if n_deep:
+        flags.append(f"deepened({n_deep})")
     sr = analysis.get("shape_refit") or {}
     n_deb = sum(1 for r in sr.get("deblends", [])
                 if r.get("action") == "deblended")

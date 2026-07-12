@@ -186,6 +186,30 @@ previously walked +30 pm and lost 40% of its area to the refit next
 door.  Remaining known gap in that window: features below recovery's 4σ
 prominence bar (e.g. the small 248.55 nm bump) stay unmodeled.
 
+**Iterative line deepening (2026-07-12).**  The single post-pass-2
+corroboration seed + pass-3 `gp_minimize` re-index is replaced by an
+iterative deepening loop.  The ions QUANTIFIED FROM THEIR INTENSE PEAKS
+(`>= CONFIDENT_MIN_REFS = 4` clean reference lines in some stage — Fe
+carries 60/46 on MW2-112 #1000, Si 16, Ti 17/20) have earned a lower
+recovery bar on their own faint lines; each round, at
+`DEEPEN_BARS = (3.0, 2.5, 2.0)` sigma, those ions are (a) seeded
+(Boltzmann prior) and (b) recovered element-agnostically but ONLY where a
+confident ion's own database line marks the position
+(`recover_residual_lines(supported_lines=…, snr_min_supported=bar)` — a
+bump on an anchored ion's line is very likely that ion's faint line, not
+noise, while empty regions keep the full 4 sigma and cannot admit chance
+coincidences).  The composition is re-solved each round at the FIXED
+pass-2 plasma state (`PeakyIndexerV3.solve_at` — no `gp_minimize`, so it
+cannot drift into a different (T, nₑ) basin; verified to reproduce the
+optimiser's final solve to machine precision on its own state), rejected
+wholesale if it newly collapses.  This is strictly safer than the old
+pass-3 re-index, which WAS the basin-drift risk the collapse guard
+existed to catch.  Measured on MW2-112 #1000: 41 lines added (23 seeded +
+18 recovered) across 3 rounds, no collapse, ~264 s end to end.  Honest
+limit: a residual below the 2 sigma noise floor is still left unmodeled
+by design (e.g. the 248.55 nm region on #1000 sits at 0.11 sigma — already
+explained by neighbouring wings — so deepening correctly declines it).
+
 **Per-segment wavelength shift (2026-07-09).**
 `estimate_wavelength_shift_segments` estimates one shift per detector
 segment from the refined table, but applies a segment's own median only

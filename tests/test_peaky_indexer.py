@@ -123,6 +123,43 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         self.assertEqual(mock_gp.call_args.kwargs["n_initial_points"], 3)
         np.testing.assert_allclose(result.predicted, [1.0])
 
+    def test_solve_at_is_fixed_state_and_skips_optimiser(self):
+        # solve_at must produce a full FitResult at a GIVEN (T, ne, sig, gam)
+        # WITHOUT calling the Bayesian optimiser (the basin-safe re-solve
+        # used by the iterative deepening loop).
+        idx = PeakyIndexer(np.array([[2.0, 500.0, 0.05, 0.05]]))
+        idx.line_table = SimpleNamespace(
+            n_species=1, n_lines=1,
+            species=[SimpleNamespace(element="Fe", ion=1)],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0], ([0], [0])), shape=(1, 1))
+        idx._evidence_top_k = 0            # _prune_and_refit returns early
+        idx._last_gamma_inst = 0.0
+        idx._sa_tau_scale = 0.0
+        idx._sa_fit = False
+        idx._sa_doublet_info = {}
+        idx._sa_log_tau_bounds = (-2.0, 3.0)
+        idx._last_sa_converged = None
+        idx._rebuild_overlap = lambda _sigma, _gamma: None
+        idx._width_cost = lambda _log_ne: 0.0
+
+        def fake_solve(_temperature, _log_ne):
+            idx._last_A = np.array([[1.0]])
+            return np.array([2.0]), 0.0
+
+        idx._solve_concentrations = fake_solve
+
+        with patch("skopt.gp_minimize") as mock_gp:
+            result = idx.solve_at(7000.0, 16.5, 0.05, 0.05, verbose=False)
+
+        mock_gp.assert_not_called()
+        self.assertEqual(result.temperature, 7000.0)
+        self.assertEqual(result.ne, 16.5)
+        self.assertTrue(result.convergence_info["fixed_plasma_state"])
+        np.testing.assert_allclose(result.predicted, [2.0])
+        np.testing.assert_allclose(result.residuals, [0.0])
+
     def test_initial_strength_prefilter_drops_negligible_species(self):
         idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
         idx._shift_tolerance = 0.1

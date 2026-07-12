@@ -647,6 +647,57 @@ class TestRecoverResidualLines(unittest.TestCase):
         self.assertTrue(any(r["action"] == "excluded" for r in recs))
         self.assertIs(new_fit, fit)
 
+    def test_supported_coverage_lowers_the_bar(self):
+        """A ~3-sigma bump is REJECTED under the uniform 4-sigma bar but
+        ACCEPTED when a confident-ion line marks its position (the
+        adaptive coverage bar the deepening loop sweeps down)."""
+        from alibz.minor_lines import recover_residual_lines
+        rng = np.random.default_rng(7)
+        x = np.arange(300.0, 320.0, 0.02)
+        from alibz.utils.voigt import multi_voigt
+        # strong modeled line at 305 + a faint ~3.2-sigma-prominence line
+        # at 308.4 (peak height ~4.8 counts over 1.5 noise)
+        truth = [[500.0, 305.0, 0.05, 0.02], [0.8, 308.4, 0.05, 0.02]]
+        y = multi_voigt(x, np.ravel(truth)) + rng.normal(0.0, 1.5, x.size)
+        table = np.array([[500.0, 305.0, 0.05, 0.02]])
+        fit = dict(sorted_parameter_array=table.copy(),
+                   background=np.zeros_like(y))
+        # uniform 4-sigma bar: faint line stays unrecovered
+        _f0, recs0 = recover_residual_lines(x, y, dict(fit), segment_edges=())
+        self.assertFalse(any(r["action"] == "added"
+                             and abs(r.get("center", 0) - 308.4) < 0.06
+                             for r in recs0))
+        # confident-ion coverage at 308.4 -> 2.5-sigma bar there: recovered
+        f1, recs1 = recover_residual_lines(
+            x, y, dict(fit), supported_lines=[308.4],
+            snr_min_supported=2.5, accept_snr_supported=2.5,
+            segment_edges=())
+        got = [r for r in recs1 if r["action"] == "added"
+               and abs(r.get("center", 0) - 308.4) < 0.06]
+        self.assertEqual(len(got), 1, f"recs1={recs1}")
+        self.assertTrue(got[0]["supported"])
+
+    def test_supported_bar_does_not_open_uncovered_regions(self):
+        """The lowered bar applies ONLY near supported lines; a faint bump
+        far from any confident-ion line keeps the full 4-sigma bar."""
+        from alibz.minor_lines import recover_residual_lines
+        rng = np.random.default_rng(8)
+        x = np.arange(300.0, 320.0, 0.02)
+        from alibz.utils.voigt import multi_voigt
+        truth = [[500.0, 305.0, 0.05, 0.02], [0.8, 312.6, 0.05, 0.02]]
+        y = multi_voigt(x, np.ravel(truth)) + rng.normal(0.0, 1.5, x.size)
+        table = np.array([[500.0, 305.0, 0.05, 0.02]])
+        fit = dict(sorted_parameter_array=table.copy(),
+                   background=np.zeros_like(y))
+        # coverage at 305 only; the faint 312.6 bump is far from it
+        _f, recs = recover_residual_lines(
+            x, y, dict(fit), supported_lines=[305.0],
+            snr_min_supported=2.0, accept_snr_supported=2.0,
+            segment_edges=())
+        self.assertFalse(any(r["action"] == "added"
+                             and abs(r.get("center", 0) - 312.6) < 0.06
+                             for r in recs))
+
     def test_exclusion_zone_row_frozen_in_neighbour_refit(self):
         """A merged row inside an exclude zone must survive a NEIGHBOURING
         window's joint refit bit-identically: its table area is the

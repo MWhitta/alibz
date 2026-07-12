@@ -573,6 +573,10 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
 def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
                            bic_margin=6.0, max_new=40,
                            exclude=(),
+                           supported_lines=(),
+                           snr_min_supported=None,
+                           accept_snr_supported=None,
+                           support_tol_nm=0.06,
                            segment_edges=None) -> Tuple[dict, List[dict]]:
     """Element-agnostic recovery of significant positive residual peaks.
 
@@ -621,10 +625,24 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
     assignments then appear in the detection report through the normal
     support counting).
 
+    Confident-ion coverage (``supported_lines``): a bare low prominence
+    bar over the whole spectrum re-admits the chance-coincidence noise
+    the high bar exists to reject, but a residual bump sitting on a line
+    of an ion already ANCHORED by its intense peaks is very likely a real
+    (faint) line of that ion, not noise.  So a candidate within
+    ``support_tol_nm`` of any ``supported_lines`` wavelength (pass the
+    instrument-frame db lines of the confident ions) is judged at the
+    lower ``snr_min_supported`` / ``accept_snr_supported`` bars, while
+    everything else keeps the full ``snr_min`` / ``accept_snr``.  Both
+    default to ``None`` = no supported set (uniform high bar, the
+    original behaviour).  The iterative deepening in
+    :func:`alibz.pipeline.analyze_spectrum` sweeps the supported bar down
+    from ~3 sigma to the 2-sigma noise floor as more ions are quantified.
+
     Returns ``(new_fit_dict, records)``; records carry ``action`` in
     ``added`` / ``rejected`` / ``fit-failed`` / ``excluded`` /
     ``absorbed`` (residual at the candidate collapsed after an earlier
-    acceptance in the same region).
+    acceptance in the same region) and a ``supported`` bool.
     """
     from alibz.peaky_finder import PeakyFinder
 
@@ -655,6 +673,27 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
     gam_med = float(np.median(peaks[narrow, 3])) if np.any(narrow) else 0.02
     sig_med, gam_med = max(sig_med, 1e-3), max(gam_med, 0.0)
 
+    # confident-ion coverage: a sorted lookup of instrument-frame lines of
+    # ions anchored by their intense peaks.  A candidate near one of these
+    # is judged at the lower "supported" bar (see docstring).
+    sup_wl = np.sort(np.asarray(supported_lines, dtype=float).ravel())
+    lo_min = snr_min if snr_min_supported is None else float(snr_min_supported)
+    lo_acc = accept_snr if accept_snr_supported is None else float(
+        accept_snr_supported)
+
+    def _supported(mu):
+        if sup_wl.size == 0:
+            return False
+        j = int(np.searchsorted(sup_wl, mu))
+        for jj in (j - 1, j):
+            if 0 <= jj < sup_wl.size and abs(sup_wl[jj] - mu) <= support_tol_nm:
+                return True
+        return False
+
+    def _bars(mu):
+        # (prominence bar, acceptance bar) for a candidate at mu
+        return (lo_min, lo_acc) if _supported(mu) else (snr_min, accept_snr)
+
     # candidate residual maxima on the CURRENT model, strongest first.
     # Significance is PROMINENCE above the window's median residual, not
     # the absolute level: a broad pedestal (junction ledge, wing residue)
@@ -668,7 +707,8 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
     cand_idx = []
     for k in finder.find_peaks(pos)[0]:
         k = int(k)
-        if resid0[k] <= snr_min * noise[k]:
+        bar_k = _bars(float(x[k]))[0]
+        if resid0[k] <= bar_k * noise[k]:
             continue
         mwin = (x >= x[k] - span) & (x <= x[k] + span)
         sub = resid0[mwin]
@@ -682,7 +722,7 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
                     if quiet.size >= max(4, 0.25 * sub.size)
                     else float(np.median(sub)))
         prominence = resid0[k] - base_lvl
-        if prominence > snr_min * noise[k]:
+        if prominence > bar_k * noise[k]:
             cand_idx.append(k)
     cand_idx.sort(key=lambda k: -resid0[k])
     cand_idx = cand_idx[: int(max_new)]
@@ -713,8 +753,10 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
     added_mu: List[float] = []
     for k in cand_idx:
         mu0 = float(x[k])
+        bar_prom, bar_acc = _bars(mu0)
         rec = dict(center0=mu0, resid0=float(resid0[k]),
-                   snr0=float(resid0[k] / max(noise[k], 1e-12)))
+                   snr0=float(resid0[k] / max(noise[k], 1e-12)),
+                   supported=bool(_supported(mu0)))
         if any(abs(mu0 - c) <= hw for c, hw in exclude):
             # asymmetric-merged self-absorbed line: its symmetric table
             # proxy leaves a core-shaped residual BY DESIGN — fitting it
@@ -754,7 +796,7 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
                       if inwin.size else 0.0)
         off0 = float(np.median(r_now))
         k_loc = int(np.argmin(np.abs(xw - mu0)))
-        if r_now[k_loc] - off0 < snr_min * noise[m][k_loc]:
+        if r_now[k_loc] - off0 < bar_prom * noise[m][k_loc]:
             rec.update(action="absorbed")
             records.append(rec)
             continue
@@ -812,7 +854,7 @@ def recover_residual_lines(x, y, fit_dict, snr_min=4.0, accept_snr=4.0,
         rec.update(area=new_a, area_sigma=sigma_area,
                    snr=new_a / max(sigma_area, 1e-300),
                    delta_bic=float(d_bic), center=new_mu)
-        if new_a >= accept_snr * sigma_area and d_bic >= bic_margin:
+        if new_a >= bar_acc * sigma_area and d_bic >= bic_margin:
             rec["action"] = "added"
             for slot, j in enumerate(inwin):
                 peaks[j, :4] = p_new[4 * slot: 4 * slot + 4]
