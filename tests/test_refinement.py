@@ -66,19 +66,30 @@ class TestSelfAbsorption(unittest.TestCase):
                 self.assertIsNotNone(dec, "no decision at the SA line")
                 self.assertEqual(dec["verdict"], "asymmetric",
                                  f"bic {dec['bic']}, s2 {dec['noise_rescale']}")
-                self.assertEqual(dec["action"], "merge")
+                self.assertEqual(dec["action"], "sa-tag")
                 self.assertTrue(dec["resonance_primary"])
                 self.assertAlmostEqual(dec["tau_a"], 1.5, delta=0.4)
                 # emission (unattenuated) recovered; observed is smaller
                 self.assertAlmostEqual(dec["emission_area"] / 3e4, 1.0,
                                        delta=0.1)
                 self.assertLess(dec["observed_area"], dec["emission_area"])
-                # exactly one row survives, carrying the OBSERVED area
+                # exactly one FAITHFUL symmetric row survives, carrying the
+                # observed area (non-destructive SA tag, not the SA-model
+                # core proxy)
                 pk = new_fit["sorted_parameter_array"]
                 near = pk[np.abs(pk[:, 1] - 670.78) < 0.15]
                 self.assertEqual(near.shape[0], 1)
                 self.assertAlmostEqual(float(near[0, 0]),
                                        dec["observed_area"], places=6)
+                # the stored symmetric model must FIT the data (no core
+                # overshoot): peak height <= observed data + a little noise
+                bg = np.asarray(new_fit.get("background",
+                                            np.zeros_like(y)))
+                m = np.abs(x - float(near[0, 1])) < 0.03
+                self.assertLessEqual(
+                    float(np.max(multi_voigt(x[m], near[0, :4]))),
+                    float(np.max((y - bg)[m])) + 5 * NOISE,
+                    "stored SA-tag component overshoots the data core")
 
     def test_flat_top_phantom_split_merged_all_seeds(self):
         """tau=2.5 flat top: the first pass splits it into two phantom
@@ -96,11 +107,14 @@ class TestSelfAbsorption(unittest.TestCase):
                 self.assertIsNotNone(dec)
                 self.assertEqual(dec["verdict"], "asymmetric",
                                  f"bic {dec['bic']}, s2 {dec['noise_rescale']}")
-                self.assertEqual(dec["action"], "merge")
+                self.assertEqual(dec["action"], "sa-tag")
                 self.assertAlmostEqual(dec["emission_area"] / 5e4, 1.0,
                                        delta=0.1)
+                # observed area is now the symmetric ENVELOPE fit of the
+                # flat-topped profile; it approximates the observed integral
+                # but a Voigt cannot match a flat top exactly
                 self.assertAlmostEqual(
-                    dec["observed_area"] / observed_truth, 1.0, delta=0.1)
+                    dec["observed_area"] / observed_truth, 1.0, delta=0.2)
                 pk = new_fit["sorted_parameter_array"]
                 self.assertEqual(
                     int(np.sum(np.abs(pk[:, 1] - 670.78) < 0.3)), 1)
@@ -179,7 +193,7 @@ class TestStagedRefinement(unittest.TestCase):
         dec = decision_at(decisions, 670.78, tol=0.2)
         self.assertIsNotNone(dec)
         self.assertEqual(dec["verdict"], "asymmetric")
-        self.assertEqual(dec["action"], "merge")
+        self.assertEqual(dec["action"], "sa-tag")
         pk = new_fit["sorted_parameter_array"]
         near = pk[np.abs(pk[:, 1] - 670.78) < 0.3]
         self.assertEqual(near.shape[0], 1)
@@ -273,8 +287,8 @@ class TestBlends(unittest.TestCase):
                 new_fit, decisions = refine_fit(x, y, fit, db=self.db)
                 dec = decision_at(decisions, 0.5 * (wl_a + wl_b), tol=0.4)
                 if dec is not None:
-                    self.assertNotEqual(dec["action"], "merge",
-                                        f"verdict {dec['verdict']}")
+                    self.assertNotIn(dec["action"], ("merge", "sa-tag"),
+                                     f"verdict {dec['verdict']}")
                 pk = new_fit["sorted_parameter_array"]
                 near = pk[np.abs(pk[:, 1] - 0.5 * (wl_a + wl_b)) < 0.4]
                 self.assertGreaterEqual(near.shape[0], 2)
@@ -358,7 +372,7 @@ class TestGuards(unittest.TestCase):
         new_fit, decisions = refine_fit(x, y, fit, db=db)
         dec = decision_at(decisions, 670.78, tol=0.2)
         self.assertIsNotNone(dec)
-        self.assertEqual(dec["action"], "merge")
+        self.assertEqual(dec["action"], "sa-tag")
         self.assertGreaterEqual(len(dec["absorbed"]), 1)
         pk0 = fit["sorted_parameter_array"]
         pk = new_fit["sorted_parameter_array"]

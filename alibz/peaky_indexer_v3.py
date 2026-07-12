@@ -32,6 +32,16 @@ from alibz.utils.absorption import escape_factor, invert_doublet_tau
 # Database column indices
 # ---------------------------------------------------------------------------
 
+#: An element whose STRONGEST predicted line stays below this fraction of
+#: the brightest observed peak is treated as unobservable and dropped from
+#: the composition: its tied-density estimate is ill-conditioned (near-zero
+#: design columns give concentration = tiny/tiny, which blows up) and would
+#: otherwise dominate ``element_fractions`` on invisible lines.  Calibrated
+#: on MW2-112 #1000 where deep-UV-only Bi took a 0.94 fraction while its
+#: strongest predicted line was 0.2% of the spectrum (4 counts, below
+#: noise) and explained zero peaks; every real element there emits >= 1.2%.
+ELEMENT_EMIS_MIN_FRACTION = 0.005
+
 _COL_ION = 0
 _COL_WAVELENGTH = 1
 _COL_GA = 3
@@ -1597,6 +1607,8 @@ class PeakyIndexerV3:
         # not measurements.
         col_max = np.max(A, axis=0)
         predicted_total = A @ concentrations
+        obs_max = (float(np.max(np.abs(self._obs_amp)))
+                   if np.size(self._obs_amp) else 0.0)
 
         element_concentrations: Dict[str, float] = {}
         stage_disagreement: Dict[str, float] = {}
@@ -1615,6 +1627,14 @@ class PeakyIndexerV3:
             # The element's own signal as measured: observations minus the
             # other species' fitted contributions.
             own = a_stages @ c_stages
+            # Detectability gate: an element whose strongest predicted line
+            # is a negligible fraction of the brightest observed peak is
+            # UNOBSERVABLE — its density is unmeasurable (near-zero design
+            # columns make the tied estimate below explode) and must not
+            # enter the composition (see ELEMENT_EMIS_MIN_FRACTION).
+            if (obs_max > 0.0
+                    and float(np.max(own)) < ELEMENT_EMIS_MIN_FRACTION * obs_max):
+                continue
             residual_el = self._obs_amp - (predicted_total - own)
             element_concentrations[element] = max(
                 0.0, float(np.dot(a_tied, residual_el) / denom)

@@ -186,6 +186,39 @@ previously walked +30 pm and lost 40% of its area to the refit next
 door.  Remaining known gap in that window: features below recovery's 4σ
 prominence bar (e.g. the small 248.55 nm bump) stay unmodeled.
 
+**Non-destructive self-absorption tags + detectability gate (2026-07-12,
+fit-fidelity review).**  Two fidelity defects found by eye on the
+walkthrough:
+
+- *The asymmetric merge destroyed data fidelity.*  It replaced the fitted
+  components with the SA model's narrow absorbed core carrying the
+  wing-inflated area — a tall narrow spike that overshot the observed core
+  by up to **+19 sigma** (280.2 nm), and it deleted neighbouring
+  components that resurfaced as **40 sigma residuals** (407.8 nm).
+  Measured on MW2-112 #1000, stage 3b nearly DOUBLED the global chi²/sigma²
+  (3a 32821 -> 3b 51701).  Fix: the asymmetric verdict is now a
+  NON-DESTRUCTIVE `sa-tag` — the table keeps the data-faithful *symmetric*
+  fit (`params_single`, the same fit the `single` merge stores) and the
+  unattenuated emission area + tau ride along as metadata for the
+  stage-10b growth-curve recovery (the premeasured channel keys on the
+  stored symmetric component).  3b now IMPROVES the fit (51701 -> 28262,
+  below 3a), the +19σ/40σ artifacts are gone, and unmodeled >3σ residuals
+  fall 61 -> 28.
+
+- *A zero-emission species dominated the composition.*  Pass 1 gave
+  **Bi 0.94** while Bi's strongest predicted line was 0.2% of the spectrum
+  (4 counts, below noise) and it explained zero peaks: an ill-conditioned
+  tied-density estimate (near-zero design columns give concentration =
+  tiny/tiny, which blows up) that then normalised to a huge fraction.
+  Fix: `_aggregate_elements` drops an element whose strongest predicted
+  line is below `ELEMENT_EMIS_MIN_FRACTION` (0.5%) of the brightest
+  observed peak — unobservable, so unmeasurable.  Bi is gone; the final
+  composition is a sensible assemblage (Si 0.49 / Hg 0.27 / Fe 0.06 on
+  #1000).  Follow-up: the threshold is a fraction of the max peak, so a
+  spectrum with one hugely dominant line could over-exclude a real
+  ultra-trace — revisit with a noise-relative floor when the noise is
+  plumbed into the aggregate.
+
 **Iterative line deepening (2026-07-12).**  The single post-pass-2
 corroboration seed + pass-3 `gp_minimize` re-index is replaced by an
 iterative deepening loop.  The ions QUANTIFIED FROM THEIR INTENSE PEAKS

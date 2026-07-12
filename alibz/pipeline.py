@@ -394,20 +394,26 @@ def analyze_spectrum(
     from alibz.utils.voigt import voigt_width as _vw
     sa_zones, sa_merges = [], []
     for dec in decisions:
-        if (dec.get("action") == "merge"
+        if (dec.get("action") == "sa-tag"
                 and str(dec.get("verdict", "")).startswith("asymmetric")
                 and dec.get("params_asym") is not None):
-            pA = dec["params_asym"]
-            halfw = 1.5 * max(float(_vw(max(pA[2], 1e-6),
-                                        max(pA[3], 1e-6))), 0.15)
-            sa_zones.append((float(pA[1]), halfw))
-            # the merge's measured emission/observed ratio: the ONLY
-            # correction channel for merged lines of species the doublet
+            # the SA tag now stores a faithful SYMMETRIC fit (params_single)
+            # in the table, so the zone + premeasured record key on THAT
+            # component (not the narrow SA-model core), so recover_sa_areas
+            # matches the right row
+            pS = dec.get("params_single")
+            if pS is None:
+                pS = dec["params_asym"]
+            halfw = 1.5 * max(float(_vw(max(pS[2], 1e-6),
+                                        max(pS[3], 1e-6))), 0.15)
+            sa_zones.append((float(pS[1]), halfw))
+            # the SA tag's measured emission/observed ratio: the ONLY
+            # correction channel for tagged lines of species the doublet
             # anchors do not cover (recover_sa_areas skips the zones)
             obs = float(dec.get("observed_area") or 0.0)
             if obs > 0.0 and dec.get("emission_area"):
                 sa_merges.append(dict(
-                    center_nm=float(pA[1]),
+                    center_nm=float(pS[1]),
                     factor=float(dec["emission_area"]) / obs,
                     tau_a=float(dec.get("tau_a", 0.0)),
                     observed_area=obs,
@@ -1146,9 +1152,11 @@ for e in els:
     code_fitplot = """# full-span fit overview of the final model (blind -> refined -> seeded)
 fig, axs = plot_spectrum_overview(x, y, a['final'])"""
 
-    code_decisions = """# refinement decisions: blends split, self-absorbed lines merged
+    code_decisions = """# refinement decisions: blends split; self-absorbed lines get a
+# NON-DESTRUCTIVE tag (faithful symmetric fit kept in the table, emission
+# area + tau recorded for the growth-curve amplitude recovery)
 for d in sorted(a['decisions'], key=lambda d: d['center']):
-    if d['action'] == 'none':
+    if d['action'] in ('none', 'deferred'):
         continue
     extra = ''
     if 'tau_a' in d:
@@ -1156,7 +1164,7 @@ for d in sorted(a['decisions'], key=lambda d: d['center']):
                  f"  emission={d['emission_area']:.3g}"
                  f" observed={d['observed_area']:.3g}")
     print(f"{d['center']:9.3f}  {d['kind']:8s} {d['verdict']:18s}"
-          f" {d['action']:5s}{extra}")"""
+          f" {d['action']:8s}{extra}")"""
 
     code_minor = """# prior-seeded minor lines accepted for this spectrum
 added = [r for r in a['records'] if r['action'] == 'added']

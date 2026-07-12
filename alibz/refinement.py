@@ -585,26 +585,37 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
             add.append(pB[4:])
         elif v.startswith("asymmetric") and dec["params_asym"] is not None:
             pA = dec["params_asym"]
-            lo_w, hi_w = dec["window"]
-            grid = np.linspace(lo_w, hi_w, 512)
-            att_w = float(np.trapezoid(_model_A(grid, pA), grid))
-            thin_w = float(np.trapezoid(_model_S(grid, pA[:4]), grid))
-            # the Lorentzian wing flux outside the window is essentially
-            # unattenuated (the absorber profile vanishes there), so add
-            # it back analytically — a bare windowed integral clips
-            # 5-15 % of the area of every merged line
-            observed_area = att_w + max(float(pA[0]) - thin_w, 0.0)
-            dec["observed_area"] = observed_area
+            pS = dec["params_single"]
             dec["emission_area"] = float(pA[0])
             dec["tau_a"] = float(pA[4])
             dec["delta_nm"] = float(pA[5])
+            # observed (attenuated) area = the faithful symmetric fit's
+            # area; set for every asymmetric record (deferred / tagged /
+            # non-resonant) so consumers can read it uniformly
+            dec["observed_area"] = (float(pS[0]) if pS is not None
+                                    else float("nan"))
             if asymmetric == "defer":
                 dec["action"] = "deferred"
-            elif v == "asymmetric":
-                dec["action"] = "merge"
+            elif v == "asymmetric" and pS is not None:
+                # NON-DESTRUCTIVE self-absorption TAG.  Keep the
+                # data-faithful symmetric fit of the (attenuated) profile
+                # — the same single-Voigt fit the `single` merge stores —
+                # and record the SA metadata (unattenuated emission area,
+                # tau) for the downstream growth-curve amplitude recovery.
+                # Storing the SA-MODEL proxy instead (its narrow absorbed
+                # core width carrying the wing-inflated area) overshoots
+                # the core by up to +19 sigma on real data and drops
+                # neighbours that resurface as 40 sigma residuals; the
+                # symmetric envelope fits the observed line and leaves at
+                # most a shallow (negative) core dip where the true line is
+                # genuinely flat-topped.  The stored area IS the observed
+                # (attenuated) emission, so the recovery factor
+                # emission_area/observed_area acts on the right baseline.
+                dec["action"] = "sa-tag"
+                dec["observed_area"] = float(pS[0])
                 for i in list(indices) + absorbed:
                     drop.add(int(i))
-                add.append([observed_area, pA[1], pA[2], pA[3]])
+                add.append(list(pS[:4]))
         elif (v == "single" and kind == "pair"
               and dec["params_single"] is not None):
             if asymmetric == "only":
