@@ -195,23 +195,23 @@ class TestMinorLines(unittest.TestCase):
                 self.assertGreaterEqual(len(added), 3,
                     f"stage wrongly falsified at frac={frac}")
 
-    def test_no_lines_and_unstable_elements_are_safe(self):
+    def test_no_lines_and_unsupported_elements_are_safe(self):
         """An established-element list containing a no-lines element, a
-        radioactively-unstable element, or an unknown symbol must not
+        explicitly unsupported element, or an unknown symbol must not
         crash and must add nothing for them."""
         x = np.arange(605.0, 660.0 + 0.0333, 0.0333)
         y = synth(x, self.lines, seed=1)
         fit = run_pipeline(x, y)
         n0 = fit["sorted_parameter_array"].shape[0]
-        for junk in (["Tc"], ["Zz"], ["Ca", "Tc", "Zz"]):
+        for junk in (["Pm"], ["Zz"], ["Ca", "Pm", "Zz"]):
             with self.subTest(elements=junk):
                 new_fit, records = seed_minor_lines(
                     x, y, fit, self.db, junk, kT_ev=KT)
                 added = [r for r in records
                          if r["action"] == "added" and r["element"] in
-                         ("Tc", "Zz")]
+                         ("Pm", "Zz")]
                 self.assertEqual(added, [])
-                if junk == ["Tc"] or junk == ["Zz"]:
+                if junk == ["Pm"] or junk == ["Zz"]:
                     self.assertEqual(
                         new_fit["sorted_parameter_array"].shape[0], n0)
 

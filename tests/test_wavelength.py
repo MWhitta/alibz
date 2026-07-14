@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 
 from alibz.utils.database import Database
-from alibz.utils.wavelength import vacuum_to_air
+from alibz.utils.wavelength import air_to_vacuum, vacuum_to_air
 
 # NIST ASD reference pairs: (vacuum_nm, air_nm)
 REFERENCE_PAIRS = [
@@ -47,6 +47,54 @@ class TestVacuumToAir(unittest.TestCase):
         self.assertLess(shift[0], 0.08)
         self.assertGreater(shift[-1], 0.20)
         self.assertLess(shift[-1], 0.30)
+
+    def test_air_to_vacuum_round_trip(self):
+        vacuum = np.array([190.0, 200.0, 393.4777, 589.1583,
+                           656.4610, 960.0])
+        recovered = air_to_vacuum(vacuum_to_air(vacuum))
+        np.testing.assert_allclose(recovered, vacuum, atol=2e-10, rtol=0)
+
+
+class TestElementSupport(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db = Database("db")
+
+    def test_h_to_u_positions_and_explicit_unsupported_mask(self):
+        self.assertEqual(len(self.db.elements), 92)
+        self.assertEqual(self.db.elements[0], "H")
+        self.assertEqual(self.db.elements[-1], "U")
+        self.assertEqual(
+            self.db.unsupported_elements, {"Pm", "Po", "At", "Rn", "Pa"}
+        )
+        self.assertEqual(self.db.support_mask.shape, (92,))
+        self.assertEqual(int(self.db.support_mask.sum()), 87)
+        for element in ("Se", "Th", "U"):
+            self.assertTrue(self.db.is_supported(element))
+
+    def test_se_th_u_have_quantitative_low_ion_lines(self):
+        minimum_counts = {"Se": 8, "Th": 2000, "U": 1100}
+        expected_stages = {"Se": {1}, "Th": {1, 2}, "U": {1, 2}}
+        for element, minimum in minimum_counts.items():
+            lines = self.db.lines(element)
+            ion = lines[:, 0].astype(float).astype(int)
+            wavelength = lines[:, 1].astype(float)
+            gA = lines[:, 3].astype(float)
+            Ei = lines[:, 4].astype(float)
+            Ek = lines[:, 5].astype(float)
+            in_band = (wavelength >= 180.0) & (wavelength <= 962.0)
+            self.assertGreaterEqual(int(in_band.sum()), minimum, element)
+            self.assertEqual(set(ion), expected_stages[element])
+            self.assertTrue(np.all(gA > 0), element)
+            self.assertTrue(np.all(Ek > Ei), element)
+
+    def test_observed_only_se_ii_lines_are_retained_but_not_quantitative(self):
+        lines = self.db.observed_lines("Se", ion=2)
+        self.assertGreaterEqual(len(lines), 10)
+        self.assertTrue(all(not row["quantitative_ready"] for row in lines))
+        self.assertTrue(all(180.0 <= row["wavelength_nm"] <= 962.0
+                            for row in lines))
 
 
 class TestDatabaseServesAirWavelengths(unittest.TestCase):

@@ -130,10 +130,11 @@ def db_lines_in(db, lo, hi, rel_strength=0.03, elements=None):
     temperature; lines below ``rel_strength`` of the window's strongest
     are dropped.  ``elements`` restricts to a detected-element list.
     """
-    unstable = getattr(db, "unstable_elements", ())
+    excluded = getattr(db, "analysis_excluded_elements",
+                       getattr(db, "unsupported_elements", ()))
     wl_all, s_all, ei_all = [], [], []
     for el in db.elements:
-        if el in db.no_lines or el in unstable:
+        if el in db.no_lines or el in excluded:
             continue
         if elements is not None and el not in elements:
             continue

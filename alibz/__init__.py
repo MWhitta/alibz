@@ -51,6 +51,25 @@ from alibz.peaky_indexer_v3 import (
     Species,
 )
 from alibz.peaky_maker import PeakyMaker
+from alibz.synthetic import (
+    AtomicStrengthUncertainty,
+    ChannelGrid,
+    CoverageCell,
+    HierarchicalPlasmaSampler,
+    InstrumentResponse,
+    PlasmaComponent,
+    PeriodicCoverageScheduler,
+    SyntheticScene,
+    SyntheticSpectrum,
+    SyntheticSpectrumGenerator,
+    WholeRockSceneSampler,
+    dry_air_component,
+)
+from alibz.whole_rock import (
+    WholeRockComposition,
+    WholeRockCompositionMixture,
+    WholeRockCompositionModel,
+)
 from alibz.peaky_corpus import PeakyCorpus
 from alibz.peaky_pca import PeakyPCA
 from alibz.detector import DetectorModel
@@ -68,6 +87,12 @@ from alibz.elements import (
     element_color,
     element_periodic_block,
     element_sort_key,
+)
+from alibz.utils.colors import (
+    spectral_background,
+    spectral_colormap,
+    spectral_line,
+    wavelength_to_rgb,
 )
 from alibz.detections import (
     analyze_detections,
@@ -97,6 +122,21 @@ __all__ = [
     "PeakyIndexer",
     "PeakyIndexerV3",
     "PeakyMaker",
+    "SyntheticSpectrumGenerator",
+    "AtomicStrengthUncertainty",
+    "SyntheticSpectrum",
+    "SyntheticScene",
+    "PlasmaComponent",
+    "InstrumentResponse",
+    "ChannelGrid",
+    "CoverageCell",
+    "PeriodicCoverageScheduler",
+    "HierarchicalPlasmaSampler",
+    "dry_air_component",
+    "WholeRockComposition",
+    "WholeRockCompositionMixture",
+    "WholeRockCompositionModel",
+    "WholeRockSceneSampler",
     "PeakyCorpus",
     "PeakyPCA",
     "DetectorModel",
@@ -131,6 +171,11 @@ __all__ = [
     "element_sort_key",
     "element_periodic_block",
     "element_color",
+    # Spectral (wavelength -> visible colour) plotting
+    "wavelength_to_rgb",
+    "spectral_colormap",
+    "spectral_background",
+    "spectral_line",
     # Directory / spectrum analysis
     "analyze_spectrum",
     "analyze_directory",

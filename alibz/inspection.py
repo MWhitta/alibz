@@ -19,6 +19,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.special import voigt_profile as _voigt
 
+from alibz.utils.colors import spectral_line, wavelength_to_rgb
+
 from alibz.utils.voigt import multi_voigt as _multi_voigt, voigt_width as _voigt_width
 
 
@@ -262,18 +264,25 @@ def plot_spectrum_overview(
         3, 1, figsize=figsize, sharex=True,
         gridspec_kw={"height_ratios": [2, 3, 1.3]},
     )
-    axs[0].plot(x, y, "k-", lw=0.6, label="raw spectrum")
-    axs[0].plot(x, bg, "b-", lw=1.2, label="background")
+    # the spectrum trace is coloured BY wavelength (the repo-wide scheme);
+    # the intensity axis is untouched
+    spectral_line(axs[0], x, y, lw=0.7, label="raw spectrum")
+    axs[0].plot(x, bg, color="0.25", lw=1.0, label="background")
     axs[0].set_ylabel("counts")
     axs[0].legend(loc="upper right", fontsize=9)
 
-    axs[1].plot(x, y_bgsub, "k-", lw=0.6, label="background-subtracted")
-    axs[1].plot(x, profile, "r-", lw=0.9, alpha=0.85, label="fitted model")
+    spectral_line(axs[1], x, y_bgsub, lw=0.7, label="background-subtracted")
+    axs[1].plot(x, profile, color="0.35", lw=0.9, alpha=0.85,
+                label="fitted model")
     if peaks.size:
         heights = peaks[:, 0] * _voigt(
             0.0, np.maximum(peaks[:, 2], 1e-6), np.maximum(peaks[:, 3], 1e-6)
         )
-        axs[1].scatter(peaks[:, 1], heights, color="r", s=14, zorder=3,
+        # each peak marker takes the colour the eye would see at its
+        # wavelength (the repo-wide spectral scheme)
+        axs[1].scatter(peaks[:, 1], heights,
+                       color=wavelength_to_rgb(peaks[:, 1]), s=16, zorder=3,
+                       edgecolors="0.2", linewidths=0.3,
                        label=f"{peaks.shape[0]} peaks")
     axs[1].set_ylabel("counts")
     axs[1].legend(loc="upper right", fontsize=9)
@@ -340,11 +349,12 @@ def plot_peak_zoom(
         2, 1, figsize=figsize, sharex=True,
         gridspec_kw={"height_ratios": [3, 1]},
     )
+    peak_rgb = wavelength_to_rgb(mu)   # this peak's visible colour
     ax.plot(x[m], y_bgsub[m], "k.-", ms=4, lw=0.8, label="data (bg-subtracted)")
-    ax.plot(x[m], total, "r-", lw=1.3, label="total model")
-    ax.plot(x[m], own, "b-", lw=1.3, label="this peak")
-    ax.fill_between(x[m], own, alpha=0.2, color="b")
-    ax.plot(x[m], rest, color="0.5", ls="--", lw=1.0, label="other peaks")
+    ax.plot(x[m], total, color="0.3", lw=1.3, label="total model")
+    ax.plot(x[m], own, color=peak_rgb, lw=1.6, label="this peak")
+    ax.fill_between(x[m], own, alpha=0.28, color=peak_rgb)
+    ax.plot(x[m], rest, color="0.55", ls="--", lw=1.0, label="other peaks")
     ax.set_ylabel("counts")
 
     def fmt(v, e):

@@ -725,7 +725,9 @@ def recover_sa_areas(indexer, result, x, y, fit_dict, records,
         c, _cost = indexer._solve_concentrations(result.temperature,
                                                  result.ne)
         A_new = np.asarray(indexer._last_A)[:n_pk]
-        conc, fracs, dis = indexer._aggregate_elements(c, indexer._last_A)
+        conc, fracs, dis = indexer._aggregate_elements(
+            c, indexer._last_A,
+            amp_sigma=getattr(indexer, "_amp_sigma", None))
     finally:
         indexer._obs_amp = amp0
     if composition_collapsed(result.element_fractions, fracs):

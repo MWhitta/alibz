@@ -109,7 +109,8 @@ def element_uncertainty_stats(
                 result.temperature, result.ne
             )
             _conc, fracs, _dis = indexer._aggregate_elements(
-                c, indexer._last_A
+                c, indexer._last_A,
+                amp_sigma=getattr(indexer, "_amp_sigma", None)
             )
             per_draw.append({el: float(f) for el, f in fracs.items()})
     finally:

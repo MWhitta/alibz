@@ -32,15 +32,20 @@ from alibz.utils.absorption import escape_factor, invert_doublet_tau
 # Database column indices
 # ---------------------------------------------------------------------------
 
-#: An element whose STRONGEST predicted line stays below this fraction of
-#: the brightest observed peak is treated as unobservable and dropped from
-#: the composition: its tied-density estimate is ill-conditioned (near-zero
-#: design columns give concentration = tiny/tiny, which blows up) and would
-#: otherwise dominate ``element_fractions`` on invisible lines.  Calibrated
-#: on MW2-112 #1000 where deep-UV-only Bi took a 0.94 fraction while its
-#: strongest predicted line was 0.2% of the spectrum (4 counts, below
-#: noise) and explained zero peaks; every real element there emits >= 1.2%.
-ELEMENT_EMIS_MIN_FRACTION = 0.005
+#: Detectability floor for an element to enter the composition.  An
+#: element whose STRONGEST predicted line does not clear this many sigma of
+#: the local per-peak AREA noise is unobservable — its tied-density
+#: estimate is ill-conditioned (near-zero design columns give concentration
+#: = tiny/tiny, which blows up) and would otherwise dominate
+#: ``element_fractions`` on invisible lines.  This is the detection
+#: significance of the element's best line, so it is noise-relative (not a
+#: fraction of the brightest peak, which conflates a genuine low-abundance
+#: trace with a phantom and shifts with a single dominant line) and admits
+#: arbitrarily many low-concentration elements as long as each shows a real
+#: line above noise.  Calibrated on MW2-112 #1000: deep-UV-only Bi sits at
+#: z = 2.2 (strongest predicted line 4 counts, below noise, zero peaks
+#: explained) while every real element — down to Mn 4.6, Be 6.8 — clears 4.
+ELEMENT_DETECT_Z_MIN = 3.0
 
 _COL_ION = 0
 _COL_WAVELENGTH = 1
@@ -173,9 +178,10 @@ class LineTable:
         all_stark_shape = []
         all_species_idx = []
 
-        unstable = getattr(db, 'unstable_elements', ())
+        excluded = getattr(db, 'analysis_excluded_elements',
+                           getattr(db, 'unsupported_elements', ()))
         for el in db.elements:
-            if el in db.no_lines or el in unstable:
+            if el in db.no_lines or el in excluded:
                 continue
             lines = db.lines(el)
             if lines.size == 0:
@@ -463,6 +469,12 @@ class PeakyIndexerV3:
         self._last_sa_converged = None
         self._sa_log_tau_bounds = (-2.0, 3.0)
         self._last_species_evidence = None
+        #: optional per-peak area (amplitude) noise, aligned with the peak
+        #: array; set by the caller (the pipeline) so the composition can
+        #: gate elements on detection significance.  None -> the
+        #: median-relative fallback in _aggregate_elements is used.
+        self._amp_sigma = None
+        self._last_detection_z = {}
 
     def _empty_result(self, reason: str) -> FitResult:
         """Return a stable result for inputs that cannot be optimised."""
@@ -1559,6 +1571,7 @@ class PeakyIndexerV3:
         self,
         concentrations: np.ndarray,
         A: np.ndarray,
+        amp_sigma: Optional[np.ndarray] = None,
     ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
         """Combine per-(element, ion) concentrations into per-element values.
 
@@ -1607,8 +1620,10 @@ class PeakyIndexerV3:
         # not measurements.
         col_max = np.max(A, axis=0)
         predicted_total = A @ concentrations
-        obs_max = (float(np.max(np.abs(self._obs_amp)))
-                   if np.size(self._obs_amp) else 0.0)
+        obs_amp = np.asarray(self._obs_amp, dtype=float)
+        sig = (np.asarray(amp_sigma, dtype=float)[:obs_amp.size]
+               if amp_sigma is not None else None)
+        detection_z: Dict[str, float] = {}
 
         element_concentrations: Dict[str, float] = {}
         stage_disagreement: Dict[str, float] = {}
@@ -1627,14 +1642,21 @@ class PeakyIndexerV3:
             # The element's own signal as measured: observations minus the
             # other species' fitted contributions.
             own = a_stages @ c_stages
-            # Detectability gate: an element whose strongest predicted line
-            # is a negligible fraction of the brightest observed peak is
-            # UNOBSERVABLE — its density is unmeasurable (near-zero design
-            # columns make the tied estimate below explode) and must not
-            # enter the composition (see ELEMENT_EMIS_MIN_FRACTION).
-            if (obs_max > 0.0
-                    and float(np.max(own)) < ELEMENT_EMIS_MIN_FRACTION * obs_max):
-                continue
+            # Detectability gate: an element whose STRONGEST predicted line
+            # does not clear ELEMENT_DETECT_Z_MIN sigma of the local per-peak
+            # AREA noise is UNOBSERVABLE — its tied density is unmeasurable
+            # (near-zero design columns make the estimate explode) and must
+            # not enter the composition.  This is noise-relative (a fraction
+            # of the brightest peak conflates a genuine low-abundance trace
+            # with a phantom and over-excludes real elements under a single
+            # dominant line), so it needs the per-peak noise; without it
+            # (a bare indexer) no emission gate is applied — only the
+            # zero-column activity test above.
+            if sig is not None:
+                z = float(np.max(own / np.maximum(sig, 1e-30)))
+                detection_z[element] = z
+                if z < ELEMENT_DETECT_Z_MIN:
+                    continue
             residual_el = self._obs_amp - (predicted_total - own)
             element_concentrations[element] = max(
                 0.0, float(np.dot(a_tied, residual_el) / denom)
@@ -1650,6 +1672,10 @@ class PeakyIndexerV3:
             if total > 0.0
             else {}
         )
+        # per-element best-line detection significance (the likelihood-ratio
+        # score for presence): exposed for ranking / soft downweighting even
+        # for elements that cleared the gate
+        self._last_detection_z = detection_z
         return element_concentrations, element_fractions, stage_disagreement
 
     def _prune_and_refit(
@@ -2010,11 +2036,13 @@ class PeakyIndexerV3:
                       f"({n_peaks_for} peaks)")
 
         element_concentrations, element_fractions, stage_disagreement = (
-            self._aggregate_elements(concentrations, A)
+            self._aggregate_elements(concentrations, A,
+                                     amp_sigma=self._amp_sigma)
         )
 
         convergence_info = {
             'gamma_inst': self._last_gamma_inst,
+            'detection_z': dict(self._last_detection_z),
             'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
             'sa_converged': self._last_sa_converged,
             'sa_doublet_taus': {

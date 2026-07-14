@@ -371,6 +371,53 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         self.assertAlmostEqual(element_c["Fe"], 1.1)
         self.assertAlmostEqual(disagreement["Fe"], (2.0 - 1.0) / 3.0)
 
+    def test_noise_relative_gate_drops_phantom_keeps_trace_under_dominant_line(self):
+        """A near-invisible species (huge concentration, tiny emission -->
+        ill-conditioned) is dropped by the noise-relative detection gate,
+        while a genuine low-abundance trace survives even when a single
+        dominant line would sink a fraction-of-max floor."""
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        idx.line_table = _FakeLineTable(
+            [Species("Si", 1, 14, 1.0, 0, 1),   # dominant major
+             Species("Cs", 1, 55, 1.0, 1, 2),   # real low-conc trace
+             Species("Bi", 1, 83, 1.0, 2, 3)],  # phantom: near-zero column
+            wavelengths=[500.0, 501.0, 502.0], species_idx=[0, 1, 2])
+        # design: Si a huge line (2000), Cs a small real line (40), Bi a
+        # near-zero column so its density is unmeasurable
+        A = np.array([[2000.0, 0.0, 0.0],
+                      [0.0, 40.0, 0.0],
+                      [0.0, 0.0, 1e-4]])
+        idx._obs_amp = np.array([2000.0, 40.0, 5.0])
+        # NNLS-style vertex: Bi gets a huge concentration for ~zero emission
+        conc = np.array([1.0, 1.0, 5.0e4])
+        amp_sigma = np.array([12.0, 12.0, 12.0])   # area noise ~12 counts
+
+        ec, ef, _ = idx._aggregate_elements(conc, A, amp_sigma=amp_sigma)
+        # phantom Bi (best line 5 counts, 0.4 sigma) is gone; the real trace
+        # Cs (best line 40 counts, 3.3 sigma) survives despite the 2000-count
+        # dominant Si line that a fraction-of-max floor would key on
+        self.assertNotIn("Bi", ef)
+        self.assertIn("Cs", ef)
+        self.assertIn("Si", ef)
+        self.assertLess(idx._last_detection_z["Bi"], 3.0)
+        self.assertGreaterEqual(idx._last_detection_z["Cs"], 3.0)
+
+    def test_no_emission_gate_without_noise(self):
+        """A bare indexer (no per-peak noise) applies no emission gate, so
+        a species with a real if faint column is kept — the noise-relative
+        detectability gate is opt-in via amp_sigma, and must not over-
+        exclude a genuine minor element under a dominant line."""
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]))
+        idx.line_table = _FakeLineTable(
+            [Species("Si", 1, 14, 1.0, 0, 1),
+             Species("Al", 1, 13, 1.0, 1, 2)],
+            wavelengths=[500.0, 501.0], species_idx=[0, 1])
+        A = np.array([[2000.0, 0.0], [0.0, 30.0]])
+        idx._obs_amp = np.array([2000.0, 30.0])
+        _ec, ef, _ = idx._aggregate_elements(np.array([1.0, 1.0]), A)
+        self.assertIn("Al", ef)      # faint but real under a dominant Si
+        self.assertIn("Si", ef)
+
     def test_element_aggregation_is_stage_order_invariant_under_blends(self):
         """When both Fe stages feed the same peak, NNLS returns an arbitrary
         vertex (one stage exactly zero).  The tied re-solve must recover the

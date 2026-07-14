@@ -38,37 +38,43 @@ spectra can be compared to physically-grounded predictions.
 |--------|------|
 | `utils/sahaboltzmann.py` | Saha ionization equilibrium + Boltzmann thermal population.  Computes partition functions, ionization-state fractions, and line intensities for any element at a given temperature *T* and electron density *n_e*. |
 | `peaky_maker.py` | Synthetic spectrum generator.  Combines Saha-Boltzmann intensities with Voigt broadening to produce full spectra for arbitrary multi-element mixtures. |
+| `synthetic.py` | New synthetic-training renderer with direct stage I--III abundances, per-stage temperatures, per-element electron/column densities, arbitrary channel cells, and individual-shot observation physics. It never imposes Saha ionization. |
+| `synthetic_calibration.py` | Provisional individual-shot corpus calibration for the three detector segments; records limitations rather than treating missing dark/PCA/export-kernel information as calibrated. |
 | `utils/database.py` | NIST atomic line database (92 elements, wavelengths, oscillator strengths *gA*, energy levels, ionization energies). |
 | `utils/constants.py` | Physical constants (Boltzmann, Planck, *c*, *m_e*) in CGS/eV. |
 
 ### Physics included
 
-- Saha ionization equilibrium (multi-stage)
-- Boltzmann thermal level populations
-- Partition functions from spectral line data
-- Voigt broadening (Doppler + Stark convolution)
-- Ground-state resonant absorption (GSRA) correction
-- Time-gated spontaneous emission decay
-- 92 elements (H–U) with natural crustal abundances
+The legacy `PeakyMaker` path includes Saha ionization, Boltzmann populations,
+partition functions, Voigt broadening, GSRA, and time-gated decay. The new
+synthetic-training path instead includes direct independent stages I--III,
+Boltzmann excitation and partition functions within each stage, per-stage
+temperature, per-element electron-density broadening, per-element effective-
+column self-absorption, positive free-free continuum, dry-air/Ar nuisance
+emission, channel integration, and signed individual-shot export noise.
 
-### Current status: ~95% complete
+Both paths retain 92 H--U positions. For current synthetic development, 87 are
+supported; Pm, Po, At, Rn, and Pa are explicit unsupported positions. Se, Th,
+and U use the curated low-ion-stage records documented in
+`docs/atomic_data.md`.
 
-The forward model is the most mature component.  It reliably generates
-synthetic LIBS spectra that match the gross features of experimental data.
+### Current status: legacy model mature; explicit-stage foundation working
+
+The explicit-stage renderer passes its physical invariants and can generate
+full-band spectra, but it is deliberately marked uncalibrated until the
+conditional peak-profile and export-kernel gates pass. Structural correctness
+must not be described as experimental-spectrum fidelity.
 
 ### What's missing / next steps
 
-- **Pressure broadening** (van der Waals) — significant for high-pressure
-  or atmospheric plasmas.
-- **Continuum background** (bremsstrahlung + recombination) — currently
-  ignored; real spectra have a slowly-varying continuum that affects
-  baseline fitting downstream.
-- **Multi-temperature plasma** — current model assumes a single *T_e*.
-  A two-temperature model (ions vs electrons) would improve accuracy for
-  early-gate spectra.
-- **Self-absorption within the forward model** — currently only available
-  as a post-processing correction; integrating it into the forward model
-  would make the inverse problem better-posed.
+- **Conditional PCA profile generator** — the summary width modes are wired,
+  but the quality-gated score distribution still needs to be refit.
+- **Vendor export kernel** — ringing/notch response remains an identity hook.
+- **Dark/blank separation** — current individual-shot calibration cannot
+  distinguish electronic offset from plasma continuum.
+- **Pressure/free-bound continuum refinements** — free-free continuum exists,
+  while van der Waals broadening and free-bound/recombination structure remain
+  to be added and validated.
 
 ---
 
@@ -206,18 +212,48 @@ walkthrough:
   fall 61 -> 28.
 
 - *A zero-emission species dominated the composition.*  Pass 1 gave
-  **Bi 0.94** while Bi's strongest predicted line was 0.2% of the spectrum
-  (4 counts, below noise) and it explained zero peaks: an ill-conditioned
-  tied-density estimate (near-zero design columns give concentration =
-  tiny/tiny, which blows up) that then normalised to a huge fraction.
-  Fix: `_aggregate_elements` drops an element whose strongest predicted
-  line is below `ELEMENT_EMIS_MIN_FRACTION` (0.5%) of the brightest
-  observed peak — unobservable, so unmeasurable.  Bi is gone; the final
-  composition is a sensible assemblage (Si 0.49 / Hg 0.27 / Fe 0.06 on
-  #1000).  Follow-up: the threshold is a fraction of the max peak, so a
-  spectrum with one hugely dominant line could over-exclude a real
-  ultra-trace — revisit with a noise-relative floor when the noise is
-  plumbed into the aggregate.
+  **Bi 0.94** while Bi's strongest predicted line was 4 counts (below
+  noise) and it explained zero peaks: an ill-conditioned tied-density
+  estimate (near-zero design columns give concentration = tiny/tiny, which
+  blows up) that then normalised to a huge fraction.
+
+  Fix (**noise-relative detectability gate**, 2026-07-13):
+  `_aggregate_elements` drops an element whose strongest predicted line
+  does not clear `ELEMENT_DETECT_Z_MIN` = 3 sigma of the local per-peak
+  AREA noise (`amp_sigma`, plumbed from
+  `estimate_peak_uncertainties` per indexer peak-set).  This is the
+  element's best-line detection significance — noise-relative, so (unlike
+  a fraction of the brightest peak) it is immune to a single dominant line
+  and admits arbitrarily many low-concentration elements provided each
+  shows a real line above noise.  Measured separation on MW2-112 #1000:
+  Bi z = 2.2 vs every real element z >= 4.6 (Mn 4.6, Be 6.8 … K 103).  The
+  per-element z is exposed in `FitResult.convergence_info['detection_z']`
+  for ranking.  Without `amp_sigma` (a bare indexer) no emission gate
+  fires — only the zero-column activity test — so the gate can never
+  over-exclude in code paths that lack a noise model.
+
+  End to end the gate removes not just Bi but the **Hg 0.27 phantom** on
+  #1000 (z = 0.5 — its lines are essentially absent, exactly the spurious
+  Hg dominance flagged on the JChristensen-style samples), leaving a
+  sensible silicate assemblage (Si 0.75 / Fe 0.09 / Al 0.05 / Ti 0.04)
+  while keeping the real Be/Rb/Na/Ca traces (all z >= 3).  Knife-edge
+  elements near z = 3 (Eu 2.8, Na 3.1) are the argument for a SOFT
+  presence weighting.
+
+  *Toward a Bayesian presence model (proposed).*  The detection z IS the
+  score-test statistic for `c_s > 0` vs `c_s = 0` (the presence
+  likelihood-ratio), so the hard z >= 3 cut is a threshold on a quantity
+  that is already probabilistic.  The natural evolution is to (a) map z to
+  a per-element presence probability `P(present) = logistic((z - z0)/w)`
+  (a spike-and-slab / soft-threshold prior — Bi -> 0.25, a solid trace ->
+  ~1) and report/rank by it instead of hard-including, and (b) at the
+  root, replace the NNLS point solve with a regularised (ridge / positive
+  Bayesian) solve whose per-species prior scale is set by the column
+  information `||a_s||^2 / sigma^2`, so an ill-conditioned direction (Bi)
+  shrinks to the prior (~0) as a POSTERIOR MEAN rather than being clipped.
+  That downweights by evidence without any hard removal.  The
+  `detection_z` field is the first piece of this; the soft weighting and
+  the regularised solve are the follow-ups.
 
 **Iterative line deepening (2026-07-12).**  The single post-pass-2
 corroboration seed + pass-3 `gp_minimize` re-index is replaced by an
@@ -342,38 +378,67 @@ reliable enough for quantitative use.
 
 ### Purpose
 
-Train a deep-learning model on synthetic spectra (generated by Component 1
-with empirical peak parameters from Component 2 and whole-pattern
-attributes from Component 3) to perform fast, accurate composition
-inference.  The training data should include realistic artifacts: noise,
-baseline curvature, detector nonlinearity, self-absorption, shot-to-shot
-variation, etc.
+Train a deep-learning model on deterministic synthetic spectra with empirical
+peak-profile and nuisance distributions from the corpus. The input is a set of
+physical `(wavelength, intensity)` cells, not a fixed channel vector, so the
+same model can process nonuniform grids, disjoint regions, and different
+numerical resolutions within the current instrument's 190--910 nm domain.
+Intensity is defined as exported per-channel counts: an integral through the
+effective optical, detector, and vendor-export response rather than a point
+sample or ideal top-hat bin. Channel width and effective resolution are
+explicit model inputs. Physical photon emission remains nonnegative, but
+signed exported values are retained after dark/offset subtraction and vendor
+remapping. Initial training and inference use individual-shot spectra;
+repeat-shot aggregation is deferred.
 
-### Current status: 0% — not yet started
+The full architecture, scientific contract, synthetic-data schedule, and
+release gates are specified in
+[`docs/transformer_plan.md`](transformer_plan.md).
 
-No neural network code, no PyTorch/TensorFlow dependencies, no training
-infrastructure.
+### Current status: generator foundation implemented; transformer not started
+
+The explicit-stage deterministic renderer, arbitrary-grid integration,
+individual-shot noise boundary, dry-air/Ar nuisance component, replay
+manifests, source-aware heavy-line perturbations, periodic-table coverage
+scheduler, and provisional MW2-112 corpus calibration are implemented and
+tested. No neural network code, deep-learning dependency, or training
+infrastructure has been added yet. The generator must still pass its
+conditional-PCA, dark-frame, vendor-kernel, coverage-scheduler, and held-out
+realism gates before large training begins. See
+[`docs/synthetic_generator.md`](synthetic_generator.md).
 
 ### What needs to happen (future)
 
-1. **Training data generation.**  Use `PeakyMaker` to generate large
-   synthetic datasets with:
-   - Randomised multi-element compositions
-   - Realistic temperature and *n_e* distributions
-   - Empirical broadening parameters drawn from PCA statistics
-   - Synthetic noise, baseline, and self-absorption artifacts
+1. **Atomic-stage audit.** Freeze the 92-by-3 H--U schema and identify which
+   stages I--III are quantitative, detection-only, or structurally
+   unobservable in the instrument band. Pm, Po, At, Rn, and Pa remain explicit
+   unsupported positions.
 
-2. **Architecture.**  A transformer encoder that ingests a standardised
-   spectrum (or a set of extracted peak features) and predicts:
-   - Element concentrations (regression head)
-   - Plasma parameters *T*, *n_e* (auxiliary regression head)
-   - Confidence intervals (e.g. via MC dropout or evidential regression)
+2. **Conditional profile model.** Refit the `peaky_data` PCA with complete,
+   quality-gated scores and model their distribution by detector segment,
+   wavelength, width, signal quality, and junction distance.
 
-3. **Transfer learning.**  Pre-train on synthetic data, fine-tune on
-   labelled experimental data (certified reference materials).
+3. **Explicit-stage synthesis.** Generate independent stage abundances and
+   per-element-stage excitation temperatures. Apply Boltzmann excitation
+   within each stage, but do not impose Saha equilibrium between stages.
+   Include cross-element-constrained per-element electron and effective column
+   densities, provisional self-absorption, source-aware atomic uncertainty,
+   empirical artifacts, and a separate pure-Ar/fixed-dry-air nuisance plasma.
 
-4. **Evaluation.**  Benchmark against the physics-based pipeline
-   (Components 1–3) on the same test set.
+4. **Coordinate-aware transformer.** Use wavelength-local attention,
+   catalog-transition queries, global spectral latents, and hierarchical
+   element-stage queries. Predict joint abundance posteriors, evidence status,
+   and `T[e,s]` with calibrated 95% intervals only where identifiable.
+
+5. **Grid/region robustness.** Pixel-integrate each continuous synthetic scene
+   onto multiple regular, irregular, cropped, and disjoint grids. Use physical
+   cell widths and wavelength-relative attention so denser resampling does not
+   create extra evidence.
+
+6. **Evaluation and calibration.** Report accuracy and interval coverage for
+   every supported element-stage and challenge condition. Pre-train or
+   self-supervise on unlabeled corpus spectra as useful, then calibrate against
+   certified standards when they become available.
 
 ---
 

@@ -199,17 +199,15 @@ if __name__ == "__main__":
 
 class TestElementBlacklist(unittest.TestCase):
 
-    def test_no_stable_isotope_elements_excluded(self):
-        """Tc/Pm/... cannot occur in natural targets but their db lines
-        coincidentally match observed peaks (measured 0.2% 'Tc' on real
-        mineral data)."""
+    def test_natural_target_analysis_excludes_nonprimordial_elements(self):
+        """Schema support is broader than default natural-target eligibility."""
         sb = SahaBoltzmann("db")
         table = LineTable(sb.db, sb, wl_range=(180.0, 961.0), max_ion_stage=2)
         elements = {sp.element for sp in table.species}
         for el in ("Tc", "Pm", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Pa"):
             self.assertNotIn(el, elements)
-        # primordial long-lived nuclides stay available
-        self.assertIn("Th", {*elements} | {"Th"})
+        for el in ("Se", "Th", "U"):
+            self.assertIn(el, elements)
 
 
 class TestDoubletConstrainedSA(unittest.TestCase):

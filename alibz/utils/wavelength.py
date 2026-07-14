@@ -36,6 +36,35 @@ def vacuum_to_air(wavelength_vac_nm):
     return np.where(wl >= 200.0, converted, wl)
 
 
+def air_to_vacuum(wavelength_air_nm, iterations=6):
+    """Convert standard-air wavelengths [nm] to vacuum wavelengths.
+
+    This is the numerical inverse of :func:`vacuum_to_air`.  The Edlen
+    refractive index depends on the *vacuum* wavelength, so a short fixed-point
+    iteration is used.  Six iterations converges far below the precision of
+    the bundled atomic line lists.
+
+    Values below the standard-air image of the 200 nm vacuum boundary are
+    returned unchanged, matching the NIST ASD and Kurucz convention used by
+    the import pipeline.
+    """
+    air = np.asarray(wavelength_air_nm, dtype=float)
+    vac = air.copy()
+    # Vacuum 200.0 nm is reported as ~199.935 nm in standard air.  Testing
+    # against a literal 200 nm air value would make the boundary non-invertible.
+    conversion_boundary_air = float(vacuum_to_air(200.0))
+    for _ in range(int(iterations)):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sigma_sq = (1.0e3 / vac) ** 2
+            n = 1.0 + 1.0e-8 * (
+                8342.13
+                + 2406030.0 / (130.0 - sigma_sq)
+                + 15997.0 / (38.9 - sigma_sq)
+            )
+        vac = np.where(air >= conversion_boundary_air, air * n, air)
+    return vac
+
+
 #: fewest unambiguous anchor matches for a trustworthy median shift.
 MIN_SHIFT_MATCHES = 5
 
@@ -53,6 +82,8 @@ def _anchor_catalog(db, min_gA=1e6):
     wl_all, s_all = [], []
     for el in db.elements:
         if el in db.no_lines:
+            continue
+        if el in getattr(db, "strength_uncertain_elements", ()):
             continue
         arr = db.lines(el)
         if arr.size == 0:

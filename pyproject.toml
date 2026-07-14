@@ -34,6 +34,9 @@ notebook = [
 alibz-analyze = "alibz.cli:main"
 run-corpus-pca = "scripts.run_corpus_pca:main"
 background-pca = "alibz.background_pca:main"
+calibrate-synthetic-instrument = "scripts.calibrate_synthetic_instrument:main"
+demo-explicit-synthetic = "scripts.demo_explicit_synthetic:main"
+build-whole-rock-prior = "scripts.build_whole_rock_prior:main"
 
 [tool.setuptools.packages.find]
 include = ["alibz*", "scripts*"]
@@ -41,7 +44,16 @@ include = ["alibz*", "scripts*"]
 [tool.setuptools.data-files]
 "share/alibz/db" = [
     "db/abundance_92.csv",
+    "db/atomic_line_sources.json",
     "db/el_lines92.pickle",
     "db/no_lines26.pickle",
+    "db/observed_lines_nist.tsv",
+    "db/quantitative_lines_se_th_u.tsv",
+    "db/whole_rock_element_ranges.csv",
+    "db/whole_rock_carbonate_volatile_prior_v1.npz",
+    "db/whole_rock_carbonate_volatile_prior_v1_manifest.json",
+    "db/whole_rock_carbonate_volatile_ranges.csv",
+    "db/whole_rock_prior_v1.npz",
+    "db/whole_rock_prior_v1_manifest.json",
 ]
 "share/alibz/db/ionization" = ["db/ionization/*.pickle"]

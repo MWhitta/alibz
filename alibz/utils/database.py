@@ -1,4 +1,5 @@
 import pickle
+import csv
 import os
 import sysconfig
 from pathlib import Path
@@ -10,6 +11,11 @@ from alibz.utils.wavelength import vacuum_to_air
 class Database():
     """ class containing the lines and ionization states of an element imported from database
     """
+
+    # The output/index ordering remains the full H--U sequence.  These five
+    # positions are deliberately unavailable for the current development
+    # round; callers must not reinterpret them as measured zeros.
+    UNSUPPORTED_ELEMENTS = frozenset({'Pm', 'Po', 'At', 'Rn', 'Pa'})
 
     @staticmethod
     def _resolve_dbpath(dbpath="db"):
@@ -69,17 +75,38 @@ class Database():
         with open(self.dbpath / "no_lines26.pickle", 'rb') as f:
             self.no_lines = pickle.load(f)
 
-        # Elements with no stable (or primordially long-lived) isotope:
-        # they cannot occur in natural targets, but their database lines
-        # can coincidentally match observed peaks (measured: a 0.2% "Tc"
-        # assignment on real mineral data).  Th and U are long-lived
-        # primordial nuclides and stay available.
+        # Physical isotope stability and database support are distinct.  The
+        # former is useful metadata; the latter is the gate analysis code must
+        # use.  Se, Th and U are supported, while five very-low-abundance
+        # radionuclides retain explicit output positions but do not
+        # participate in fitting or synthetic sampling this round.
         self.unstable_elements = {
             'Tc', 'Pm', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Pa',
         }
+        # Default real-sample analysis assumes naturally occurring targets.
+        # This is intentionally stricter than synthetic/schema support.
+        self.analysis_excluded_elements = set(self.unstable_elements)
+        self.unsupported_elements = set(self.UNSUPPORTED_ELEMENTS)
+        # These elements are available to the forward/inverse model, but most
+        # public oscillator strengths are older intensity-derived estimates.
+        # They must not define wavelength-calibration anchors.
+        self.strength_uncertain_elements = {'Se', 'Th', 'U'}
+        self.supported_elements = tuple(
+            el for el in self.elements if el not in self.unsupported_elements
+        )
+        self.support_mask = np.array(
+            [el not in self.unsupported_elements for el in self.elements],
+            dtype=bool,
+        )
         
         with open(self.dbpath / "el_lines92.pickle", 'rb') as f:
             self.atom_dict = pickle.load(f)
+
+        # NIST observed/classified lines that lack enough fields for the
+        # quantitative forward model live in a separate, lazy-loaded catalog.
+        # They are evidence for identification/QC, never implicit gA values.
+        self.observed_line_path = self.dbpath / "observed_lines_nist.tsv"
+        self._observed_line_dict = None
 
         # The pickled line lists hold Ritz VACUUM wavelengths, but observed
         # spectra are air-calibrated (ASD convention: air above 200 nm).
@@ -120,3 +147,38 @@ class Database():
     def abundance(self, el):
         abundance_val = self.elem_abund[el]
         return abundance_val
+
+    def is_supported(self, el):
+        """Whether an H--U output position participates in this model round."""
+        if el not in self.elements:
+            raise KeyError(el)
+        return el not in self.unsupported_elements
+
+    def observed_lines(self, el, ion=0):
+        """Return NIST observed-line evidence, including non-quantitative rows.
+
+        Wavelengths are served in the same vacuum-below-200/air-above-200
+        convention as :meth:`lines`.  Each record carries a
+        ``quantitative_ready`` boolean; callers must not infer missing
+        transition probabilities from observed intensity.
+        """
+        if el not in self.elements:
+            raise KeyError(el)
+        if self._observed_line_dict is None:
+            self._observed_line_dict = {element: [] for element in self.elements}
+            if self.observed_line_path.exists():
+                with self.observed_line_path.open(newline="") as handle:
+                    for raw in csv.DictReader(handle, delimiter="\t"):
+                        element = raw["element"]
+                        vacuum_nm = float(raw["wavelength_vacuum_nm"])
+                        record = dict(raw)
+                        record["ion_stage"] = int(raw["ion_stage"])
+                        record["wavelength_nm"] = float(vacuum_to_air(vacuum_nm))
+                        record["quantitative_ready"] = raw["quantitative_ready"] == "1"
+                        for key in ("gA_s-1", "Ei_eV", "Ek_eV", "g_i", "g_k"):
+                            record[key] = float(raw[key]) if raw[key] else None
+                        self._observed_line_dict.setdefault(element, []).append(record)
+        records = self._observed_line_dict.get(el, [])
+        if ion:
+            return [row for row in records if row["ion_stage"] == int(ion)]
+        return list(records)

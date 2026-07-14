@@ -1,0 +1,115 @@
+{
+  "database": "el_lines92.pickle",
+  "element_order": "H through U (92 positions)",
+  "elements": {
+    "Se": {
+      "instrument_lines_180_962_nm": 8,
+      "kurucz_reference_codes": {
+        "CB": 5,
+        "GUES": 2,
+        "MULT": 1
+      },
+      "nist_gA_updates": 0,
+      "nist_matches": 5,
+      "nist_observed_or_ritz_rows": 79,
+      "nist_ritz_updates": 0,
+      "quantitative_lines": 8,
+      "stages_1_based": [
+        1
+      ]
+    },
+    "Th": {
+      "instrument_lines_180_962_nm": 2069,
+      "kurucz_reference_codes": {
+        "GUES": 1,
+        "MC": 2068
+      },
+      "nist_gA_updates": 0,
+      "nist_matches": 1912,
+      "nist_observed_or_ritz_rows": 15236,
+      "nist_ritz_updates": 1912,
+      "quantitative_lines": 2069,
+      "stages_1_based": [
+        1,
+        2
+      ]
+    },
+    "U": {
+      "instrument_lines_180_962_nm": 1156,
+      "kurucz_reference_codes": {
+        "MC": 1156
+      },
+      "nist_gA_updates": 26,
+      "nist_matches": 299,
+      "nist_observed_or_ritz_rows": 425,
+      "nist_ritz_updates": 0,
+      "quantitative_lines": 1156,
+      "stages_1_based": [
+        1,
+        2
+      ]
+    }
+  },
+  "observed_catalog": "observed_lines_nist.tsv",
+  "observed_catalog_rows": 15740,
+  "quantitative_catalog": "quantitative_lines_se_th_u.tsv",
+  "quantitative_catalog_rows": 3233,
+  "quantitative_policy": "Forward-model rows require wavelength, gA/log(gf), lower/upper energies and level degeneracies; observed-only NIST rows are retained in the companion catalog but not assigned fabricated strengths.",
+  "retrieved_utc": "2026-07-13",
+  "schema_version": 1,
+  "sources": {
+    "kurucz_gf3400_all": {
+      "sha256": "b676f01b3d701718ea53d2b90281ece84e8c20275f5424d34c632549bcdcc7d8",
+      "url": "http://kurucz.harvard.edu/linelists/gfall/gf3400.all"
+    },
+    "kurucz_gf9000_all": {
+      "sha256": "ee7a52d5ffacfff999fa209e65995b4cb508c70bf03bb80ac6ee71276cf6e045",
+      "url": "http://kurucz.harvard.edu/linelists/gfall/gf9000.all"
+    },
+    "kurucz_gf9001_all": {
+      "sha256": "a3a1caa9757ecb317185d9977b919e3ca5225972b4968e13b63922f7232974fa",
+      "url": "http://kurucz.harvard.edu/linelists/gfall/gf9001.all"
+    },
+    "kurucz_gf9200_all": {
+      "sha256": "ad0fbe0706bc958f715b17d98bbb43bc2b07a725a92f14ca5e029e2749144a8b",
+      "url": "http://kurucz.harvard.edu/linelists/gfall/gf9200.all"
+    },
+    "kurucz_gf9201_all": {
+      "sha256": "fb6c71f56270f4ad60b70dbbe4e1e7496dfc8c322a1d6c410fbfc3bbcfb293be",
+      "url": "http://kurucz.harvard.edu/linelists/gfall/gf9201.all"
+    },
+    "nist_se_i_all.tsv": {
+      "sha256": "cdc3100a0b35d3cf2cb628220167f172f69dabdcc1565c2de23bcd38bfb20397",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=Se+I&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    },
+    "nist_se_ii_all.tsv": {
+      "sha256": "946b84d8f64f3189110a34c4821ec842170886da4615b2e24d9991777566fb1b",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=Se+II&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    },
+    "nist_th_i_all.tsv": {
+      "sha256": "1003d72b8d1e17990c633be59aedff3a48d85ae0f7ae90fcfba407dd1f4d1f40",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=Th+I&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    },
+    "nist_th_ii_all.tsv": {
+      "sha256": "e9358f76dad5a454747152e04912eb8f1a5bdb46509094b5088198f3dd050eed",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=Th+II&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    },
+    "nist_u_i_all.tsv": {
+      "sha256": "e557c7eddfdcbc1c64c6a8b42056f8392a2e3eb0c8d01b2f9add414e5230d8d0",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=U+I&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    },
+    "nist_u_ii_all.tsv": {
+      "sha256": "06f309db644c2f7a6d17cbf05249bf0b72847c14d153e905b058ec209be393da",
+      "url": "https://physics.nist.gov/cgi-bin/ASD/lines1.pl?spectra=U+II&limits_type=0&low_w=180&upp_w=962&unit=1&submit=Retrieve+Data&de=0&format=3&line_out=0&remove_js=on&en_unit=1&output=0&bibrefs=1&page_size=30000&show_obs_wl=1&show_calc_wl=1&order_out=0&show_av=2&A_out=1&intens_out=1&allowed_out=1&forbid_out=1&conf_out=1&term_out=1&enrg_out=1&J_out=1&g_out=1"
+    }
+  },
+  "supported_count": 87,
+  "unsupported_elements": [
+    "Pm",
+    "Po",
+    "At",
+    "Rn",
+    "Pa"
+  ],
+  "wavelength_policy": "Stored wavelengths are vacuum; Database converts >=200 nm to standard air at load time."
+}

@@ -1,5 +1,11 @@
-#database files
+# Database binaries and upstream bulk files stay local.  The normalized atomic
+# additions and provenance are intentionally reviewable/versionable.
 db/
+!db/
+db/*
+!db/atomic_line_sources.json
+!db/observed_lines_nist.tsv
+!db/quantitative_lines_se_th_u.tsv
 
 # macOS metadata
 .DS_Store

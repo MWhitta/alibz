@@ -189,10 +189,14 @@ class TestNotebook(unittest.TestCase):
         self.assertIn("comp_res", src)
         self.assertIn("composition shift", src)
         # every generated code cell must be syntactically valid Python
+        # (IPython line/cell magics like `%matplotlib inline` are valid
+        # notebook syntax but not Python — strip them before parsing)
         import ast
         for c in nb["cells"]:
             if c["cell_type"] == "code":
-                ast.parse("".join(c["source"]))
+                lines = [ln for ln in "".join(c["source"]).splitlines()
+                         if not ln.lstrip().startswith(("%", "!"))]
+                ast.parse("\n".join(lines))
 
 
 class _StubIndexer:
@@ -205,7 +209,7 @@ class _StubIndexer:
     def _solve_concentrations(self, T, ne):
         return self._obs_amp.copy(), 0.0
 
-    def _aggregate_elements(self, c, A):
+    def _aggregate_elements(self, c, A, amp_sigma=None):
         total = max(float(np.sum(c)), 1e-300)
         fracs = {"K": float(c[0]) / total, "Si": float(c[1]) / total}
         return dict(fracs), fracs, {}

@@ -15,6 +15,8 @@ from alibz.utils.wavelength import (SegmentShift, estimate_wavelength_shift,
                                     estimate_wavelength_shift_segments,
                                     shift_at, vacuum_to_air)
 from alibz.utils.absorption import escape_factor, doublet_ratio
+from alibz.utils.colors import (spectral_background, spectral_colormap,
+                                spectral_line, wavelength_to_rgb)
 from alibz.utils.dataloader import Data
 
 __all__ = [
@@ -39,5 +41,9 @@ __all__ = [
     "shift_at",
     "escape_factor",
     "doublet_ratio",
+    "wavelength_to_rgb",
+    "spectral_colormap",
+    "spectral_background",
+    "spectral_line",
     "Data",
 ]

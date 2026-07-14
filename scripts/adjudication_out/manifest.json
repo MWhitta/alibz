@@ -1,0 +1,167 @@
+[
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/01_Mn_Smectite_MDD027_86.60_Joe'.png",
+  "sus": "Mn",
+  "frac": 0.88,
+  "z": null,
+  "status": null,
+  "conf": null,
+  "n_lines": null,
+  "T": 15996,
+  "r2": -0.612,
+  "drivers": [],
+  "sample": "Smectite MDD027 86.60 Joe's spot"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/02_Si_MDD026-43-2_#2_Pam.png",
+  "sus": "Si",
+  "frac": 0.608,
+  "z": 12.4,
+  "status": "detected",
+  "conf": "Ba",
+  "n_lines": 11,
+  "T": 6409,
+  "r2": 0.31,
+  "drivers": [
+   [
+    251.58,
+    346
+   ],
+   [
+    288.13,
+    205
+   ],
+   [
+    252.82,
+    127
+   ]
+  ],
+  "sample": "MDD026-43-2 #2 Pam"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/03_Li_MDD017-29-11_dk_#3_Kaleb.png",
+  "sus": "Li",
+  "frac": 0.838,
+  "z": 31.9,
+  "status": "detected",
+  "conf": null,
+  "n_lines": 4,
+  "T": 6313,
+  "r2": 0.45,
+  "drivers": [
+   [
+    670.7,
+    4316
+   ],
+   [
+    610.29,
+    352
+   ],
+   [
+    812.53,
+    65
+   ]
+  ],
+  "sample": "MDD017-29-11 dk #3 Kaleb"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/04_Li_MDD017-29-11_dk_#2_Kaleb.png",
+  "sus": "Li",
+  "frac": 0.776,
+  "z": 24.8,
+  "status": "detected",
+  "conf": null,
+  "n_lines": 2,
+  "T": 6323,
+  "r2": 0.458,
+  "drivers": [
+   [
+    670.7,
+    3207
+   ],
+   [
+    610.28,
+    261
+   ]
+  ],
+  "sample": "MDD017-29-11 dk #2 Kaleb"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/05_Li_Mdd017-29-11_lt_#2_Kaleb.png",
+  "sus": "Li",
+  "frac": 0.638,
+  "z": 10.4,
+  "status": "detected",
+  "conf": null,
+  "n_lines": 3,
+  "T": 5926,
+  "r2": 0.59,
+  "drivers": [
+   [
+    670.75,
+    2505
+   ],
+   [
+    610.3,
+    159
+   ],
+   [
+    812.53,
+    30
+   ]
+  ],
+  "sample": "Mdd017-29-11 lt #2 Kaleb"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/06_Li_MDD026-43-1_#5_Pam.png",
+  "sus": "Li",
+  "frac": 0.717,
+  "z": 34.6,
+  "status": "detected",
+  "conf": null,
+  "n_lines": 3,
+  "T": 6186,
+  "r2": 0.731,
+  "drivers": [
+   [
+    670.72,
+    2457
+   ],
+   [
+    610.3,
+    185
+   ],
+   [
+    812.59,
+    35
+   ]
+  ],
+  "sample": "MDD026-43-1 #5 Pam"
+ },
+ {
+  "png": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/46877cda-9c25-4a24-9d3d-3c6563cfbe02/scratchpad/adjudication/07_Si_MDD017-24-15_2nd_#1_Kaleb.png",
+  "sus": "Si",
+  "frac": 0.844,
+  "z": 21.4,
+  "status": "detected",
+  "conf": "Ba",
+  "n_lines": 9,
+  "T": 4852,
+  "r2": 0.928,
+  "drivers": [
+   [
+    251.55,
+    180
+   ],
+   [
+    288.1,
+    124
+   ],
+   [
+    252.81,
+    79
+   ]
+  ],
+  "sample": "MDD017-24-15 2nd #1 Kaleb"
+ }
+]

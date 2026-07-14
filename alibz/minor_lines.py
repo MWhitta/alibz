@@ -50,8 +50,9 @@ def _element_lines(db, el, lo, hi):
     a caller's established-element list can be passed verbatim without
     pre-filtering.
     """
-    unstable = getattr(db, "unstable_elements", ())
-    if el in getattr(db, "no_lines", ()) or el in unstable \
+    excluded = getattr(db, "analysis_excluded_elements",
+                       getattr(db, "unsupported_elements", ()))
+    if el in getattr(db, "no_lines", ()) or el in excluded \
             or el not in getattr(db, "atom_dict", {el: None}):
         return None
     arr = db.lines(el)

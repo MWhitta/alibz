@@ -158,8 +158,8 @@ class PeakyMaker():
         if not (all(x >=0 for x in fracs) and np.sum(fracs) > 0):
             raise ValueError("Element fractions must be non-negative and sum must be non-zero")
                 
-        exclude = np.logical_not([item in ['Se', 'Pm', 'Po', 'At', 'Rn', 'Th', 'Pa', 'U'] for item in self.db.elements])
-        fracs = fracs * exclude
+        supported = np.asarray(self.db.support_mask, dtype=float)
+        fracs = np.asarray(fracs, dtype=float) * supported
 
         # Scale fractions to sum to 1.0
         frac_sum = np.sum(fracs)
@@ -171,8 +171,9 @@ class PeakyMaker():
             if frac_sum > 0:
                 fracs = fracs / frac_sum
             else:
-                if verbose:
-                    print('zero intensity in spectrum, possibly due to absence of lines in database')
+                raise ValueError(
+                    "composition contains no supported elemental fraction"
+                )
 
         spec_array = np.zeros((len(fracs), len(wave)))
 
@@ -258,13 +259,18 @@ class PeakyMaker():
               ``(batch, len(elem_symb), len(wave))``
         """
         elem_symb = self._normalize_focus_elements(focus_el)
-        max_elem = len(elem_symb)
+        drawable_elements = np.asarray(
+            [el for el in elem_symb if self.db.is_supported(el)], dtype=object
+        )
+        max_drawable = len(drawable_elements)
         if batch < 1:
             raise ValueError("batch must be at least 1")
         if n_elem < 1:
             raise ValueError("n_elem must be at least 1")
-        if n_elem + n_delta > max_elem:
-            raise ValueError("n_elem + n_delta cannot exceed available elements") 
+        if n_elem + n_delta > max_drawable:
+            raise ValueError(
+                "n_elem + n_delta cannot exceed supported focus elements"
+            )
         if n_delta > n_elem-1:
             raise ValueError("n_delta must be less than n_elem to avoid empty samples")
         if abund_scale < 0 or abund_scale > 1:
@@ -283,10 +289,10 @@ class PeakyMaker():
         
         # Generate the element fractions
         min_elem = max(1, n_elem - n_delta)
-        max_draw = min(max_elem, n_elem + n_delta)
+        max_draw = min(max_drawable, n_elem + n_delta)
         num_elem = np.random.randint(min_elem, max_draw + 1, size=batch)
         sample_el = [
-            np.random.choice(elem_symb, num_elem[i], replace=False)
+            np.random.choice(drawable_elements, num_elem[i], replace=False)
             for i in range(batch)
         ]
         samp_mask_full = np.array(

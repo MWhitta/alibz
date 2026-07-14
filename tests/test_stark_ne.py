@@ -188,6 +188,12 @@ class TestNeRecoveryFromWidths(unittest.TestCase):
     def _make_indexer(self, gamma_obs_fn):
         sb = SahaBoltzmann("db")
         table = LineTable(sb.db, sb, wl_range=(390.0, 560.0), max_ion_stage=2)
+        # Keep this machinery test independent of newly imported heavy-element
+        # strengths whose public values are explicitly marked uncertain.
+        table.filter_species(np.asarray([
+            sp.element not in sb.db.strength_uncertain_elements
+            for sp in table.species
+        ]))
         idx_probe = PeakyIndexer(np.array([[1.0, 475.0, 0.03, 0.02]]))
         idx_probe.line_table = table
         lw = idx_probe._line_weights(10_000.0, 17.0)

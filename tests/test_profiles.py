@@ -230,7 +230,7 @@ class _SAStubIndexer:
         # trivial diagonal design: c_j = amp_j
         return self._obs_amp.copy(), 0.0
 
-    def _aggregate_elements(self, c, A):
+    def _aggregate_elements(self, c, A, amp_sigma=None):
         tot = max(float(np.sum(c)), 1e-300)
         fr = {}
         for k, sp in enumerate(self._species):

@@ -116,11 +116,29 @@ print(result.stage_disagreement)           # LTE / stage-consistency diagnostic
 | `alibz.minor_lines` | Prior-driven fitting of minor lines from established elements |
 | `alibz.peaky_indexer_v3` | Experimental whole-pattern spectral indexer (Bayesian optimisation + NNLS); the only supported indexer |
 | `alibz.peaky_maker` | Forward spectral synthesis via Saha-Boltzmann |
+| `alibz.synthetic` | Deterministic explicit-stage synthetic spectra on arbitrary wavelength cells; no Saha ionization constraint |
+| `alibz.whole_rock` | Censored, rock-stratified joint elemental-composition priors for natural synthetic scenes |
 | `alibz.peaky_corpus` | Batch loading, standardisation, parallel fitting, width statistics |
 | `alibz.peaky_pca` | PCA peak-shape decomposition and broadening classification |
 | `alibz.background_pca` | Corpus-level PCA for detector artifact and baseline removal |
 | `alibz.detector` | Three-segment detector model: junction detection, artifact removal, segmented background subtraction |
 | `alibz.utils` | Physical constants, Voigt utilities, NIST database interface, Saha-Boltzmann solver |
+
+Atomic outputs retain 92 fixed H--U positions. The synthetic-development
+support mask has 87 active elements; Pm, Po, At, Rn, and Pa are explicit
+unsupported positions. The current training mask has 83 active elements:
+Tc, Fr, Ra, and Ac retain technically supported outputs but are excluded from
+scheduled targets and background mixtures.
+Se, Th, and U line-data provenance and limitations are documented in
+[`docs/atomic_data.md`](docs/atomic_data.md).
+The synthetic-training generator API, positivity boundary, and open
+calibration gates are documented in
+[`docs/synthetic_generator.md`](docs/synthetic_generator.md).
+The Gard et al. composition source, fitted abundance ranges, sampling biases,
+and bulk-to-plasma boundary are documented in
+[`docs/whole_rock_prior.md`](docs/whole_rock_prior.md).
+The training mixture weights nine classified anhydrous strata plus separate
+carbonate-rich and volatile-rich strata equally.
 
 `alibz.peaky_indexer_v3` is the only indexer module. `PeakyFitter` has been removed from the public API.
 

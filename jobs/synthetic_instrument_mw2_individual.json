@@ -1,0 +1,126 @@
+{
+  "file_manifest_sha256": "bc7c6a78850954d4aa3e97ec99e31e1fe43c37d2b407711d6607d2aa40fa4c44",
+  "instrument_response": {
+    "background_counts": [
+      45.54015112708473,
+      134.7986697018377,
+      75.93869713980712
+    ],
+    "calibrated": false,
+    "dark_offset_std_counts": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "electron_gain": 1.0,
+    "export_kernel": [
+      1.0
+    ],
+    "export_offset_counts": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "gaussian_sigma_nm": [
+      0.04042130261340504,
+      0.08233257000804144,
+      0.08687455942179502
+    ],
+    "lorentzian_gamma_nm": [
+      0.055869394092490025,
+      0.11379818321098148,
+      0.12007601643540514
+    ],
+    "profile_artifact": "peaky_data-width-modes+individual-shot-summary:bc7c6a78850954d4",
+    "quadrature_order": 8,
+    "read_noise_std_counts": [
+      20.336431069720756,
+      9.355264785582747,
+      18.307092791787465
+    ],
+    "segment_edges_nm": [
+      365.0,
+      620.0
+    ],
+    "segment_gain": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "shot_noise": true,
+    "stark_c4_nm": 0.0001,
+    "stark_log_ne_ref": 17.0,
+    "tail_mass_tolerance": 0.001
+  },
+  "limitations": [
+    "No dark/blank frames: electronic dark and plasma continuum are not separated.",
+    "The vendor export/ringing kernel remains the identity.",
+    "Peak widths use peaky_data summary modes, not the pending quality-gated conditional PCA refit.",
+    "Count/noise statistics are valid for individual-shot spectra only."
+  ],
+  "n_spectra": 929,
+  "schema": "alibz-individual-shot-instrument-v1",
+  "segments": {
+    "NIR": {
+      "baseline_count_median": 75.93869713980712,
+      "baseline_count_p05_p95": [
+        39.983370202885716,
+        97.87526085050511
+      ],
+      "local_noise_median": 20.27531365051904,
+      "local_noise_p05_p95": [
+        16.95047310650387,
+        22.959224224776474
+      ],
+      "longest_negative_run_channels_p95": 7.0,
+      "maximum_count_median": 6655.270962246685,
+      "negative_fraction_median": 0.0009195402298850574,
+      "negative_fraction_p95": 0.013954022988505704,
+      "q01_count_median": 20.00615449207548,
+      "q99_count_median": 1758.1537557899094
+    },
+    "UV": {
+      "baseline_count_median": 45.54015112708473,
+      "baseline_count_p05_p95": [
+        18.294802691309417,
+        70.66446355733434
+      ],
+      "local_noise_median": 21.42686584128879,
+      "local_noise_p05_p95": [
+        15.150090239172359,
+        33.56548614959256
+      ],
+      "longest_negative_run_channels_p95": 9.599999999999909,
+      "maximum_count_median": 1855.611306356374,
+      "negative_fraction_median": 0.006285714285714286,
+      "negative_fraction_p95": 0.09417142857142824,
+      "q01_count_median": 2.5838750450432704,
+      "q99_count_median": 599.7279046509817
+    },
+    "VIS": {
+      "baseline_count_median": 134.7986697018377,
+      "baseline_count_p05_p95": [
+        106.09251667858527,
+        162.48017539109074
+      ],
+      "local_noise_median": 14.910387282368031,
+      "local_noise_p05_p95": [
+        11.829739357584012,
+        19.81898109812975
+      ],
+      "longest_negative_run_channels_p95": 1.0,
+      "maximum_count_median": 11021.844669626389,
+      "negative_fraction_median": 0.0,
+      "negative_fraction_p95": 0.00013071895424836603,
+      "q01_count_median": 56.66887224386929,
+      "q99_count_median": 1792.7747643860007
+    }
+  },
+  "wavelength": {
+    "active_rows_median": 21600,
+    "hi_nm_median": 909.9666666665041,
+    "lo_nm_median": 189.99999999999943,
+    "pitch_nm_median": 0.03333333333330302,
+    "pitch_nm_std_max": 2.6501581358874854e-14
+  }
+}

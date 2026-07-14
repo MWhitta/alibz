@@ -1,0 +1,90 @@
+[
+ {
+  "sample": "Smectite MDD027 86.60 Joe's spot",
+  "file": "Smectite MDD027 86.60 Joe's spot_20260614_090001_AM_AverageSpectrum.csv",
+  "suspect_element": "Mn",
+  "fraction": 0.88,
+  "T": 15996.0,
+  "r2": -0.3457,
+  "reasons": [
+   "T=15996K",
+   "r2=-0.35",
+   "Mn=0.88 implausible-major"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/Smectite MDD027 86.60 Joe's spot_20260614_090001_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "MDD026-43-2 #2 Pam",
+  "file": "MDD026-43-2 #2 Pam_20260617_093619_AM_AverageSpectrum.csv",
+  "suspect_element": "Si",
+  "fraction": 0.608,
+  "T": 6400.0,
+  "r2": 0.3094,
+  "reasons": [
+   "r2=0.31"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/MDD026-43-2 #2 Pam_20260617_093619_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "MDD017-29-11 dk #3 Kaleb",
+  "file": "MDD017-29-11 dk #3 Kaleb_20260617_104005_AM_AverageSpectrum.csv",
+  "suspect_element": "Li",
+  "fraction": 0.838,
+  "T": 6313.0,
+  "r2": 0.4516,
+  "reasons": [
+   "r2=0.45",
+   "Li=0.84 implausible-major"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/MDD017-29-11 dk #3 Kaleb_20260617_104005_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "MDD017-29-11 dk #2 Kaleb",
+  "file": "MDD017-29-11 dk #2 Kaleb_20260617_103937_AM_AverageSpectrum.csv",
+  "suspect_element": "Li",
+  "fraction": 0.776,
+  "T": 6323.0,
+  "r2": 0.4577,
+  "reasons": [
+   "r2=0.46",
+   "Li=0.78 implausible-major"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/MDD017-29-11 dk #2 Kaleb_20260617_103937_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "Mdd017-29-11 lt #2 Kaleb",
+  "file": "Mdd017-29-11 lt #2 Kaleb_20260617_103716_AM_AverageSpectrum.csv",
+  "suspect_element": "Li",
+  "fraction": 0.638,
+  "T": 5926.0,
+  "r2": 0.5901,
+  "reasons": [
+   "Li=0.64 implausible-major"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/Mdd017-29-11 lt #2 Kaleb_20260617_103716_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "MDD026-43-1 #5 Pam",
+  "file": "MDD026-43-1 #5 Pam_20260617_094710_AM_AverageSpectrum.csv",
+  "suspect_element": "Li",
+  "fraction": 0.717,
+  "T": 6186.0,
+  "r2": 0.7314,
+  "reasons": [
+   "Li=0.72 implausible-major"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/MDD026-43-1 #5 Pam_20260617_094710_AM_AverageSpectrum.csv"
+ },
+ {
+  "sample": "MDD017-24-15 2nd #1 Kaleb",
+  "file": "MDD017-24-15 2nd #1 Kaleb_20260617_110533_AM_AverageSpectrum.csv",
+  "suspect_element": "Si",
+  "fraction": 0.844,
+  "T": 4852.0,
+  "r2": 0.9278,
+  "reasons": [
+   "T=4852K"
+  ],
+  "path": "/Users/mwhittaker/Library/CloudStorage/GoogleDrive-mwhittaker@lbl.gov/My Drive/CMI/Data/LIBS/JChristensen/2026-07-01/MDD017-24-15 2nd #1 Kaleb_20260617_110533_AM_AverageSpectrum.csv"
+ }
+]
