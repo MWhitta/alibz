@@ -339,9 +339,14 @@ def _hex(rgb):
 
 
 def spectrum_figure(stage, meta, selected=None, deleted=None,
-                    highlight_species=None):
+                    highlight_species=None, yscale="log"):
     import plotly.graph_objects as go
     deleted = deleted or set()
+    is_log = yscale == "log"
+    # A log axis cannot show <=0, so floor the traces; a linear axis shows the
+    # raw data (including sub-count values and negative background dips).
+    def flo(a, f):
+        return np.maximum(a, f) if is_log else np.asarray(a, dtype=float)
     x, y, bg = meta["x"], meta["y"], meta["bg"]
     ybg = y - bg
     peaks = np.atleast_2d(np.asarray(stage["peaks"], dtype=float))
@@ -350,7 +355,7 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
     fig = go.Figure()
     # wavelength-coloured spectrum, drawn as short coloured segments
     step = max(1, x.size // 1400)
-    xs, ys = x[::step], np.maximum(ybg[::step], 1e-1)
+    xs, ys = x[::step], flo(ybg[::step], 1e-1)
     seg_colors = [_hex(c) for c in wavelength_to_rgb(xs)]
     for i in range(len(xs) - 1):
         fig.add_trace(go.Scattergl(
@@ -358,7 +363,7 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
             line=dict(color=seg_colors[i], width=1), hoverinfo="skip",
             showlegend=False))
     fig.add_trace(go.Scattergl(
-        x=x, y=np.maximum(model, 1e-1), mode="lines",
+        x=x, y=flo(model, 1e-1), mode="lines",
         line=dict(color="rgba(90,90,90,0.9)", width=1), name="model"))
     # peaks as markers coloured by wavelength; click to select
     if peaks.size:
@@ -369,7 +374,7 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
             if not np.any(state):
                 continue
             fig.add_trace(go.Scattergl(
-                x=peaks[state, 1], y=np.maximum(peaks[state, 0], 1.0),
+                x=peaks[state, 1], y=flo(peaks[state, 0], 1.0),
                 mode="markers",
                 marker=dict(size=size, color=[colors[i] for i in idxs[state]],
                             line=dict(width=0.5, color="#222"),
@@ -381,7 +386,7 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
         hp = np.atleast_2d(highlight_species)
         if hp.size:
             fig.add_trace(go.Scattergl(
-                x=hp[:, 0], y=np.maximum(hp[:, 1], 1.0), mode="markers",
+                x=hp[:, 0], y=flo(hp[:, 1], 1.0), mode="markers",
                 marker=dict(size=15, symbol="circle-open",
                             color="#000", line=dict(width=2)),
                 name="supports selected", hoverinfo="skip"))
@@ -389,15 +394,15 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
         p = peaks[selected]
         fig.add_vline(x=float(p[1]), line=dict(color="#000", width=1,
                                                dash="dot"))
-    fig.update_yaxes(type="log", title="counts")
+    fig.update_yaxes(type=yscale, title="counts")
     fig.update_xaxes(title="wavelength [nm]")
     fig.update_layout(margin=dict(l=55, r=15, t=30, b=40), height=430,
                       title=stage["name"], plot_bgcolor="white",
-                      hovermode="closest", uirevision="spectrum")
+                      hovermode="closest", uirevision=f"spectrum-{yscale}")
     return fig
 
 
-def composition_figure(rows, baseline=None):
+def composition_figure(rows, baseline=None, yscale="linear"):
     import plotly.graph_objects as go
     fig = go.Figure()
     if not rows:
@@ -420,11 +425,11 @@ def composition_figure(rows, baseline=None):
             x=labels, y=by, mode="markers",
             marker=dict(symbol="line-ew", size=16, color="#333",
                         line=dict(width=2)), name="baseline"))
-    fig.update_yaxes(title="emission-weighted fraction")
+    fig.update_yaxes(type=yscale, title="emission-weighted fraction")
     fig.update_layout(margin=dict(l=55, r=15, t=30, b=90), height=430,
                       barmode="overlay", plot_bgcolor="white",
                       title="per (element, ion-stage) — bars edited, ticks baseline",
-                      uirevision="comp")
+                      uirevision=f"comp-{yscale}")
     return fig
 
 
@@ -451,6 +456,18 @@ def build_app(stages, meta, sample, log):
             html.Button("next ▶", id="next", n_clicks=0),
             html.Button("⟲ reset edits", id="reset", n_clicks=0,
                         style={"margin-left": "20px"}),
+            html.Span("intensity:", style={"margin-left": "20px",
+                                           "color": "#555"}),
+            dcc.RadioItems(id="spec-scale", inline=True, value="log",
+                           options=[{"label": " log", "value": "log"},
+                                    {"label": " linear", "value": "linear"}],
+                           labelStyle={"margin-right": "10px"}),
+            html.Span("abundance:", style={"margin-left": "12px",
+                                           "color": "#555"}),
+            dcc.RadioItems(id="comp-scale", inline=True, value="linear",
+                           options=[{"label": " linear", "value": "linear"},
+                                    {"label": " log", "value": "log"}],
+                           labelStyle={"margin-right": "10px"}),
             html.Span(id="status", style={"color": "#666"}),
         ]),
         html.Div(style={"display": "flex", "gap": "10px"}, children=[
@@ -573,16 +590,20 @@ def build_app(stages, meta, sample, log):
     @app.callback(
         Output("spectrum", "figure"), Output("composition", "figure"),
         Output("status", "children"), Output("edits", "children"),
-        Input("stage", "value"), Input("edit-state", "data"))
-    def _render(stage_i, edit):
+        Input("stage", "value"), Input("edit-state", "data"),
+        Input("spec-scale", "value"), Input("comp-scale", "value"))
+    def _render(stage_i, edit, spec_scale, comp_scale):
         stage = stages[stage_i]
         rows, delta, base = _rows_for(stage_i, edit)
         sel = edit.get("_sel")
         deleted = set(map(int, edit["deleted"]))
         # highlight the peaks supporting the (single) selected/added species? show plain
-        specfig = spectrum_figure(stage, meta, selected=sel, deleted=deleted)
-        compfig = composition_figure(rows, baseline=base if (edit["deleted"]
-                                     or edit["added"] or edit["removed"]) else None)
+        specfig = spectrum_figure(stage, meta, selected=sel, deleted=deleted,
+                                  yscale=spec_scale or "log")
+        compfig = composition_figure(
+            rows, yscale=comp_scale or "linear",
+            baseline=base if (edit["deleted"] or edit["added"]
+                              or edit["removed"]) else None)
         peaks = np.atleast_2d(stage["peaks"])
         n = peaks.shape[0] - len(deleted)
         status = f"{peaks.shape[0]} peaks"
@@ -598,15 +619,18 @@ def build_app(stages, meta, sample, log):
             ed.append("added: " + ", ".join(f"{e} {'I'*i}" for e, i in edit["added"]))
         if edit["removed"]:
             ed.append("removed: " + ", ".join(f"{e} {'I'*int(i)}" for e, i in edit["removed"]))
-        # log the resolved state — the (edits -> composition) training label
-        log.state(stage=int(stage_i), stage_name=stage["name"],
-                  edits=dict(deleted=list(edit["deleted"]),
-                             added=edit["added"], removed=edit["removed"]),
-                  n_peaks=int(n),
-                  r2=(round(delta[0], 4) if delta else
-                      (round(float(stage["result"].r_squared), 4)
-                       if "result" in stage else None)),
-                  composition=_comp_summary(rows))
+        # log the resolved state — the (edits -> composition) training label.
+        # a pure axis-scale toggle is a view preference, not an edit: skip it
+        # so the training trace stays clean.
+        if ctx.triggered_id not in ("spec-scale", "comp-scale"):
+            log.state(stage=int(stage_i), stage_name=stage["name"],
+                      edits=dict(deleted=list(edit["deleted"]),
+                                 added=edit["added"], removed=edit["removed"]),
+                      n_peaks=int(n),
+                      r2=(round(delta[0], 4) if delta else
+                          (round(float(stage["result"].r_squared), 4)
+                           if "result" in stage else None)),
+                      composition=_comp_summary(rows))
         return specfig, compfig, status, " | ".join(ed)
 
     return app
@@ -636,6 +660,8 @@ def main():
     ap.add_argument("--log", default=os.path.join(
         REPO, "logs", "fit_inspector_actions.jsonl"),
         help="JSONL action log (training-data trace); appended to")
+    ap.add_argument("--no-browser", action="store_true",
+                    help="do not auto-open the app in a web browser")
     args = ap.parse_args()
     try:
         import dash  # noqa: F401
@@ -653,8 +679,15 @@ def main():
     log = ActionLog(args.log, sample, len(x), stages)
     print(f"captured {len(stages)} stages; logging actions to {args.log}",
           flush=True)
-    print(f"open http://127.0.0.1:{args.port}", flush=True)
+    url = f"http://127.0.0.1:{args.port}"
+    print(f"open {url}", flush=True)
     app = build_app(stages, meta, sample, log)
+    if not args.no_browser:
+        # Dash never opens a browser itself; pop the tab once the server is
+        # up (a short delay so the request lands after app.run binds).
+        import threading
+        import webbrowser
+        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     app.run(debug=False, port=args.port)
 
 
