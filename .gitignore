@@ -34,3 +34,6 @@ corpus_standardized.dat
 
 # Internal docs
 docs/moissanite_remote_setup.md
+
+# Reference papers / downloaded PDFs
+*.pdf
