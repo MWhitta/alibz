@@ -60,25 +60,13 @@ class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
 
 
-#: second radiation constant hc/k_B in nm*K
-_C2_NM_K = 1.4387768775039337e7
-
-
-def stimulated_emission_factor(wavelengths_nm, temperature):
-    """Induced-emission correction ``1 - exp(-hc / (lambda k_B T))``.
-
-    The net absorption coefficient is the pure lower-level absorption
-    minus stimulated emission from the upper level; in LTE the two
-    populations are Boltzmann-related and the correction reduces to this
-    wavelength-dependent factor.  It matters here because it does NOT
-    cancel across lines of different wavelength (~0.99 in the UV vs
-    ~0.89 at the K I 770 nm resonance line at LIBS temperatures), so a
-    single global tau scale cannot absorb it: without the factor the
-    red/IR resonance lines of the alkalis are assigned relatively too
-    much optical depth compared to UV lines of the same species.
-    """
-    lam = np.asarray(wavelengths_nm, dtype=float)
-    return -np.expm1(-_C2_NM_K / (lam * max(float(temperature), 1.0)))
+# radiation-transfer kernel shared with the forward model (synthetic.py) —
+# re-exported here so callers and tests can keep importing these names
+from alibz.utils.absorption import (  # noqa: E402
+    C2_NM_K as _C2_NM_K,
+    stimulated_emission_factor,
+)
+from alibz.utils.constants import BOLTZMANN  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -1089,7 +1077,7 @@ class PeakyIndexerV3:
         absorbed into the single global ``sa_tau_scale``.
         """
         kappa = self._kappa_raw(temperature, log_ne)
-        kT = 8.617333262e-5 * float(temperature)
+        kT = BOLTZMANN * float(temperature)
         # Normalise against a FROZEN reference line (chosen once at build
         # time as the most absorbing line matched to an observed peak, and
         # re-evaluated at the current T, nₑ).  Recomputing the "max
@@ -1152,7 +1140,7 @@ class PeakyIndexerV3:
         lt = self.line_table
         if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
             return
-        kT = 8.617333262e-5 * float(self.T_init)
+        kT = BOLTZMANN * float(self.T_init)
         Z = lt.compute_partition_functions(self.T_init)
         saha = lt.compute_saha_fractions(self.T_init, self.ne_init)
         kappa = (
@@ -1189,7 +1177,7 @@ class PeakyIndexerV3:
         so it changes the RELATIVE depths across a species' lines.
         """
         lt = self.line_table
-        kT = 8.617333262e-5 * float(temperature)
+        kT = BOLTZMANN * float(temperature)
         Z = lt.compute_partition_functions(temperature)
         saha = lt.compute_saha_fractions(temperature, log_ne)
         kappa = (
@@ -1272,7 +1260,7 @@ class PeakyIndexerV3:
                 # measurement — applying the cap would inflate the species
                 # ~50x. Leave the species un-anchored.
                 continue
-            kT = 8.617333262e-5 * float(self.T_init)
+            kT = BOLTZMANN * float(self.T_init)
             self._sa_doublet_info[(sp.element, sp.ion)] = {
                 "tau_weak": float(tau_weak),
                 "measured_ratio": measured,
@@ -1295,7 +1283,7 @@ class PeakyIndexerV3:
         if not self._sa_doublet_info:
             return None
         lt = self.line_table
-        kT = 8.617333262e-5 * float(temperature)
+        kT = BOLTZMANN * float(temperature)
         scale = np.ones(lt.n_lines, dtype=float)
         for s, sp in enumerate(lt.species):
             info = self._sa_doublet_info.get((sp.element, sp.ion))

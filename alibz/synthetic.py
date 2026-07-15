@@ -32,6 +32,7 @@ from scipy.special import erfcinv, roots_legendre
 from scipy.special import voigt_profile
 
 from alibz.elements import ATOMIC_NUMBER, ELEMENTS_BY_ATOMIC_NUMBER
+from alibz.utils.absorption import C2_NM_K as _C2_NM_K, stimulated_emission_factor
 from alibz.utils.absorption import escape_factor
 from alibz.utils.constants import BOLTZMANN
 from alibz.utils.database import Database
@@ -80,7 +81,6 @@ if ATOMIC_MASS_U.shape != (N_ELEMENTS,):  # pragma: no cover - import guard
 _K_B_SI = 1.380649e-23
 _AMU_KG = 1.66053906660e-27
 _C_M_S = 299_792_458.0
-_C2_NM_K = 1.4387768775039337e7
 
 
 def _readonly_float_array(value, shape, name, default=None):
@@ -717,11 +717,6 @@ class SyntheticSpectrumGenerator:
         self._ion_energy_cache[key] = value
         return value
 
-    @staticmethod
-    def _stimulated_emission_factor(wavelength_nm, temperature):
-        lam = np.asarray(wavelength_nm, dtype=float)
-        return -np.expm1(-_C2_NM_K / (lam * max(float(temperature), 1.0)))
-
     def _line_widths(self, element_index, stage, wavelength, upper_energy,
                      temperature, log_ne):
         segment = self.instrument.segment_index(wavelength)
@@ -807,7 +802,7 @@ class SyntheticSpectrumGenerator:
                     * np.exp(-Ei / (BOLTZMANN * temperature))
                     / partition
                     * stage_fraction
-                    * self._stimulated_emission_factor(wl, temperature)
+                    * stimulated_emission_factor(wl, temperature)
                 )
                 tau = float(component.effective_column[ei]) * opacity
                 area = area * escape_factor(tau)

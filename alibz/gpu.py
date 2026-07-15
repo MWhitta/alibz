@@ -13,6 +13,7 @@ Usage
 """
 
 import numpy as np
+from alibz.utils.constants import SIGMA_TO_FWHM
 
 # ---------------------------------------------------------------------------
 # Backend selection
@@ -315,6 +316,6 @@ def extract_windows_gpu(spectra, wavelength, peak_params_list, half_window,
 
 def _voigt_width_np(sigma, gamma):
     """Thompson FWHM (CPU-only helper)."""
-    fwhm_g = 2 * np.sqrt(2 * np.log(2)) * sigma
+    fwhm_g = SIGMA_TO_FWHM * sigma
     fwhm_l = 2 * gamma
     return 0.5346 * fwhm_l + np.sqrt(0.2166 * fwhm_l ** 2 + fwhm_g ** 2)

@@ -56,6 +56,7 @@ width floor bounds what a legitimate new component may look like.
 from typing import Dict, List
 
 import numpy as np
+from alibz.utils.constants import SIGMA_TO_FWHM
 
 from alibz.utils.voigt import multi_voigt as _multi_voigt
 from alibz.utils.voigt import voigt as _voigt
@@ -172,7 +173,7 @@ def analyze_peak_profiles(x, y, fit_dict, segment_edges=None,
         wr = fwhm / max(floor, 1e-9)
         # Gaussian share of the width: Doppler/instrumental (sigma) vs
         # Stark/pressure (gamma).  fG/(fG+fL) on FWHM contributions.
-        fg = 2.3548 * sig
+        fg = SIGMA_TO_FWHM * sig
         fl = 2.0 * gam
         gfrac = fg / max(fg + fl, 1e-12)
 

@@ -15,3 +15,6 @@ SPEED_OF_LIGHT = 2.99792458e8
 
 #: Electron mass in eV/c^2
 ELECTRON_MASS = 0.51099895000e6
+
+#: Gaussian sigma -> FWHM conversion factor, 2*sqrt(2*ln 2)
+SIGMA_TO_FWHM = 2.3548200450309493

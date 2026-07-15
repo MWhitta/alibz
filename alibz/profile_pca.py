@@ -39,7 +39,7 @@ import numpy as np
 from scipy.ndimage import percentile_filter
 from scipy.signal import find_peaks
 
-_K_EV = 8.617333262e-5  # Boltzmann constant [eV/K]
+from alibz.utils.constants import BOLTZMANN
 
 #: Geochemically plausible elements for silicate/mudrock line assignment.  A
 #: generous set: without it, line-rich rare earths win on raw gA alone.
@@ -144,7 +144,7 @@ def assign_rois(roi_wl: np.ndarray, db, temperature: float = 8000.0,
                 ) -> List[Tuple[str, int]]:
     """Assign each ROI to its strongest Boltzmann-weighted nearby db line."""
     els, ions, wls, gA, eup = _line_table(db, plausible)
-    kT = _K_EV * temperature
+    kT = BOLTZMANN * temperature
     out = []
     for w in roi_wl:
         lo, hi = np.searchsorted(wls, w - tol_nm), np.searchsorted(wls, w + tol_nm)

@@ -29,6 +29,28 @@ externally or fitted as an outer parameter.
 
 import numpy as np
 
+#: second radiation constant hc/k_B in nm*K
+C2_NM_K = 1.4387768775039337e7
+
+
+def stimulated_emission_factor(wavelengths_nm, temperature):
+    """Induced-emission correction ``1 - exp(-hc / (lambda k_B T))``.
+
+    The net absorption coefficient is the pure lower-level absorption minus
+    stimulated emission from the upper level; in LTE the two populations are
+    Boltzmann-related and the correction reduces to this wavelength-dependent
+    factor.  It matters because it does NOT cancel across lines of different
+    wavelength (~0.99 in the UV vs ~0.89 at the K I 770 nm resonance line at
+    LIBS temperatures), so a single global tau scale cannot absorb it: without
+    it the red/IR resonance lines of the alkalis are assigned relatively too
+    much optical depth compared to UV lines of the same species.
+
+    Shared by the inverse solve (:mod:`alibz.peaky_indexer_v3`) and the forward
+    model (:mod:`alibz.synthetic`) so the two never drift apart.
+    """
+    lam = np.asarray(wavelengths_nm, dtype=float)
+    return -np.expm1(-C2_NM_K / (lam * max(float(temperature), 1.0)))
+
 
 def escape_factor(tau):
     """Homogeneous-slab escape factor ``(1 - exp(-tau)) / tau``.

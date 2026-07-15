@@ -7,6 +7,7 @@ return NumPy arrays so callers need no changes.
 """
 
 import numpy as np
+from alibz.utils.constants import SIGMA_TO_FWHM
 from scipy.special import voigt_profile as voigt
 
 from alibz.gpu import gpu_available, to_numpy
@@ -30,7 +31,7 @@ def voigt_width(sigma, gamma):
     float or ndarray
         Approximate full width at half maximum.
     """
-    fwhm_g = 2 * np.sqrt(2 * np.log(2)) * sigma
+    fwhm_g = SIGMA_TO_FWHM * sigma
     fwhm_l = 2 * gamma
     return 0.5346 * fwhm_l + np.sqrt(0.2166 * fwhm_l**2 + fwhm_g**2)
 
