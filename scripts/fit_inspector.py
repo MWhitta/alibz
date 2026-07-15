@@ -42,6 +42,9 @@ from alibz.pipeline import (CONFIDENT_MIN_REFS, DEEPEN_BARS,      # noqa: E402
                             load_spectrum_csv, sample_name, _halpha_ne)
 from alibz.elements import element_color, element_sort_key        # noqa: E402
 from alibz.utils.colors import wavelength_to_rgb                  # noqa: E402
+from alibz.detector import (correct_segment_response,             # noqa: E402
+                            estimate_segment_response,
+                            segment_response_fallback)
 from alibz.utils.database import Database                         # noqa: E402
 from alibz.utils.voigt import multi_voigt, voigt_width            # noqa: E402
 from alibz.utils.wavelength import (estimate_wavelength_shift,    # noqa: E402
@@ -125,8 +128,12 @@ def _species_rows(idx, res, amp_sigma):
     return rows
 
 
-def _amp_sigma(x, y, bg, peaks):
-    return estimate_peak_uncertainties(x, y - bg, peaks)[:, 0]
+def _amp_sigma(x, y, bg, peaks, seg_response=None):
+    sig = estimate_peak_uncertainties(x, y - bg, peaks)[:, 0]
+    if seg_response is not None:
+        seg = np.searchsorted(np.asarray((620.0,)), np.atleast_2d(peaks)[:, 1])
+        sig = sig / np.asarray(seg_response, dtype=float)[seg]
+    return sig
 
 
 def capture(x, y):
@@ -142,6 +149,13 @@ def capture(x, y):
     fit = finder.fit_spectrum(x, y, subtract_background=True, plot=False,
                               n_sigma=0)
     bg0 = np.asarray(fit.get("background", np.zeros_like(y)), dtype=float)
+    # detector segment throughput (mirrors analyze_spectrum): divide the ~5x
+    # 620 nm gain step out of amplitudes before every indexer solve
+    _resid = y - bg0
+    _noise = 1.4826 * float(np.median(np.abs(_resid - np.median(_resid))))
+    seg_response = estimate_segment_response(
+        x, bg0, edges=(620.0,), noise_scale=_noise,
+        fallback=segment_response_fallback(edges=(620.0,)))
     stages = [dict(name="1 · blind fit", peaks=fit["sorted_parameter_array"],
                    fit=fit)]
 
@@ -164,10 +178,10 @@ def capture(x, y):
     def dbf(p):
         o = p.copy()
         o[:, 1] -= shift_at(SHIFT, o[:, 1])
-        return o
+        return correct_segment_response(o, seg_response, edges=(620.0,))
 
     idx1 = PeakyIndexerV3(dbf(rp), **idx_kw)
-    idx1._amp_sigma = _amp_sigma(x, y, bg0, rp)
+    idx1._amp_sigma = _amp_sigma(x, y, bg0, rp, seg_response)
     res1 = idx1.run(**run_kw)
     stages.append(dict(
         name="4 · pass-1 indexer", peaks=rp, fit=refined,
@@ -213,7 +227,7 @@ def capture(x, y):
     fp = final["sorted_parameter_array"]
     idx2 = PeakyIndexerV3(dbf(fp), dbpath=DBPATH,
                           temperature_init=res1.temperature, ne_init=res1.ne)
-    idx2._amp_sigma = _amp_sigma(x, y, bg0, fp)
+    idx2._amp_sigma = _amp_sigma(x, y, bg0, fp, seg_response)
     res2 = idx2.run(**run_kw)
     stages.append(dict(
         name="8 · pass-2 indexer", peaks=fp, fit=final, result=res2,
@@ -260,7 +274,9 @@ def capture(x, y):
             idxN = PeakyIndexerV3(dbf(work["sorted_parameter_array"]),
                                   dbpath=DBPATH, temperature_init=res2.temperature,
                                   ne_init=res2.ne)
-            idxN._amp_sigma = _amp_sigma(x, y, bg0, work["sorted_parameter_array"])
+            idxN._amp_sigma = _amp_sigma(x, y, bg0,
+                                         work["sorted_parameter_array"],
+                                         seg_response)
             idxN.build_candidate_matrix(sa_doublets=True)
             resN = idxN.solve_at(res2.temperature, res2.ne, res2.sigma,
                                  res2.gamma)
@@ -275,7 +291,8 @@ def capture(x, y):
             plasma=(result.temperature, result.ne, result.sigma, result.gamma),
             species=_species_rows(fidx, result, fidx._amp_sigma)))
 
-    meta = dict(x=x, y=y, bg=bg0, shift=SHIFT)
+    meta = dict(x=x, y=y, bg=bg0, shift=SHIFT, catalog=_line_catalog(SHIFT),
+                seg_response=seg_response)
     return stages, meta
 
 
@@ -295,10 +312,13 @@ def resolve(stage, meta, deleted, extra_species, removed_species):
     peaks = peaks[keep]
     if peaks.shape[0] == 0:
         return [], float("nan"), 0
+    seg_response = meta.get("seg_response")
     dbp = peaks.copy()
     dbp[:, 1] -= shift_at(shift, dbp[:, 1])
+    if seg_response is not None:
+        dbp = correct_segment_response(dbp, seg_response, edges=(620.0,))
     idx = PeakyIndexerV3(dbp, dbpath=DBPATH, temperature_init=T, ne_init=ne)
-    idx._amp_sigma = _amp_sigma(x, y, bg, peaks)
+    idx._amp_sigma = _amp_sigma(x, y, bg, peaks, seg_response)
     # min_init_relative_intensity=0 keeps ALL in-range species as candidates
     # so a user can ADD one the default prefilter would have dropped; the
     # keep-mask below restores the baseline set and applies the edits
@@ -338,8 +358,133 @@ def _hex(rgb):
     return "#%02x%02x%02x" % tuple(int(round(255 * c)) for c in rgb[:3])
 
 
+_BOLTZ_EV_K = 8.617333262e-5  # eV / K, for the excitation weight exp(-E_up/kT)
+
+
+def _col_float(a):
+    """Coerce a column of the (all-string) db array to float, 0.0 on blanks."""
+    a = np.asarray(a)
+    try:
+        return a.astype(float)
+    except ValueError:
+        out = np.zeros(a.shape[0], dtype=float)
+        for i, v in enumerate(a):
+            try:
+                out[i] = float(v)
+            except (ValueError, TypeError):
+                out[i] = 0.0
+        return out
+
+
+def _line_catalog(shift):
+    """One flat, wavelength-sorted table of every db line with ion stage <= 2.
+
+    Columns of ``_DB.lines(el)``: 0 ion-stage, 1 wavelength (nm), 3 gA (s^-1),
+    5 upper-level energy (eV).  Wavelengths are shifted db->observed so peak
+    centres (which are observed) can be looked up directly.
+    """
+    el, ion, wl, gA, eup = [], [], [], [], []
+    for e in _DB.elements:
+        if e in _DB.no_lines:
+            continue
+        arr = _DB.lines(e)
+        if arr.size == 0:
+            continue
+        st = _col_float(arr[:, 0])
+        m = st <= 2
+        if not m.any():
+            continue
+        w = _col_float(arr[m, 1])
+        el.extend([e] * int(m.sum()))
+        ion.append(st[m].astype(int))
+        wl.append(w + shift_at(shift, w))          # observed frame
+        gA.append(_col_float(arr[m, 3]))
+        eup.append(_col_float(arr[m, 5]))
+    if not wl:
+        return dict(el=np.empty(0, dtype=object), ion=np.empty(0, dtype=int),
+                    wl=np.empty(0), gA=np.empty(0), eup=np.empty(0))
+    wl = np.concatenate(wl)
+    order = np.argsort(wl)
+    return dict(el=np.array(el, dtype=object)[order],
+                ion=np.concatenate(ion)[order], wl=wl[order],
+                gA=np.concatenate(gA)[order], eup=np.concatenate(eup)[order])
+
+
+def _peak_labels(peaks, catalog, species_rows, T, tol=0.30, n_comp=4,
+                 prox_nm=0.12, present_boost=3.0):
+    """Hover string per peak: the best-matching ion stage + competing ions.
+
+    Candidate db lines within ``tol`` nm are ranked by
+        strength * proximity * in-fit boost
+    where strength is Boltzmann-weighted ``gA * exp(-E_up/kT)`` at the stage T
+    (gA alone when no plasma), proximity is a Gaussian in the wavelength offset
+    (scale ``prox_nm``), and lines of elements already in the solve get a
+    ``present_boost``.  This lets a strong resonance line of a present element
+    (e.g. the Na D doublet a couple hundred pm off a blended centre) win over a
+    weak line of an absent trace metal that happens to sit nearer — instead of
+    a hard nearest-within-tol cutoff that misses the real identity.
+    """
+    if catalog is None or catalog["wl"].size == 0:
+        return ([f"λ {w:.3f} nm" for w in peaks[:, 1]],
+                [""] * peaks.shape[0])
+    cw = catalog["wl"]
+    present = {(r["element"], int(r["ion"])): r for r in (species_rows or [])}
+    tot = sum(r["emission"] for r in (species_rows or [])) or 1.0
+    kT = _BOLTZ_EV_K * T if (T and T > 0) else None
+
+    def tag(e, i):
+        return f"{e} {'I' * i}"
+
+    labels, tags = [], []
+    for w in peaks[:, 1]:
+        lo, hi = np.searchsorted(cw, w - tol), np.searchsorted(cw, w + tol)
+        if hi <= lo:
+            labels.append(f"λ {w:.3f} nm<br>no db line within "
+                          f"±{tol * 1000:.0f} pm")
+            tags.append("")
+            continue
+        el = catalog["el"][lo:hi]
+        ion = catalog["ion"][lo:hi]
+        lw = catalog["wl"][lo:hi]
+        gA = catalog["gA"][lo:hi]
+        eup = catalog["eup"][lo:hi]
+        strength = gA * (np.exp(-eup / kT) if kT else 1.0)
+        prox = np.exp(-0.5 * ((lw - w) / prox_nm) ** 2)
+        infit = np.array([(el[j], int(ion[j])) in present
+                          for j in range(el.size)])
+        score = strength * prox * np.where(infit, present_boost, 1.0)
+        # best-scoring line per (element, ion), then rank species by that score
+        best = {}
+        for j in np.argsort(score)[::-1]:
+            key = (el[j], int(ion[j]))
+            if key not in best:
+                best[key] = (float(lw[j]), float(gA[j]), float(score[j]))
+        cand = sorted(best.items(), key=lambda kv: -kv[1][2])
+        (ae, ai), (aw, _agA, _as) = cand[0]
+        tags.append(tag(ae, ai))
+        head = f"λ {w:.3f} nm"
+        if (ae, ai) in present:
+            fr = present[(ae, ai)]["emission"] / tot
+            head += (f"<br><b>{tag(ae, ai)}</b>  {fr * 100:.1f}% of emission"
+                     f"  (Δ{(aw - w) * 1000:+.0f} pm)")
+        else:
+            head += (f"<br><b>{tag(ae, ai)}</b>  "
+                     f"(Δ{(aw - w) * 1000:+.0f} pm · not in fit)")
+        comp = cand[1:1 + n_comp]
+        if comp:
+            parts = []
+            for (ce, ci), (clw, cgA, _cs) in comp:
+                where = (f"{present[(ce, ci)]['emission'] / tot * 100:.1f}%"
+                         if (ce, ci) in present else f"gA {cgA:.0e}")
+                parts.append(f"· {tag(ce, ci)}  {where}  "
+                             f"Δ{(clw - w) * 1000:+.0f} pm")
+            head += "<br>competing:<br>" + "<br>".join(parts)
+        labels.append(head)
+    return labels, tags
+
+
 def spectrum_figure(stage, meta, selected=None, deleted=None,
-                    highlight_species=None, yscale="log"):
+                    highlight_species=None, yscale="linear"):
     import plotly.graph_objects as go
     deleted = deleted or set()
     is_log = yscale == "log"
@@ -347,41 +492,87 @@ def spectrum_figure(stage, meta, selected=None, deleted=None,
     # raw data (including sub-count values and negative background dips).
     def flo(a, f):
         return np.maximum(a, f) if is_log else np.asarray(a, dtype=float)
-    x, y, bg = meta["x"], meta["y"], meta["bg"]
-    ybg = y - bg
+    x = np.asarray(meta["x"], dtype=float)
+    ybg = np.asarray(meta["y"], dtype=float) - np.asarray(meta["bg"], dtype=float)
     peaks = np.atleast_2d(np.asarray(stage["peaks"], dtype=float))
+    # the fit is evaluated on the EXACT native data grid, point-for-point, so
+    # data and model share one sampling; narrow lines look as angular in the
+    # model as in the data (honest for residual / missed-line inspection).
     model = (multi_voigt(x, np.ravel(peaks[:, :4])) if peaks.size
              else np.zeros_like(x))
     fig = go.Figure()
-    # wavelength-coloured spectrum, drawn as short coloured segments
-    step = max(1, x.size // 1400)
-    xs, ys = x[::step], flo(ybg[::step], 1e-1)
-    seg_colors = [_hex(c) for c in wavelength_to_rgb(xs)]
-    for i in range(len(xs) - 1):
+    # wavelength-coloured DATA at full native resolution.  Colour is constant
+    # within a wavelength band, one Scattergl trace per band, so every sample
+    # is kept without one-trace-per-point.  Bands overlap by a sample to join.
+    ys = flo(ybg, 1e-1)
+    n_bands = 96
+    edges = np.linspace(x[0], x[-1], n_bands + 1)
+    band = np.clip(np.digitize(x, edges) - 1, 0, n_bands - 1)
+    for b in range(n_bands):
+        idx = np.where(band == b)[0]
+        if idx.size == 0:
+            continue
+        lo = idx[0]
+        hi = min(idx[-1] + 2, x.size)          # +1 sample overlap into next band
         fig.add_trace(go.Scattergl(
-            x=xs[i:i + 2], y=ys[i:i + 2], mode="lines",
-            line=dict(color=seg_colors[i], width=1), hoverinfo="skip",
-            showlegend=False))
+            x=x[lo:hi], y=ys[lo:hi], mode="lines",
+            line=dict(color=_hex(wavelength_to_rgb(0.5 * (edges[b] + edges[b + 1]))),
+                      width=1), hoverinfo="skip", showlegend=False))
     fig.add_trace(go.Scattergl(
-        x=x, y=flo(model, 1e-1), mode="lines",
+        x=x, y=flo(model, 1e-1), mode="lines", hoverinfo="skip",
         line=dict(color="rgba(90,90,90,0.9)", width=1), name="model"))
     # peaks as markers coloured by wavelength; click to select
     if peaks.size:
         idxs = np.arange(peaks.shape[0])
         alive = np.array([i not in deleted for i in idxs])
         colors = [_hex(c) for c in wavelength_to_rgb(peaks[:, 1])]
+        # snap each marker to the tallest drawn model sample within ~1.5 FWHM
+        # of the fitted centre — the visible peak tip on the native grid.
+        # (params[:,0] is unit-area amplitude, not height; and the centre can
+        # fall between samples, landing below the drawn vertex.)
+        dx = float(np.median(np.diff(x))) if x.size > 1 else 1.0
+        fwhm = voigt_width(np.maximum(peaks[:, 2], 1e-6),
+                           np.maximum(peaks[:, 3], 1e-6))
+        halfw = np.clip(np.round(1.5 * fwhm / dx).astype(int), 2, 40)
+        ci = np.clip(np.searchsorted(x, peaks[:, 1]), 0, x.size - 1)
+        mx = np.empty(peaks.shape[0])
+        my = np.empty(peaks.shape[0])
+        for k in range(peaks.shape[0]):
+            lo = max(0, ci[k] - int(halfw[k]))
+            hi = min(x.size, ci[k] + int(halfw[k]) + 1)
+            j = lo + int(np.argmax(model[lo:hi]))
+            mx[k], my[k] = x[j], model[j]
+        # hover: ion-stage assignment + competing ions at each peak wavelength;
+        # tags: short "El ion" shown persistently on the strongest peaks
+        labels, tags = _peak_labels(
+            peaks, meta.get("catalog"), stage.get("species"),
+            stage["plasma"][0] if "plasma" in stage else None)
         for state, opacity, size in ((alive, 1.0, 8), (~alive, 0.25, 6)):
             if not np.any(state):
                 continue
             fig.add_trace(go.Scattergl(
-                x=peaks[state, 1], y=flo(peaks[state, 0], 1.0),
+                x=mx[state], y=flo(my[state], 1e-1),
                 mode="markers",
                 marker=dict(size=size, color=[colors[i] for i in idxs[state]],
                             line=dict(width=0.5, color="#222"),
                             opacity=opacity),
                 customdata=idxs[state], name="peaks",
-                hovertemplate="%{x:.3f} nm  area %{y:.1f}<extra>peak "
-                              "%{customdata}</extra>", showlegend=False))
+                text=[labels[i] for i in idxs[state]],
+                hovertemplate="%{text}<extra>peak %{customdata}</extra>",
+                showlegend=False))
+        # label the strongest peaks in place (hover any dot for full detail)
+        shown = 0
+        for k in np.argsort(my)[::-1]:
+            if shown >= 24:
+                break
+            if not alive[k] or not tags[k]:
+                continue
+            ay = max(float(my[k]), 1e-1) if is_log else float(my[k])
+            fig.add_annotation(
+                x=float(mx[k]), y=ay, text=tags[k], showarrow=False,
+                textangle=-90, yanchor="bottom", yshift=6,
+                font=dict(size=9, color=element_color(tags[k].split()[0])))
+            shown += 1
     if highlight_species is not None:
         hp = np.atleast_2d(highlight_species)
         if hp.size:
@@ -458,9 +649,9 @@ def build_app(stages, meta, sample, log):
                         style={"margin-left": "20px"}),
             html.Span("intensity:", style={"margin-left": "20px",
                                            "color": "#555"}),
-            dcc.RadioItems(id="spec-scale", inline=True, value="log",
-                           options=[{"label": " log", "value": "log"},
-                                    {"label": " linear", "value": "linear"}],
+            dcc.RadioItems(id="spec-scale", inline=True, value="linear",
+                           options=[{"label": " linear", "value": "linear"},
+                                    {"label": " log", "value": "log"}],
                            labelStyle={"margin-right": "10px"}),
             html.Span("abundance:", style={"margin-left": "12px",
                                            "color": "#555"}),
@@ -599,7 +790,7 @@ def build_app(stages, meta, sample, log):
         deleted = set(map(int, edit["deleted"]))
         # highlight the peaks supporting the (single) selected/added species? show plain
         specfig = spectrum_figure(stage, meta, selected=sel, deleted=deleted,
-                                  yscale=spec_scale or "log")
+                                  yscale=spec_scale or "linear")
         compfig = composition_figure(
             rows, yscale=comp_scale or "linear",
             baseline=base if (edit["deleted"] or edit["added"]
