@@ -431,8 +431,32 @@ def _blend_junction(
     return y_out
 
 
+def segment_response_fallback(edges=(620.0,), config_path=None):
+    """Calibrated per-junction throughput ratios for ``edges`` (or ``None``).
+
+    Reads ``segment_response_fallback`` from ``corrections/detector.json`` and
+    returns a list aligned with ``edges`` — the instrument's VIS->NIR gain
+    step, used when a spectrum's own continuum is too weak to measure it.
+    Entries with no stored ratio (e.g. the additive 365 nm junction) are
+    ``None``.  Returns ``None`` if no calibration is configured.
+    """
+    path = Path(config_path) if config_path else _DETECTOR_CONFIG
+    try:
+        cfg = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    fb = cfg.get("segment_response_fallback") if isinstance(cfg, dict) else None
+    if not fb:
+        return None
+    table = {round(float(w), 3): float(r)
+             for w, r in zip(fb.get("junctions_nm", []), fb.get("ratios", []))}
+    out = [table.get(round(float(e), 3)) for e in edges]
+    return out if any(v is not None for v in out) else None
+
+
 def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0),
-                              noise_scale=None, min_flank=None, max_ratio=20.0):
+                              noise_scale=None, min_flank=None, max_ratio=20.0,
+                              fallback=None):
     """Relative multiplicative response of detector segments from the
     continuum step across each junction.
 
@@ -460,7 +484,7 @@ def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0
     x = np.asarray(x, dtype=float)
     bg = np.asarray(background, dtype=float)
     response = [1.0]
-    for edge in edges:
+    for i, edge in enumerate(edges):
         lo = (x >= edge - flank_nm[1]) & (x <= edge - flank_nm[0])
         hi = (x >= edge + flank_nm[0]) & (x <= edge + flank_nm[1])
         left = float(np.median(bg[lo])) if np.any(lo) else 0.0
@@ -474,6 +498,11 @@ def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0
             floor = max(floor, 5.0 * float(noise_scale))
         if left > floor and right > floor:
             ratio = float(np.clip(right / left, 1.0 / max_ratio, max_ratio))
+        elif fallback is not None and i < len(fallback) and fallback[i]:
+            # Continuum too weak to measure THIS spectrum's step: fall back to
+            # the instrument's calibrated gain (a fixed detector property,
+            # present whether or not this continuum reveals it).
+            ratio = float(fallback[i])
         else:
             ratio = 1.0
         response.append(response[-1] * ratio)

@@ -353,20 +353,44 @@ def analyze_spectrum(
         idx_kwargs["ne_init"] = ne_init
         run_kwargs["ne_bounds"] = ne_bounds
 
-    def _db_frame(peaks: np.ndarray) -> np.ndarray:
-        # indexer matches peak centers against db positions within its
-        # shift_tolerance; remove each peak's SEGMENT shift first
-        out = peaks.copy()
-        out[:, 1] -= shift_at(shift, out[:, 1])
-        return out
-
     bg0 = np.asarray(fit.get("background", np.zeros_like(y)), dtype=float)
 
+    # detector segment throughput: the CCD is split at 365 and 620 nm and the
+    # 620 nm junction carries a genuine ~5x gain step (SciAps).  A smooth
+    # plasma continuum cannot jump by ~5x within a few nm, so the background
+    # step there is a throughput ratio that multiplies LINE amplitudes and
+    # distorts exactly the cross-segment relative intensities Saha-Boltzmann
+    # inference relies on.  Estimate it from the continuum (noise-gated so a
+    # weak continuum yields no correction) and divide it out of amplitudes AND
+    # their uncertainties before every indexer solve.  The 365 nm step is
+    # additive (background subtraction's job), hence edges=(620.0,) only.
+    from alibz.detector import (correct_segment_response,
+                                estimate_segment_response,
+                                segment_response_fallback)
+    _resid = y - bg0
+    _noise = 1.4826 * float(np.median(np.abs(_resid - np.median(_resid))))
+    seg_response = estimate_segment_response(
+        x, bg0, edges=(620.0,), noise_scale=_noise,
+        fallback=segment_response_fallback(edges=(620.0,)))
+    _seg_edges = np.asarray((620.0,), dtype=float)
+
+    def _db_frame(peaks: np.ndarray) -> np.ndarray:
+        # indexer matches peak centers against db positions within its
+        # shift_tolerance; remove each peak's SEGMENT shift first, then divide
+        # amplitudes by the detector segment response so cross-segment
+        # relative intensities are physical before the solve
+        out = peaks.copy()
+        out[:, 1] -= shift_at(shift, out[:, 1])
+        return correct_segment_response(out, seg_response, edges=(620.0,))
+
     def _amp_sigma(peaks_obs: np.ndarray) -> np.ndarray:
-        # per-peak area (amplitude) noise, aligned with the peak order, so
-        # the indexer can gate elements on detection significance rather
-        # than a fraction of the brightest peak
-        return estimate_peak_uncertainties(x, y - bg0, peaks_obs)[:, 0]
+        # per-peak area (amplitude) noise, aligned with the peak order, so the
+        # indexer can gate elements on detection significance rather than a
+        # fraction of the brightest peak.  Scaled by the SAME segment response
+        # as the amplitudes, so detection SNR stays gain-invariant.
+        sig = estimate_peak_uncertainties(x, y - bg0, peaks_obs)[:, 0]
+        seg = np.searchsorted(_seg_edges, np.atleast_2d(peaks_obs)[:, 1])
+        return sig / seg_response[seg]
 
     # pass 1: establish elements (a PROVISIONAL posterior — its basin can
     # be wrong; its outputs only license seeding and condition stage 3b)
@@ -616,6 +640,7 @@ def analyze_spectrum(
     return dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
         records=records, recovered=recovered, shift=shift,
+        segment_response=seg_response, segment_response_edges=(620.0,),
         n_anchor=n_anchor, ne_init=ne_init,
         result=result, established=established,
         element_uncertainty=det["element_uncertainty"],

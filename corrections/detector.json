@@ -9,5 +9,11 @@
         {"index": 1, "wl_lo_nm": 365.0, "wl_hi_nm": 620.0, "label": "VIS"},
         {"index": 2, "wl_lo_nm": 620.0, "wl_hi_nm": null, "label": "NIR"}
     ],
-    "notes": "Junction wavelengths determined empirically from corpus PCA noise-level analysis. UV/VIS boundary at 365 nm, VIS/NIR boundary at 620 nm."
+    "notes": "Junction wavelengths determined empirically from corpus PCA noise-level analysis. UV/VIS boundary at 365 nm, VIS/NIR boundary at 620 nm.",
+    "segment_response_fallback": {
+        "junctions_nm": [620.0],
+        "ratios": [3.9],
+        "provenance": "Corpus-derived VIS->NIR throughput (gain) step at the 620 nm junction, used when a spectrum's own continuum is too weak to measure it. Median of the continuum step across 435 SciAps Z-300 AverageSpectrum spectra whose continuum exceeded ~20x noise on both flanks (median 3.9, IQR 3.0-5.2; 4891 of 4909 corpus spectra surveyed, 2026-07). Distribution is mildly bimodal (secondary mode ~9x), suggesting a second acquisition configuration; per-sample measurement still takes precedence when the continuum permits.",
+        "notes": "The 365 nm junction is an ADDITIVE baseline artifact (background subtraction's job), not a multiplicative gain, so no fallback ratio is stored for it."
+    }
 }
