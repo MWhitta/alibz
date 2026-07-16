@@ -31,6 +31,17 @@ class PeakyFinder():
         Loaded data object.
     """
 
+    #: width-cap policy for window fits: a fitted component's FWHM may not
+    #: exceed FWHM_CAP_FACTOR x the median detected FWHM (pure-channel), with
+    #: H_CAP_RELAX x relaxation within +-3 nm of the Stark-broad Balmer lines.
+    FWHM_CAP_FACTOR = 2.0
+    H_CAP_RELAX = 4.0
+    H_BALMER_NM = (656.279, 486.135, 434.047)
+
+    #: final significance gate: a fitted peak survives if its implied height
+    #: exceeds this many local point-noise sigmas
+    MIN_HEIGHT_SIGMA = 2.0
+
     def __init__(self, data_dir) -> None:
         """Initialize the finder and load data.
 
@@ -786,10 +797,19 @@ class PeakyFinder():
 
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
         median_fwhm = np.median(fwhm_array) * inc
-        fwhm_limit =  max(5 * median_fwhm, 0.0)
 
         min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
-        fwhm_limit = max(fwhm_limit, min_inc)
+        # Physical width cap.  The previous limit bounded sigma and gamma
+        # EACH at 5x the median FWHM, which still admits a COMBINED Voigt
+        # FWHM of ~16x median — the "pancake" components that swallow
+        # neighbouring small peaks (measured on MW2-112: a 2.4 nm blob at
+        # 671.7 nm absorbing the detected-but-lost 671.2/672.1 nm peaks,
+        # and 1.0-1.9 nm blobs under Ca H&K).  Cap each width channel so a
+        # pure-Gaussian or pure-Lorentzian component stays within
+        # FWHM_CAP_FACTOR x median.  Hydrogen Balmer lines are legitimately
+        # nm-broad (Stark), so windows near them get H_CAP_RELAX x the cap.
+        fwhm_cap = self.FWHM_CAP_FACTOR * max(
+            median_fwhm if np.isfinite(median_fwhm) else 0.0, min_inc)
 
         def build_voigt_guess(peak_idx: int, height: float, fwhm_width: float) -> np.ndarray:
             return self._voigt_seed(x, peak_idx, height, fwhm_width, min_inc)
@@ -859,8 +879,23 @@ class PeakyFinder():
                             height = float(amp_fast) - pedestal
                             if height <= 0.0:
                                 # Fully explained by known wings: not a peak.
+                                # (Real satellites riding a strong line's
+                                # wing are recovered downstream from the
+                                # refit residuals, where the wing model is
+                                # accurate — a crude-seed pedestal here has
+                                # no magnitude information to separate them
+                                # from noise.)
                                 continue
-                            fast_results[key] = build_voigt_guess(key, height, fwhm_fast)
+                            seed = build_voigt_guess(key, height, fwhm_fast)
+                            # fast seeds skip the bounded refit, so apply the
+                            # physical width cap directly to the seed
+                            capk = fwhm_cap * (self.H_CAP_RELAX
+                                               if any(abs(float(x[key]) - h) < 3.0
+                                                      for h in self.H_BALMER_NM)
+                                               else 1.0)
+                            seed[2] = min(seed[2], capk / 2.3548200450309493)
+                            seed[3] = min(seed[3], capk / 2.0)
+                            fast_results[key] = seed
 
                         if not estimation_failed:
                             peak_dictionary.update(fast_results)
@@ -892,11 +927,19 @@ class PeakyFinder():
                     x0 = np.concatenate([seed for _, seed in entries])
 
                     right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
+                    cap = fwhm_cap * (self.H_CAP_RELAX
+                                      if any(abs(float(x[int(p)]) - h) < 3.0
+                                             for h in self.H_BALMER_NM) else 1.0)
+                    sigma_max = cap / 2.3548200450309493
+                    gamma_max = cap / 2.0
                     lower_bounds = np.array([0.0, x[node_left], 0.0, 0.0] * n_fit)
                     upper_bounds = np.array(
-                        [np.inf, x[right_bound_idx], fwhm_limit, fwhm_limit] * n_fit
+                        [np.inf, x[right_bound_idx], sigma_max, gamma_max] * n_fit
                     )
                     lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+                    # seeds must lie inside the (tighter) bounds
+                    x0[2::4] = np.clip(x0[2::4], 0.0, sigma_max * 0.999)
+                    x0[3::4] = np.clip(x0[3::4], 0.0, gamma_max * 0.999)
                     bounds = (lower_bounds, upper_bounds)
 
                     # Subtract the modelled contribution of peaks fitted in
@@ -922,6 +965,15 @@ class PeakyFinder():
         
         return peak_dictionary
     
+
+    def _fwhm_cap(self, x, y, peak_indices):
+        """Width cap for window fits (see FWHM_CAP_FACTOR), in x-units."""
+        inc = np.median(np.diff(x))
+        min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
+        _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
+        median_fwhm = float(np.median(fwhm_array)) * inc
+        return self.FWHM_CAP_FACTOR * max(
+            median_fwhm if np.isfinite(median_fwhm) else 0.0, min_inc)
 
     def fit_shoulders(self, x, y, peak_indices, residuals, peak_dictionary, rng=5):
         """Fit peak shoulders by modelling the residuals.
@@ -949,6 +1001,7 @@ class PeakyFinder():
         """
         
         inc = np.median(np.diff(x))
+        fwhm_cap = self._fwhm_cap(x, y, peak_indices)
 
         # identify position of residuals that resemble, but don't coincide with, peaks
         residual_mean, residual_std = np.mean(residuals), np.std(residuals)
@@ -997,11 +1050,19 @@ class PeakyFinder():
             known_peaks_inrange = known_peaks[(known_peaks >= node_left) & (known_peaks <= node_right)]
             known_parameters = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
             
-            # define fit bounds
+            # define fit bounds — widths capped like the main window fit above:
+            # the previous dx bound let sigma/gamma grow to the FULL window
+            # width (nm-scale beside strong lines), producing the pancake
+            # components that absorb real neighbouring small peaks
             dx = inc * (node_right - node_left)
+            cap = fwhm_cap * (self.H_CAP_RELAX
+                              if any(abs(float(x[int(p)]) - h) < 3.0
+                                     for h in self.H_BALMER_NM) else 1.0)
+            sigma_max = min(cap / 2.3548200450309493, dx)
+            gamma_max = min(cap / 2.0, dx)
             right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
             lower_bounds = [0, x[node_left], 0, 0] * window_shoulders_num
-            upper_bounds = [0, x[right_bound_idx], dx, dx] * window_shoulders_num
+            upper_bounds = [0, x[right_bound_idx], sigma_max, gamma_max] * window_shoulders_num
             
             # define initial parameter guesses
             x0 = np.zeros((window_shoulders_num, 4))
@@ -1030,6 +1091,8 @@ class PeakyFinder():
                     x0[i] = self._voigt_seed(x, node_left + pp, full_max, fwhm, min_inc)
                     
             x0 = np.ravel(x0) # flatten to pass to least squares fit
+            x0[2::4] = np.clip(x0[2::4], 0.0, sigma_max * 0.999)
+            x0[3::4] = np.clip(x0[3::4], 0.0, gamma_max * 0.999)
             upper_bounds[::4] = 5 * x0[::4]
             lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
             bounds = (lower_bounds, upper_bounds)
@@ -1078,6 +1141,7 @@ class PeakyFinder():
         idxs = np.array(list(peak_dictionary.keys()))
         if len(idxs) == 0:
             return peak_dictionary
+        fwhm_cap = self._fwhm_cap(x, y, idxs)
 
         # Refit strongest peaks FIRST: weaker windows subtract the modelled
         # wings of peaks outside them, so the strong neighbours must already
@@ -1114,10 +1178,20 @@ class PeakyFinder():
             # total fitted area, plus ~400 real components destroyed by
             # width blow-up before filtering).
             window_span = max(float(x_window[-1] - x_window[0]), inc)
-            upper_bounds[2::4] = window_span
-            upper_bounds[3::4] = window_span
-            x0[2::4] = np.clip(x0[2::4], 0.0, window_span)
-            x0[3::4] = np.clip(x0[3::4], 0.0, window_span)
+            # ... and tighter still: the physical width cap (see
+            # FWHM_CAP_FACTOR).  The window span alone still admits nm-scale
+            # "pancake" components beside strong lines that absorb real
+            # neighbouring small peaks (measured: 2.4 nm at Li 671.7,
+            # 1.0-1.9 nm under Ca H&K on MW2-112).
+            cap = fwhm_cap * (self.H_CAP_RELAX
+                              if any(abs(float(x[int(idx)]) - h) < 3.0
+                                     for h in self.H_BALMER_NM) else 1.0)
+            sigma_max = min(cap / 2.3548200450309493, window_span)
+            gamma_max = min(cap / 2.0, window_span)
+            upper_bounds[2::4] = sigma_max
+            upper_bounds[3::4] = gamma_max
+            x0[2::4] = np.clip(x0[2::4], 0.0, sigma_max * 0.999)
+            x0[3::4] = np.clip(x0[3::4], 0.0, gamma_max * 0.999)
             bounds = (lower_bounds, upper_bounds)
 
             # Subtract the modelled wings of every peak OUTSIDE this window:
@@ -1279,7 +1353,7 @@ class PeakyFinder():
         # ones — measured 1.8x spread between segments on real data.)
         noise_local = self._noise_scale_local(y_bgsub, segment_indices=segment_indices)
         for key, value in peak_dictionary.items():
-            min_height = 2.0 * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
+            min_height = self.MIN_HEIGHT_SIGMA * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
             if value[2] < inc / 2:
                 value[2] = 0
             if value[2] > 100 * median_fwhm:
