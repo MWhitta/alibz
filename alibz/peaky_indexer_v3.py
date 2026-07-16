@@ -1806,6 +1806,7 @@ class PeakyIndexerV3:
         gamma_bounds: Tuple[float, float] = (0.01, 0.3),
         n_calls: int = 40,
         verbose: bool = True,
+        search: str = "gp",
     ) -> FitResult:
         """Run Bayesian optimisation + NNLS fitting.
 
@@ -1817,6 +1818,15 @@ class PeakyIndexerV3:
             Number of Bayesian optimisation evaluations.
         verbose : bool
             Print progress.
+        search : {"gp", "grid"}
+            ``"gp"`` (default) is the historical cold-start Bayesian
+            optimisation.  ``"grid"`` first runs a coarse profile-likelihood
+            scan over (T, log_ne) at data-driven central widths — the
+            concentration solve is LINEAR given the plasma state, so the scan
+            is cheap and covers every basin, where the cold GP surrogate was
+            measured repeatedly railing into the [T_lo, ne_hi, sigma_hi,
+            gamma_hi] corner on noisy single-shot spectra — then seeds the GP
+            with the best nodes (x0/y0) for joint 4-parameter refinement.
         """
         if self.n_peaks == 0:
             if verbose:
@@ -1865,11 +1875,38 @@ class PeakyIndexerV3:
 
         n_initial_points = min(n_calls, max(10, n_calls // 4))
 
+        x0 = y0 = None
+        if search == "grid":
+            sigma0 = float(np.clip(np.median(self.peak_array[:, 2]),
+                                   sigma_bounds[0], sigma_bounds[1]))
+            gamma0 = float(np.clip(np.median(np.abs(self.peak_array[:, 3])),
+                                   gamma_bounds[0], gamma_bounds[1]))
+            gx, gy = [], []
+            for Tg in np.linspace(T_bounds[0], T_bounds[1], 15):
+                for neg in np.linspace(ne_bounds[0], ne_bounds[1], 7):
+                    p = [float(Tg), float(neg), sigma0, gamma0]
+                    if self._sa_fit:
+                        p.append(float(np.mean(self._sa_log_tau_bounds)))
+                    gx.append(p)
+                    gy.append(float(self._outer_objective(np.array(p))))
+            order = np.argsort(gy)[:max(10, n_initial_points)]
+            x0 = [gx[i] for i in order]
+            y0 = [gy[i] for i in order]
+            n_initial_points = 1     # the grid seeds carry the initialization
+            if verbose:
+                print(f"  grid scan {len(gx)} nodes at sigma={sigma0:.3f} "
+                      f"gamma={gamma0:.3f}: best T={x0[0][0]:.0f} "
+                      f"ne={x0[0][1]:.2f} cost={y0[0]:.3e}")
+        elif search != "gp":
+            raise ValueError(f"unknown search mode {search!r}; use 'gp' or 'grid'")
+
         result = gp_minimize(
             objective,
             dimensions,
             n_calls=n_calls,
             n_initial_points=n_initial_points,
+            x0=x0,
+            y0=y0,
             random_state=42,
             verbose=False,
         )
@@ -2106,6 +2143,7 @@ class PeakyIndexerV3:
         gamma_bounds: Tuple[float, float] = (0.01, 0.3),
         n_calls: int = 40,
         verbose: bool = True,
+        search: str = "gp",
     ) -> FitResult:
         """Execute the full v3 pipeline.
 
@@ -2171,6 +2209,7 @@ class PeakyIndexerV3:
             gamma_bounds=gamma_bounds,
             n_calls=n_calls,
             verbose=verbose,
+            search=search,
         )
 
 
