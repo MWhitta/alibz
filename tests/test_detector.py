@@ -14,6 +14,8 @@ from alibz.detector import (
     Segment,
     _estimate_segment_background,
     _blend_junction,
+    estimate_segment_response,
+    segment_response_fallback,
 )
 
 
@@ -168,6 +170,46 @@ class TestSegmentBackground(unittest.TestCase):
             y += 100 * np.exp(-0.5 * ((x - center) / 1.0) ** 2)
         bg = _estimate_segment_background(x, y)
         self.assertLess(np.max(bg), 80)
+
+
+class TestSegmentResponseProvenance(unittest.TestCase):
+    def test_measured_response_reports_uncertainty_and_source(self):
+        x = np.linspace(600.0, 640.0, 801)
+        bg = np.where(x < 620.0, 10.0 + 0.01 * (x - 620.0),
+                      40.0 + 0.02 * (x - 620.0))
+        response, meta = estimate_segment_response(
+            x, bg, noise_scale=0.1, return_metadata=True)
+        self.assertAlmostEqual(response[1], 4.0, delta=0.1)
+        self.assertEqual(meta[0]["source"], "measured")
+        self.assertIsNotNone(meta[0]["ratio_uncertainty"])
+
+    def test_fallback_metadata_reads_machine_readable_iqr(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json",
+                                         delete=False) as fh:
+            json.dump({"segment_response_fallback": {
+                "junctions_nm": [620.0], "ratios": [3.9],
+                "ratio_q25": [3.0], "ratio_q75": [5.2],
+                "n_spectra": [435], "provenance": "test corpus",
+            }}, fh)
+            path = fh.name
+        try:
+            values, meta = segment_response_fallback(
+                config_path=path, return_metadata=True)
+        finally:
+            os.unlink(path)
+        self.assertEqual(values, [3.9])
+        self.assertEqual(meta[0]["n_spectra"], 435)
+        self.assertAlmostEqual(meta[0]["uncertainty"], 2.2 / 1.349)
+
+    def test_weak_continuum_records_fallback(self):
+        x = np.linspace(600.0, 640.0, 801)
+        bg = np.ones_like(x)
+        response, meta = estimate_segment_response(
+            x, bg, noise_scale=1.0, fallback=[3.9],
+            fallback_uncertainty=[1.0], return_metadata=True)
+        self.assertEqual(response[1], 3.9)
+        self.assertEqual(meta[0]["source"], "fallback")
+        self.assertEqual(meta[0]["ratio_uncertainty"], 1.0)
 
 
 if __name__ == "__main__":

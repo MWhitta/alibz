@@ -122,6 +122,7 @@ print(result.stage_disagreement)           # LTE / stage-consistency diagnostic
 | `alibz.peaky_pca` | PCA peak-shape decomposition and broadening classification |
 | `alibz.background_pca` | Corpus-level PCA for detector artifact and baseline removal |
 | `alibz.detector` | Three-segment detector model: junction detection, artifact removal, segmented background subtraction |
+| `alibz.mw2_112` | Shared geometry, table assembly, contrast annotation, and frozen-prior loading for the MW2-112 profile workflow |
 | `alibz.utils` | Physical constants, Voigt utilities, NIST database interface, Saha-Boltzmann solver |
 
 Atomic outputs retain 92 fixed H--U positions. The synthetic-development
@@ -166,6 +167,24 @@ background-pca /path/to/libs/data \
 ```
 
 Both commands accept `--gpu` / `--no-gpu` flags and support multiple input directories.
+
+### MW2-112 stratigraphic profile
+
+MW2-112 uses a dedicated, reproducible relative-profile workflow with one
+command surface:
+
+```bash
+mw2-112 --help
+```
+
+See the [MW2-112 workflow index](docs/mw2_112/README.md) for analysis,
+regeneration, provenance, and the prioritized TODO. The result is explicitly
+within-element and relative; it is not an absolute or cross-element
+composition.
+
+The [MW2-112 peak-window PCA method](docs/mw2_112/peak_window_pca.md) applies a
+fixed corpus peak-shape basis, validates detector shifts, rejects unresolved
+cross-element coincidences, and combines independent ion-stage lines.
 
 ## Notebooks
 

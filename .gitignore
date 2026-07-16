@@ -27,6 +27,7 @@ notebooks/peaky_tester.ipynb
 *.pickle
 *.pkl
 data/
+runs/
 
 # Memory-mapped data
 corpus_raw.dat

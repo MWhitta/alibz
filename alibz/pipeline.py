@@ -173,6 +173,11 @@ DEEPEN_BARS = (3.0, 2.5, 2.0)
 #: present ion is very likely that ion's faint line, not noise).
 SUPPORT_GA_FLOOR = 1.0e6
 SUPPORT_TOL_NM = 0.06
+KB_EV_K = 8.617333262e-5
+FIT_R2_FAIL = 0.30
+FIT_R2_WARN = 0.50
+PLASMA_T_BOUNDS = (4000.0, 25000.0)
+PLASMA_LOG_NE_BOUNDS = (14.0, 19.0)
 
 
 def composition_collapsed(fr_before: dict, fr_after: dict) -> bool:
@@ -279,6 +284,11 @@ def analyze_spectrum(
     draws: int = DEFAULT_DRAWS,
     seed_minor: bool = True,
     stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION,
+    segment_response_fallback_ratio: Optional[float] = None,
+    segment_response_fallback_source: Optional[str] = None,
+    segment_response_fallback_uncertainty: Optional[float] = None,
+    segment_shift_offsets_nm: Optional[Sequence[float]] = None,
+    segment_shift_prior_nm: Optional[Sequence[float]] = None,
     verbose: bool = False,
 ) -> dict:
     """Run the full chain on one spectrum.
@@ -343,7 +353,39 @@ def analyze_spectrum(
     # to ~150 pm, so only the refined table's medians are clean enough
     # for the estimator's significance gate to separate genuine drift
     # from fit noise (segments failing the gate keep the global shift)
-    shift, _ = estimate_wavelength_shift_segments(rpeaks, db)
+    shift, n_shift_anchor = estimate_wavelength_shift_segments(rpeaks, db)
+    shift_prior_applied = (False,) * len(shift.shifts)
+    if (segment_shift_offsets_nm is not None
+            and segment_shift_prior_nm is not None):
+        raise ValueError("provide either shift offsets or an absolute shift "
+                         "prior, not both")
+    if segment_shift_offsets_nm is not None:
+        offsets = np.asarray(segment_shift_offsets_nm, dtype=float)
+        if offsets.shape != shift.shifts.shape:
+            raise ValueError("segment_shift_offsets_nm must have one value "
+                             "for each detector segment")
+        use_prior = np.logical_not(np.asarray(shift.applied, dtype=bool))
+        # The shared calibration is expressed as a segment offset relative to
+        # this shot's pooled shift, so per-shot thermal drift is retained while
+        # weak segments borrow the stable detector geometry.
+        prior_shift = shift.global_shift + offsets
+        shifts = np.where(use_prior, prior_shift, shift.shifts)
+        from alibz.utils.wavelength import SegmentShift
+        shift = SegmentShift(shift.edges, shifts, shift.global_shift,
+                             shift.n_matches, shift.applied)
+        shift_prior_applied = tuple(bool(v) for v in use_prior)
+    elif segment_shift_prior_nm is not None:
+        prior = np.asarray(segment_shift_prior_nm, dtype=float)
+        if prior.shape != shift.shifts.shape:
+            raise ValueError("segment_shift_prior_nm must have one value "
+                             "for each detector segment")
+        use_prior = (np.logical_not(np.asarray(shift.applied, dtype=bool))
+                     & np.isfinite(prior))
+        shifts = np.where(use_prior, prior, shift.shifts)
+        from alibz.utils.wavelength import SegmentShift
+        shift = SegmentShift(shift.edges, shifts, shift.global_shift,
+                             shift.n_matches, shift.applied)
+        shift_prior_applied = tuple(bool(v) for v in use_prior)
 
     ne_init, ne_bounds = _halpha_ne(rpeaks)
     idx_kwargs = dict(dbpath=dbpath)
@@ -369,9 +411,25 @@ def analyze_spectrum(
                                 segment_response_fallback)
     _resid = y - bg0
     _noise = 1.4826 * float(np.median(np.abs(_resid - np.median(_resid))))
-    seg_response = estimate_segment_response(
+    fallback, fallback_meta = segment_response_fallback(
+        edges=(620.0,), return_metadata=True)
+    fallback_unc = [rec.get("uncertainty") for rec in fallback_meta]
+    if segment_response_fallback_ratio is not None:
+        fallback = [float(segment_response_fallback_ratio)]
+        fallback_unc = [segment_response_fallback_uncertainty]
+    seg_response, seg_response_meta = estimate_segment_response(
         x, bg0, edges=(620.0,), noise_scale=_noise,
-        fallback=segment_response_fallback(edges=(620.0,)))
+        fallback=fallback, fallback_uncertainty=fallback_unc,
+        return_metadata=True)
+    for rec, configured in zip(seg_response_meta, fallback_meta):
+        if rec["source"] == "fallback":
+            rec["source"] = (
+                segment_response_fallback_source or "fallback_override"
+                if segment_response_fallback_ratio is not None
+                else "fallback")
+            rec["fallback_q25"] = configured.get("q25")
+            rec["fallback_q75"] = configured.get("q75")
+            rec["fallback_n_spectra"] = configured.get("n_spectra")
     _seg_edges = np.asarray((620.0,), dtype=float)
 
     def _db_frame(peaks: np.ndarray) -> np.ndarray:
@@ -455,7 +513,9 @@ def analyze_spectrum(
     final, records = refined, []
     if seed_minor and established:
         final, records = seed_minor_lines(x, y, refined, db, established,
+                                          kT_ev=KB_EV_K * res1.temperature,
                                           shift_nm=shift,
+                                          segment_edges=(620.0,),
                                           exclude=tuple(sa_zones))
     # element-agnostic recovery: significant positive residual peaks are
     # real lines the seeder could not predict (e.g. Fe lines when the Fe
@@ -510,7 +570,9 @@ def analyze_spectrum(
             established = confirmed
             # confident ions = quantified from intense peaks (>= CONFIDENT_
             # MIN_REFS clean reference lines in some stage)
-            scales, _ = match_and_scale(fpeaks, db, confirmed, shift_nm=shift)
+            scales, _ = match_and_scale(
+                fpeaks, db, confirmed, kT_ev=KB_EV_K * res2.temperature,
+                shift_nm=shift, segment_edges=(620.0,))
             confident = sorted(
                 {el for (el, _stg), info in scales.items()
                  if info["n_ref"] >= CONFIDENT_MIN_REFS},
@@ -539,9 +601,11 @@ def analyze_spectrum(
                 if not confident:
                     break
                 work, corr = seed_minor_lines(
-                    x, y, work, db, confident, shift_nm=shift,
+                    x, y, work, db, confident,
+                    kT_ev=KB_EV_K * res2.temperature, shift_nm=shift,
                     accept_snr=bar, min_expected_snr=bar,
                     robust_elements=set(confident),
+                    segment_edges=(620.0,),
                     exclude=tuple(sa_zones))
                 n_seed = sum(1 for r in corr if r.get("action") == "added")
                 work, rec = recover_residual_lines(
@@ -611,13 +675,16 @@ def analyze_spectrum(
     # SA recovery was applied, detections see the SAME corrected
     # amplitudes the re-solved result came from
     bg = np.asarray(final.get("background", np.zeros_like(y)), dtype=float)
-    area_sigma = estimate_peak_uncertainties(x, y - bg, fpeaks)[:, 0]
+    area_sigma = _amp_sigma(fpeaks)
     amp_stash = None
     if sa_used:
         amp_stash = fidx._obs_amp.copy()
         for r in sa_records:
             if r["action"] == "sa-recovered":
-                fidx._obs_amp[int(r["index"])] *= float(r["factor"])
+                idx = int(r["index"])
+                factor = float(r["factor"])
+                fidx._obs_amp[idx] *= factor
+                area_sigma[idx] *= factor
     try:
         det = analyze_detections(fidx, result, area_sigma, shift=shift,
                                  dbpath=dbpath, draws=draws)
@@ -641,7 +708,9 @@ def analyze_spectrum(
         fit=fit, refined=refined, final=final, decisions=decisions,
         records=records, recovered=recovered, shift=shift,
         segment_response=seg_response, segment_response_edges=(620.0,),
-        n_anchor=n_anchor, ne_init=ne_init,
+        segment_response_metadata=seg_response_meta,
+        shift_prior_applied=shift_prior_applied,
+        n_anchor=n_anchor, n_shift_anchor=n_shift_anchor, ne_init=ne_init,
         result=result, established=established,
         element_uncertainty=det["element_uncertainty"],
         detections=det["detections"], support=det["support"],
@@ -703,12 +772,58 @@ def _summary_row(path: str, analysis: dict) -> dict:
         flags.append(f"deblended({n_deb})")
     if sr.get("sa_used") and n_sa:
         flags.append(f"sa-area-recovered({n_sa})")
+    response_meta = analysis.get("segment_response_metadata") or [{}]
+    response_620 = response_meta[0]
+    shift = analysis["shift"]
+    shift_segments = getattr(shift, "shifts", (float(shift),))
+    shift_counts = getattr(shift, "n_matches", (analysis.get("n_anchor", 0),))
+    shift_applied = getattr(shift, "applied", (False,) * len(shift_segments))
+    shift_prior_applied = analysis.get(
+        "shift_prior_applied", (False,) * len(shift_segments))
+    qc_fail, qc_warn = [], []
+    r_squared = float(res.r_squared)
+    if r_squared < FIT_R2_FAIL:
+        qc_fail.append("physical-pattern-r2")
+    elif r_squared < FIT_R2_WARN:
+        qc_warn.append("physical-pattern-r2")
+    if (res.temperature <= PLASMA_T_BOUNDS[0] + 1.0
+            or res.temperature >= PLASMA_T_BOUNDS[1] - 1.0):
+        qc_fail.append("temperature-at-bound")
+    if (res.ne <= PLASMA_LOG_NE_BOUNDS[0] + 0.01
+            or res.ne >= PLASMA_LOG_NE_BOUNDS[1] - 0.01):
+        qc_fail.append("electron-density-at-bound")
+    if max(fr.values(), default=0.0) >= COLLAPSE_TOP_FRACTION:
+        qc_fail.append("composition-collapse")
+    if any(flag.endswith("dominant-weak-shape") for flag in flags):
+        qc_fail.append("dominant-weak-shape")
+    if response_620.get("source") == "invalid":
+        qc_fail.append("detector-response-invalid")
+    elif response_620.get("source") != "measured":
+        qc_warn.append("detector-response-fallback")
+    if not any(shift_applied) and not any(shift_prior_applied):
+        qc_warn.append("global-only-wavelength-shift")
+    qc_status = "fail" if qc_fail else "warn" if qc_warn else "pass"
+    qc_reasons = ";".join(dict.fromkeys(qc_fail + qc_warn))
     return dict(
         file=os.path.basename(path),
         sample=sample_name(path),
         status="ok",
         n_peaks=int(analysis["final"]["sorted_parameter_array"].shape[0]),
-        shift_pm=round(1000.0 * float(analysis["shift"]), 1),
+        shift_pm=round(1000.0 * float(shift), 1),
+        shift_segments_pm=";".join(f"{1000.0 * float(v):.1f}"
+                                   for v in shift_segments),
+        shift_anchor_counts=";".join(str(int(v)) for v in shift_counts),
+        shift_segment_applied=";".join("1" if v else "0"
+                                       for v in shift_applied),
+        shift_prior_applied=";".join("1" if v else "0"
+                                     for v in shift_prior_applied),
+        response_620=round(float(response_620.get("ratio", np.nan)), 5),
+        response_620_unc=(round(float(response_620["ratio_uncertainty"]), 5)
+                          if response_620.get("ratio_uncertainty") is not None
+                          else ""),
+        response_620_source=response_620.get("source", ""),
+        qc_status=qc_status,
+        qc_reasons=qc_reasons,
         T_K=round(float(res.temperature), 0),
         log_ne=round(float(res.ne), 2),
         r_squared=round(float(res.r_squared), 4),
@@ -716,6 +831,8 @@ def _summary_row(path: str, analysis: dict) -> dict:
         flags=";".join(flags),
         fractions={el: float(f) for el, f in res.element_fractions.items()
                    if f > 0},
+        concentrations={el: float(value) for el, value in
+                        res.element_concentrations.items() if value > 0},
         uncertainties=analysis["element_uncertainty"],
         detections=analysis.get("detections", []),
     )
@@ -725,8 +842,13 @@ def _error_row(path: str, message: str) -> dict:
     return dict(
         file=os.path.basename(path), path=path, sample=sample_name(path),
         status=f"error: {message}"[:200], n_peaks=0, shift_pm="",
+        shift_segments_pm="", shift_anchor_counts="",
+        shift_segment_applied="", shift_prior_applied="",
+        response_620="", response_620_unc="",
+        response_620_source="",
+        qc_status="fail", qc_reasons="analysis-error",
         T_K="", log_ne="", r_squared="", sa_converged="", flags="",
-        fractions={}, uncertainties={}, detections=[],
+        fractions={}, concentrations={}, uncertainties={}, detections=[],
     )
 
 
@@ -758,7 +880,12 @@ def _analyze_file(args) -> dict:
     any exception handling runs, so an alarm that fires during teardown
     cannot escape as a stray ``_Timeout``.
     """
-    path, dbpath, n_calls, draws, timeout_s, stim = args
+    path, dbpath, n_calls, draws, timeout_s, stim = args[:6]
+    response_fallback = args[6] if len(args) > 6 else None
+    shift_offsets = args[7] if len(args) > 7 else None
+    shift_prior = args[8] if len(args) > 8 else None
+    response_source = args[9] if len(args) > 9 else None
+    response_uncertainty = args[10] if len(args) > 10 else None
     use_alarm = bool(timeout_s) and hasattr(signal, "SIGALRM")
     try:
         x, y = load_spectrum_csv(path)
@@ -769,7 +896,15 @@ def _analyze_file(args) -> dict:
         try:
             analysis = analyze_spectrum(x, y, dbpath, n_calls=n_calls,
                                         draws=draws,
-                                        stimulated_emission=stim)
+                                        stimulated_emission=stim,
+                                        segment_response_fallback_ratio=
+                                        response_fallback,
+                                        segment_response_fallback_source=
+                                        response_source,
+                                        segment_response_fallback_uncertainty=
+                                        response_uncertainty,
+                                        segment_shift_offsets_nm=shift_offsets,
+                                        segment_shift_prior_nm=shift_prior)
         finally:
             if use_alarm:
                 signal.alarm(0)                       # disarm FIRST
@@ -794,6 +929,11 @@ def analyze_directory(
     timeout_s: int = DEFAULT_TIMEOUT_S,
     limit: Optional[int] = None,
     stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION,
+    segment_response_fallback_ratio: Optional[float] = None,
+    segment_response_fallback_source: Optional[str] = None,
+    segment_response_fallback_uncertainty: Optional[float] = None,
+    segment_shift_offsets_nm: Optional[Sequence[float]] = None,
+    segment_shift_prior_nm: Optional[Sequence[float]] = None,
     exclude: Sequence[str] = ("summary.csv", DETECTIONS_NAME),
     progress=print,
 ) -> List[dict]:
@@ -824,7 +964,11 @@ def analyze_directory(
             pass
 
     jobs = {f: (f, dbpath, n_calls, draws, timeout_s,
-                bool(stimulated_emission)) for f in files}
+                bool(stimulated_emission), segment_response_fallback_ratio,
+                segment_shift_offsets_nm, segment_shift_prior_nm,
+                segment_response_fallback_source,
+                segment_response_fallback_uncertainty)
+            for f in files}
     rows: Dict[str, dict] = {}          # keyed by full path (basenames collide)
     t0 = time.time()
     n = len(files)
@@ -895,8 +1039,12 @@ def write_summary_csv(rows: Sequence[dict], path: str) -> List[str]:
         all_el.update(row["fractions"])
     elements = sorted(all_el, key=element_sort_key)
 
-    meta = ["file", "sample", "status", "n_peaks", "shift_pm", "T_K",
-            "log_ne", "r_squared", "sa_converged", "flags"]
+    meta = ["test_id", "height_um", "file", "sample", "status", "n_peaks", "shift_pm",
+            "shift_segments_pm", "shift_anchor_counts",
+            "shift_segment_applied", "shift_prior_applied",
+            "response_620", "response_620_unc",
+            "response_620_source", "T_K", "log_ne", "r_squared",
+            "sa_converged", "qc_status", "qc_reasons", "flags"]
     header = meta + [c for el in elements for c in (el, f"{el}_unc")]
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
@@ -925,7 +1073,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
     evidence needed to judge them rather than silently included or
     dropped.  Returns the number of detection rows written.
     """
-    header = ["sample", "element", "status", "fraction", "fraction_resolved",
+    header = ["sample", "test_id", "height_um", "file",
+              "element", "status", "fraction", "fraction_resolved",
               "fraction_hi", "unc", "z",
               "n_lines", "clear_lines", "contested_share", "confounder",
               "strongest_peak_nm", "strongest_obs",
@@ -938,8 +1087,10 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
         for row in rows:
             if row.get("status", "") != "ok" and not row.get("detections"):
                 # errored samples must be VISIBLE here, not silently absent
-                w.writerow([row["sample"], "", row.get("status", "")]
-                           + [""] * (len(header) - 3))
+                w.writerow([row["sample"], row.get("test_id", ""),
+                            row.get("height_um", ""), row.get("file", ""),
+                            "", row.get("status", "")]
+                           + [""] * (len(header) - 6))
                 n += 1
                 continue
             for d in row.get("detections", []):
@@ -948,7 +1099,9 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
                 # fr/fhi may be a legitimate 0.0 (an element resolved away
                 # by the confounder): render it as "0", not blank
                 w.writerow([
-                    row["sample"], d["element"], d["status"],
+                    row["sample"], row.get("test_id", ""),
+                    row.get("height_um", ""), row.get("file", ""),
+                    d["element"], d["status"],
                     f"{d['fraction']:.4g}" if d["fraction"] else "",
                     f"{fr:.4g}" if fr is not None else "",
                     f"{fhi:.4g}" if fhi is not None else "",

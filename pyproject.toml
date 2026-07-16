@@ -15,6 +15,8 @@ dependencies = [
     "scikit-optimize",
     "matplotlib",
     "pulp",
+    "periodictable>=2.1",
+    "ruptures>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +39,9 @@ background-pca = "alibz.background_pca:main"
 calibrate-synthetic-instrument = "scripts.calibrate_synthetic_instrument:main"
 demo-explicit-synthetic = "scripts.demo_explicit_synthetic:main"
 build-whole-rock-prior = "scripts.build_whole_rock_prior:main"
+run-mw2-112 = "scripts.run_mw2_112:main"
+build-mw2-112-relative-profiles = "scripts.build_mw2_112_relative_profiles:main"
+mw2-112 = "scripts.mw2_112:main"
 
 [tool.setuptools.packages.find]
 include = ["alibz*", "scripts*"]
@@ -57,3 +62,8 @@ include = ["alibz*", "scripts*"]
     "db/whole_rock_prior_v1_manifest.json",
 ]
 "share/alibz/db/ionization" = ["db/ionization/*.pickle"]
+"share/alibz/corrections" = [
+    "corrections/detector.json",
+    "corrections/corpus_peak_shape_pca_05x_10pc.npz",
+    "corrections/corpus_peak_shape_pca_05x_10pc.json",
+]

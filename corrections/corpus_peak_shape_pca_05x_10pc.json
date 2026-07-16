@@ -1,0 +1,131 @@
+{
+  "basis": {
+    "components": 10,
+    "cumulative_explained_variance": 0.9998665511925084,
+    "npz": "corpus_peak_shape_pca_05x_10pc.npz",
+    "sha256": "53744b5a2ddb378e03924938d2aad4f5867f33a320c9e3b8614480f8bb180303"
+  },
+  "created_utc": "2026-07-16T17:15:19.052301Z",
+  "legacy_physical_decomposition": [
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": -1.7289955937896598e-10,
+      "d_sigma": 1.6975380650418586e-06,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9998981572464429,
+      "lorentzian_fraction": 0.00010184275355703851,
+      "pc": 1,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 2.3722015737697048e-08,
+      "d_gamma": 0.30681021641074874,
+      "d_sigma": -0.06259832123604937,
+      "d_tau": 8.763115351575758e-09,
+      "gaussian_fraction": 0.16945553058912521,
+      "lorentzian_fraction": 0.8305444456888591,
+      "pc": 2,
+      "physical_interpretation": "Stark/natural (Lorentzian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": 4.773686481283077e-10,
+      "d_sigma": 0.1162432783699435,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999999958933656,
+      "lorentzian_fraction": 4.106634403829411e-09,
+      "pc": 3,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": 0.29082787520844866,
+      "d_sigma": -0.21366387509348436,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.423523030784168,
+      "lorentzian_fraction": 0.576476969215832,
+      "pc": 4,
+      "physical_interpretation": "Stark/natural (Lorentzian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": -1.6760309408501003e-10,
+      "d_sigma": 0.004188735692661763,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999999599871896,
+      "lorentzian_fraction": 4.0012810469842414e-08,
+      "pc": 5,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": 1.4715644665544359e-10,
+      "d_sigma": 0.007340001795704722,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999999799514431,
+      "lorentzian_fraction": 2.0048556907885677e-08,
+      "pc": 6,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": -4.587873913033012e-10,
+      "d_sigma": 0.0011751196031184838,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999996095825386,
+      "lorentzian_fraction": 3.9041746130962503e-07,
+      "pc": 7,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": -1.6951818431786006e-09,
+      "d_sigma": -0.001655218722344289,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999989758573389,
+      "lorentzian_fraction": 1.0241426611400759e-06,
+      "pc": 8,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": 1.049820634926443e-09,
+      "d_sigma": 0.0007224215786904553,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999985468054384,
+      "lorentzian_fraction": 1.4531945615963313e-06,
+      "pc": 9,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    },
+    {
+      "asymmetry_fraction": 0.0,
+      "d_gamma": -3.440274910921572e-09,
+      "d_sigma": -0.000705220874359876,
+      "d_tau": 0.0,
+      "gaussian_fraction": 0.9999951217295838,
+      "lorentzian_fraction": 4.878270416276247e-06,
+      "pc": 10,
+      "physical_interpretation": "Doppler/instrumental (Gaussian width variation)"
+    }
+  ],
+  "notes": [
+    "The basis is global across UV/VIS/NIR peak windows.",
+    "The 0.1557 nm training half-window, not the later notebook example's 0.0841 nm segment-derived half-window, is required for projection.",
+    "Legacy component labels are diagnostics, not unique causal assignments; the analysis also projects onto explicit shift/broadening/flattening/splitting templates."
+  ],
+  "schema_version": 1,
+  "source": {
+    "path": "/Users/mwhittaker/Projects/github/alibz/jobs/corpus_pca_05x_10pc.pkl",
+    "sha256": "17fd2c23e4b4c32ccfd2d5dc9e87b00d993bc26f12521ba3cc8cae319d0e191d",
+    "source_notebook": "notebooks/peaky_data.ipynb"
+  },
+  "training": {
+    "half_window_nm": 0.15570642391937198,
+    "n_window_points": 101,
+    "normalization": "linear endpoint baseline; subtract minimum; divide by range; linear interpolation to fixed grid",
+    "peak_windows": 13502524,
+    "smallest_mode_fwhm_nm": 0.31141284783874396,
+    "spectra": 4909,
+    "window_multiplier": 0.5
+  }
+}

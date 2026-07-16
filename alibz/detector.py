@@ -431,32 +431,57 @@ def _blend_junction(
     return y_out
 
 
-def segment_response_fallback(edges=(620.0,), config_path=None):
+def segment_response_fallback(edges=(620.0,), config_path=None,
+                              return_metadata=False):
     """Calibrated per-junction throughput ratios for ``edges`` (or ``None``).
 
     Reads ``segment_response_fallback`` from ``corrections/detector.json`` and
     returns a list aligned with ``edges`` — the instrument's VIS->NIR gain
     step, used when a spectrum's own continuum is too weak to measure it.
     Entries with no stored ratio (e.g. the additive 365 nm junction) are
-    ``None``.  Returns ``None`` if no calibration is configured.
+    ``None``.  Returns ``None`` if no calibration is configured.  With
+    ``return_metadata=True``, also returns one provenance record per edge,
+    including the corpus IQR expressed as an equivalent Gaussian 1-sigma
+    spread.  That spread is a detector/session systematic, not measurement
+    noise on a single spectrum.
     """
     path = Path(config_path) if config_path else _DETECTOR_CONFIG
     try:
         cfg = json.loads(path.read_text())
     except (OSError, ValueError):
-        return None
+        return (None, [{} for _ in edges]) if return_metadata else None
     fb = cfg.get("segment_response_fallback") if isinstance(cfg, dict) else None
     if not fb:
-        return None
-    table = {round(float(w), 3): float(r)
-             for w, r in zip(fb.get("junctions_nm", []), fb.get("ratios", []))}
-    out = [table.get(round(float(e), 3)) for e in edges]
-    return out if any(v is not None for v in out) else None
+        return (None, [{} for _ in edges]) if return_metadata else None
+    junctions = list(fb.get("junctions_nm", []))
+    ratios = list(fb.get("ratios", []))
+    q25 = list(fb.get("ratio_q25", [None] * len(junctions)))
+    q75 = list(fb.get("ratio_q75", [None] * len(junctions)))
+    counts = list(fb.get("n_spectra", [None] * len(junctions)))
+    table = {}
+    for i, (w, ratio) in enumerate(zip(junctions, ratios)):
+        lo = q25[i] if i < len(q25) else None
+        hi = q75[i] if i < len(q75) else None
+        unc = ((float(hi) - float(lo)) / 1.349
+               if lo is not None and hi is not None else None)
+        table[round(float(w), 3)] = {
+            "ratio": float(ratio),
+            "uncertainty": unc,
+            "q25": None if lo is None else float(lo),
+            "q75": None if hi is None else float(hi),
+            "n_spectra": counts[i] if i < len(counts) else None,
+            "provenance": fb.get("provenance", ""),
+        }
+    records = [table.get(round(float(e), 3), {}) for e in edges]
+    out = [rec.get("ratio") for rec in records]
+    values = out if any(v is not None for v in out) else None
+    return (values, records) if return_metadata else values
 
 
 def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0),
                               noise_scale=None, min_flank=None, max_ratio=20.0,
-                              fallback=None):
+                              fallback=None, fallback_uncertainty=None,
+                              return_metadata=False):
     """Relative multiplicative response of detector segments from the
     continuum step across each junction.
 
@@ -479,11 +504,15 @@ def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0
     spurious gain: on SciAps data the 365 nm step is additive (~120
     counts, background subtraction's job) while the 620 nm step is a
     genuine ~5x throughput change — hence the default ``edges=(620.0,)``.
-    Prefer spectra with appreciable continuum.
+    Prefer spectra with appreciable continuum.  With
+    ``return_metadata=True``, returns ``(response, records)``.  Each record
+    identifies a measured, fallback, or invalid junction and carries the
+    ratio uncertainty used for downstream systematic bookkeeping.
     """
     x = np.asarray(x, dtype=float)
     bg = np.asarray(background, dtype=float)
     response = [1.0]
+    records = []
     for i, edge in enumerate(edges):
         lo = (x >= edge - flank_nm[1]) & (x <= edge - flank_nm[0])
         hi = (x >= edge + flank_nm[0]) & (x <= edge + flank_nm[1])
@@ -496,17 +525,54 @@ def estimate_segment_response(x, background, edges=(620.0,), flank_nm=(2.0, 10.0
         floor = float(min_flank) if min_flank is not None else 0.0
         if noise_scale is not None:
             floor = max(floor, 5.0 * float(noise_scale))
+        raw_ratio = None
+        ratio_unc = None
+        clipped = False
         if left > floor and right > floor:
-            ratio = float(np.clip(right / left, 1.0 / max_ratio, max_ratio))
+            raw_ratio = right / left
+            ratio = float(np.clip(raw_ratio, 1.0 / max_ratio, max_ratio))
+            clipped = not np.isclose(ratio, raw_ratio)
+            # Conservative robust standard error of each flank median.  The
+            # wavelength-to-wavelength spread includes continuum curvature and
+            # correlated detector structure rather than pretending every
+            # channel is an independent white-noise replicate.
+            lv = bg[lo]
+            rv = bg[hi]
+            lmad = 1.4826 * float(np.median(np.abs(lv - left)))
+            rmad = 1.4826 * float(np.median(np.abs(rv - right)))
+            lse = 1.2533 * lmad / np.sqrt(max(lv.size, 1))
+            rse = 1.2533 * rmad / np.sqrt(max(rv.size, 1))
+            ratio_unc = ratio * np.sqrt((lse / left) ** 2
+                                        + (rse / right) ** 2)
+            source = "measured"
         elif fallback is not None and i < len(fallback) and fallback[i]:
             # Continuum too weak to measure THIS spectrum's step: fall back to
             # the instrument's calibrated gain (a fixed detector property,
             # present whether or not this continuum reveals it).
             ratio = float(fallback[i])
+            ratio_unc = (float(fallback_uncertainty[i])
+                         if fallback_uncertainty is not None
+                         and i < len(fallback_uncertainty)
+                         and fallback_uncertainty[i] is not None else None)
+            source = "fallback"
         else:
             ratio = 1.0
+            source = "invalid"
         response.append(response[-1] * ratio)
-    return np.asarray(response, dtype=float)
+        records.append({
+            "edge_nm": float(edge),
+            "ratio": float(ratio),
+            "ratio_uncertainty": (None if ratio_unc is None
+                                  else float(ratio_unc)),
+            "source": source,
+            "left_level": left,
+            "right_level": right,
+            "significance_floor": floor,
+            "raw_ratio": None if raw_ratio is None else float(raw_ratio),
+            "clipped": bool(clipped),
+        })
+    result = np.asarray(response, dtype=float)
+    return (result, records) if return_metadata else result
 
 
 def correct_segment_response(peak_array, response, edges=(620.0,)):
