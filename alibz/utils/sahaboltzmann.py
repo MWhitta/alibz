@@ -60,6 +60,16 @@ class SahaBoltzmann():
         self.temperature_array = np.arange(temperature_lo, temperature_hi, temperature_inc)
         self.ne_array = 10**np.arange(ne_lo, ne_hi, ne_step)
 
+        # Per-element caches of temperature-INDEPENDENT structure.  The line
+        # database serves string-typed arrays, and parsing them dominated
+        # partition() cost when called per optimizer step (measured on a
+        # median MW2-112 spectrum: 7175 partition calls -> 801k astype calls,
+        # ~25% of the whole analyze_spectrum runtime).  Level tables and
+        # ionization energies never change for a given database, so they are
+        # parsed once per element and reused.
+        self._level_cache = {}
+        self._eion_cache = {}
+
 
     @staticmethod
     def _temperature_array(temperature: ArrayLike) -> NDArray[np.float64]:
@@ -106,6 +116,38 @@ class SahaBoltzmann():
         return np.unique(levels, axis=0)
 
 
+    def _element_levels(self, element):
+        """Cached ``(ions, [level table per stage])`` for one element.
+
+        Identical to what :meth:`partition` previously rebuilt on every call
+        (same ``_stage_levels`` output), parsed from the string-typed line
+        table exactly once per element.
+        """
+        cached = self._level_cache.get(element)
+        if cached is not None:
+            return cached
+        lines = np.asarray(self.db.lines(element))
+        if lines.size == 0:
+            out = (np.empty(0, dtype=float), [])
+        else:
+            ionization, Ei, Ek, gi, gk = lines[:, [0, 4, 5, 12, 13]].T.astype(float)
+            ions = np.sort(np.unique(ionization))
+            stage_levels = [self._stage_levels(Ei, Ek, gi, gk, ionization == s)
+                            for s in ions]
+            out = (ions, stage_levels)
+        self._level_cache[element] = out
+        return out
+
+
+    def _element_eion(self, element):
+        """Cached numeric ionization-energy table for one element."""
+        cached = self._eion_cache.get(element)
+        if cached is None:
+            cached = np.asarray(self.db.ionization_energy(element), dtype=float)
+            self._eion_cache[element] = cached
+        return cached
+
+
     def partition(self, element, temperature, ion=None):
         """Return stage partition functions derived from the line database.
 
@@ -135,22 +177,17 @@ class SahaBoltzmann():
         temperature = self._temperature_array(temperature)
         kT = self.boltzmann_constant * temperature[:, None]
 
-        lines = np.asarray(self.db.lines(element))
-        if lines.size == 0:
+        ions, stage_levels = self._element_levels(element)
+        if ions.size == 0:
             empty = np.zeros((len(temperature), 0), dtype=float)
             if ion is None:
                 return empty, []
             return np.zeros(len(temperature), dtype=float), np.empty((len(temperature), 0), dtype=float)
 
-        ionization, Ei, Ek, gi, gk = lines[:, [0, 4, 5, 12, 13]].T.astype(float)
-        ions = np.sort(np.unique(ionization))
-
         Zi = np.zeros((len(temperature), len(ions)), dtype=float)
         level_weights: List[NDArray[np.float64]] = []
 
-        for ii, ion_stage in enumerate(ions):
-            Zind = ionization == ion_stage
-            levels = self._stage_levels(Ei, Ek, gi, gk, Zind)
+        for ii, levels in enumerate(stage_levels):
             if levels.size == 0:
                 level_weights.append(np.empty((len(temperature), 0), dtype=float))
                 continue
@@ -197,15 +234,12 @@ class SahaBoltzmann():
         kT = self.boltzmann_constant * temperature[:, None]
         lamb = self.plank_constant / np.sqrt(2 * np.pi * self.me * kT / self.speed_c**2)
 
-        lines = np.asarray(self.db.lines(element))
-        if lines.size == 0:
+        ions, _stage_levels = self._element_levels(element)
+        if ions.size == 0:
             empty = np.zeros((len(temperature), 0), dtype=float)
             return empty, empty
 
-        ionization = lines[:, 0].astype(float)
-        Eion = np.asarray(self.db.ionization_energy(element), dtype=float)
-
-        ions = np.sort(np.unique(ionization))
+        Eion = self._element_eion(element)
         Zi, _ = self.partition(element, temperature)
         ci = np.ones((len(temperature), len(ions)), dtype=float)
 
