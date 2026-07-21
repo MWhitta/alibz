@@ -34,11 +34,18 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from bench.nist_forward import build_nist_forward, default_rock_elements, STARK_NE_REF_CM3
+from bench.nist_forward import (build_nist_forward, default_rock_elements,
+                                STARK_NE_REF_CM3, CFLIBS_AVAILABLE,
+                                CFLIBS_UNAVAILABLE_REASON)
 
-# cflibs prototype (path set up by nist_forward import)
-from cflibs.inversion import CFLIBSInverter          # noqa: E402
-from cflibs.synthetic import generate_synthetic_observation, estimate_noise_sigma  # noqa: E402
+# cflibs prototype (optional — dev/dev1 was removed from the worktree; the
+# engine reports unavailable rather than breaking the bench package import)
+try:
+    from cflibs.inversion import CFLIBSInverter          # noqa: E402
+    from cflibs.synthetic import generate_synthetic_observation, estimate_noise_sigma  # noqa: E402
+except ImportError:                                       # pragma: no cover
+    CFLIBSInverter = None
+    generate_synthetic_observation = estimate_noise_sigma = None
 
 
 # ----------------------------------------------------------------------
@@ -86,6 +93,11 @@ class Case:
 
 
 def generate_case(fm, elements, rng, peak_counts=3.0e4) -> Case:
+    if generate_synthetic_observation is None:
+        raise ImportError(
+            "case generation still uses the removed cflibs prototype; "
+            f"({CFLIBS_UNAVAILABLE_REASON}) — use bench.synth_cases "
+            "(alibz.synthetic) for in-repo scene generation")
     theta = sample_theta(rng)
     c = sample_composition(elements, rng)
     seed = int(rng.integers(0, 2 ** 31 - 1))

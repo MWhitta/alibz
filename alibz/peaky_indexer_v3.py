@@ -26,6 +26,7 @@ from alibz.utils.voigt import voigt_width as _voigt_width
 from alibz.utils.sahaboltzmann import SahaBoltzmann, line_emissivity
 from alibz.utils.stark import stark_hwhm, stark_shape_factor
 from alibz.utils.absorption import escape_factor, invert_doublet_tau
+from alibz import telemetry
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +47,15 @@ from alibz.utils.absorption import escape_factor, invert_doublet_tau
 #: z = 2.2 (strongest predicted line 4 counts, below noise, zero peaks
 #: explained) while every real element — down to Mn 4.6, Be 6.8 — clears 4.
 ELEMENT_DETECT_Z_MIN = 3.0
+
+#: multiplicative procedure-noise floor for the weighted concentration
+#: solve: sigma_eff^2 = sigma_GLS^2 + (PROCEDURE_NOISE_FRACTION * amp)^2.
+#: The GLS per-peak area sigma is a documented statistical LOWER bound
+#: (inspection.py measured pull RMS ~5 on strong isolated lines — fitting
+#: procedure effects, not photon noise), so without this floor the
+#: brightest lines would dominate the weighted fit with fictitious
+#: precision and weighting would make the solve WORSE, not better.
+PROCEDURE_NOISE_FRACTION = 0.05
 
 _COL_ION = 0
 _COL_WAVELENGTH = 1
@@ -391,13 +401,25 @@ class PeakyIndexerV3:
         dbpath: str = "db",
         temperature_init: float = 10_000.0,
         ne_init: float = 17.0,
+        db=None,
+        sb=None,
+        amp_sigma: Optional[np.ndarray] = None,
+        amp_sigma_floor: float = 0.0,
+        amp_sigma_poisson_gain: float = 0.0,
+        weighted_solve: bool = False,
+        ne_prior: Optional[Tuple[float, float]] = None,
     ):
         self.peak_array = np.asarray(peak_array, dtype=float)
         self.n_peaks = self.peak_array.shape[0]
         self.pca_scores = pca_scores
 
-        self.db = Database(dbpath)
-        self.sb = SahaBoltzmann(dbpath)
+        # Injectable shared instances: the pipeline constructs up to five
+        # indexers per spectrum (pass 1, pass 2, deepening rounds) and the
+        # Database pickle load + SahaBoltzmann level caches are expensive
+        # to rebuild every time.  Fresh construction remains the default
+        # for standalone use.
+        self.db = db if db is not None else Database(dbpath)
+        self.sb = sb if sb is not None else SahaBoltzmann(dbpath)
 
         self.T_init = temperature_init
         self.ne_init = ne_init
@@ -461,7 +483,49 @@ class PeakyIndexerV3:
         #: array; set by the caller (the pipeline) so the composition can
         #: gate elements on detection significance.  None -> the
         #: median-relative fallback in _aggregate_elements is used.
-        self._amp_sigma = None
+        # Per-peak area sigmas (pipeline-supplied) — enable the weighted
+        # solve and the element detection z-gate.  May also be assigned
+        # after construction (the historical pattern).
+        self._amp_sigma = (None if amp_sigma is None
+                           else np.asarray(amp_sigma, dtype=float))
+        # Additive global noise floor for the weighted solve (same
+        # corrected frame as the amplitudes).  The GLS per-peak sigma can
+        # collapse to ~0 where the local-noise window lands on a quiet
+        # region (measured: median 0.01 counts on a synthetic spectrum),
+        # turning noise micro-peaks into razor-sharp chi-squared anchors
+        # that dominate the objective; no fitted area is really known
+        # better than the spectrum's own noise scale.
+        self._amp_sigma_floor = float(amp_sigma_floor)
+        # Photon-counting term for the weighted solve: sigma_shot^2 =
+        # |amp| / gain (counts per photoelectron-equivalent).  MEASURED
+        # NECESSITY (2026-07-19): synthetic exports are Poisson draws at
+        # ~0.1-count background levels, so a 0.5-count "peak" is a couple
+        # of photon events (true z < 1) — but the quiet-region MAD floor
+        # (0.002 counts) and the GLS local-noise sigma both miss counting
+        # noise ON the peak, rating such shot clusters z ~ 10-20.  Dense-
+        # forest species (Mn) then absorb them wholesale (measured Mn
+        # 0.36 on a pure Ca/Mg scene).  Zero disables the term.
+        self._amp_sigma_poisson_gain = float(amp_sigma_poisson_gain)
+        # OPT-IN (2026-07-17): the weighted solve recovers composition
+        # nearly perfectly AT the true plasma state (measured Ca .61/Mg
+        # .39 vs .60/.40 truth, where unweighted gave .76/.24) but its
+        # chi-squared currently MISRANKS temperature (+50% on the same
+        # case, argmin 15000 K vs 10000 K truth, degrading composition to
+        # .91/.09), so per the M1.4 acceptance gate it must not ship as
+        # default until the T-bias is diagnosed (line-level pulls).
+        self._weighted_solve = bool(weighted_solve)
+        # Physical prior on log10 ne (center, sigma_dex), charged to the
+        # weighted outer objective.  MEASURED NECESSITY (2026-07-19): the
+        # data cost is EXACTLY flat in ne (705.0 at ne 14.1 and 17.0 on
+        # the binary synthetic) while the aggregated composition swings
+        # Ca .62/Mg .38 <-> .95/.05 through the Saha-carrying columns —
+        # without a prior the optimiser's arbitrary ne pick silently
+        # chooses the composition.  This must be the PHYSICAL prior
+        # (H-alpha anchor or the instrument-level default), never the
+        # warm-start ne_init, which may itself be an arbitrary pick from
+        # an earlier pass.
+        self._ne_prior = (None if ne_prior is None
+                          else (float(ne_prior[0]), float(ne_prior[1])))
         self._last_detection_z = {}
 
     def _empty_result(self, reason: str) -> FitResult:
@@ -492,6 +556,7 @@ class PeakyIndexerV3:
     # Step 2: Candidate matrix
     # =================================================================
 
+    @telemetry.timed("candidate_matrix")
     def build_candidate_matrix(
         self,
         shift_tolerance: float = 0.1,
@@ -1396,13 +1461,57 @@ class PeakyIndexerV3:
         if not converged:
             # A non-converged solve is an INVALID trial: mid-trajectory
             # snapshots are not cost-comparable with converged solves, so
-            # the zero-model SSE is returned and the outer optimiser
+            # the zero-model cost is returned and the outer optimiser
             # avoids the regime instead of silently selecting it.
             return (
                 np.zeros(self.line_table.n_species, dtype=float),
-                float(np.sum(self._obs_amp ** 2)),
+                self._zero_model_cost(),
             )
         return c, cost
+
+    def _sigma_eff(self) -> Optional[np.ndarray]:
+        """Effective per-peak area sigma for the weighted solve, or None.
+
+        ``sigma_eff^2 = sigma_GLS^2 + (PROCEDURE_NOISE_FRACTION * amp)^2``:
+        the GLS statistical sigma from the pipeline, floored by the
+        documented fitting-procedure noise so bright lines cannot claim
+        fictitious precision.  Returns None (-> unweighted solve, the
+        historical behaviour) when no per-peak sigma was supplied — e.g. a
+        bare indexer used outside the pipeline.
+        """
+        if not getattr(self, "_weighted_solve", False):
+            return None
+        sig = getattr(self, "_amp_sigma", None)
+        if sig is None:
+            return None
+        sig = np.asarray(sig, dtype=float).reshape(-1)
+        if sig.size < self._obs_amp.size:
+            return None
+        sig = sig[:self._obs_amp.size]
+        finite = np.isfinite(sig) & (sig > 0)
+        if not np.any(finite):
+            return None
+        sig = np.where(finite, sig, float(np.median(sig[finite])))
+        floor = PROCEDURE_NOISE_FRACTION * np.abs(self._obs_amp)
+        add_floor = float(getattr(self, "_amp_sigma_floor", 0.0))
+        var = sig ** 2 + floor ** 2 + add_floor ** 2
+        gain = float(getattr(self, "_amp_sigma_poisson_gain", 0.0))
+        if gain > 0.0:
+            var = var + np.abs(self._obs_amp) / gain
+        return np.sqrt(var) + 1e-300
+
+    def _zero_model_cost(self) -> float:
+        """Cost of the all-zero model in the CURRENT objective's units.
+
+        Weighted chi-squared when per-peak sigmas are available, plain SSE
+        otherwise — degenerate/invalid solves must be charged in the same
+        units the outer optimiser compares, or invalid regions would look
+        artificially cheap/expensive relative to real fits.
+        """
+        sigma_eff = self._sigma_eff()
+        if sigma_eff is None:
+            return float(np.sum(self._obs_amp ** 2))
+        return float(np.sum((self._obs_amp / sigma_eff) ** 2))
 
     def _solve_concentrations_thin(
         self,
@@ -1418,14 +1527,25 @@ class PeakyIndexerV3:
         un-normalised so the returned concentrations are physical.
 
         Returns ``(concentrations, cost)`` where *cost* is the full
-        objective value the NNLS minimised — data SSE plus the evidence
+        objective value the NNLS minimised — data misfit plus the evidence
         ridge penalties plus the pseudo-observation cost — so the outer
         optimiser ranks (T, nₑ, σ, γ) by the same functional as the
-        inner solve.  Degenerate branches return the SSE of the all-zero
-        model in the same squared units.  ``line_weight_scale`` (e.g. the
+        inner solve.  Degenerate branches return the all-zero-model cost
+        in the same squared units.  ``line_weight_scale`` (e.g. the
         self-absorption escape factors) multiplies the per-line
         emissivities, so the evidence penalties and pseudo-observations
         also see the corrected expected intensities.
+
+        WEIGHTING: when the pipeline supplies per-peak area sigmas
+        (``_amp_sigma``), the data rows are whitened by ``sigma_eff``
+        (:meth:`_sigma_eff`) and the cost is a chi-squared — a weak
+        line's misfit then counts by its significance, not its area, and
+        a line-rich element can no longer buy hundreds of small
+        unexplained residuals cheaply (the composition-collapse engine).
+        The evidence ridges AND pseudo rows are re-expressed as detection
+        z-scores with the same procedure-noise floor as the data rows
+        (see the inline comments for the measured failure this prevents).
+        Without sigmas the historical unweighted behaviour is unchanged.
         """
         lw = self._line_weights(temperature, log_ne)
         if line_weight_scale is not None:
@@ -1438,7 +1558,7 @@ class PeakyIndexerV3:
             self._last_col_max = np.empty(0, dtype=float)
             self._last_species_evidence = None
             self._last_pseudo_cost = 0.0
-            return c, float(np.sum(self._obs_amp ** 2))
+            return c, self._zero_model_cost()
 
         raw_col_max = np.max(A, axis=0)
         active = raw_col_max > 1e-30
@@ -1453,33 +1573,65 @@ class PeakyIndexerV3:
             self._last_col_max = col_max
             self._last_species_evidence = None
             self._last_pseudo_cost = 0.0
-            return c, float(np.sum(self._obs_amp ** 2))
+            return c, self._zero_model_cost()
 
-        A_aug = A_norm[:, active]
-        y_aug = self._obs_amp
+        sigma_eff = self._sigma_eff()
+        w_data = None if sigma_eff is None else 1.0 / sigma_eff
+
+        if w_data is not None:
+            A_aug = A_norm[:, active] * w_data[:, np.newaxis]
+            y_aug = self._obs_amp * w_data
+        else:
+            A_aug = A_norm[:, active]
+            y_aug = self._obs_amp
 
         species_evidence = self._species_line_evidence(lw)
         self._last_species_evidence = species_evidence
-        missing_mass_rows = self._species_penalty_block(
-            active,
-            np.sqrt(
-                self._evidence_missing_mass_weight
-                * np.maximum(species_evidence["missing_mass"], 0.0)
-            ),
-        )
+        mm = np.maximum(species_evidence["missing_mass"], 0.0)
+        smc = np.maximum(
+            np.asarray(species_evidence["strong_missing_count"], dtype=float),
+            0.0)
+        if w_data is not None:
+            # Weighted mode: evidence rows as DETECTION z-scores.  A
+            # species' missing line mass mm predicts an absent amplitude
+            # of ~mm * c_norm; charging it as (mm*c_norm / sigma_miss)^2
+            # with the SAME procedure-noise floor as the data rows caps
+            # any species' charge near (1/PROCEDURE_NOISE_FRACTION)^2.
+            # Measured failure this replaces: the amplitude-unit ridges
+            # scaled by 1/median(sigma_eff) were ~600x stronger in cost,
+            # made up 98% of the objective, dragged the fitted T +50%
+            # past truth, and pushed concentrations so far off the data
+            # optimum that data chi2 sat at 20629 where 330 was
+            # achievable (binary synthetic, 2026-07-19).
+            floor_ref = float(getattr(self, "_amp_sigma_floor", 0.0))
+            if floor_ref <= 0.0:
+                floor_ref = float(np.median(sigma_eff))
+            # per-species bright-line amplitude proxy from its best-matched
+            # observed peak (c-independent, so the rows stay linear)
+            strong_cols = A_norm >= 0.5
+            amp_col = np.abs(self._obs_amp)[:, np.newaxis] * strong_cols
+            a_ref = np.where(strong_cols.any(axis=0), amp_col.max(axis=0),
+                             float(np.median(np.abs(self._obs_amp))))
+            sigma_miss = np.sqrt(
+                floor_ref ** 2
+                + (PROCEDURE_NOISE_FRACTION * mm * a_ref) ** 2)
+            mm_scales = (np.sqrt(self._evidence_missing_mass_weight)
+                         * mm / sigma_miss)
+            sigma_line = np.sqrt(
+                floor_ref ** 2 + (PROCEDURE_NOISE_FRACTION * a_ref) ** 2)
+            smc_scales = (np.sqrt(self._evidence_missing_count_weight * smc)
+                          / sigma_line)
+        else:
+            mm_scales = np.sqrt(self._evidence_missing_mass_weight * mm)
+            smc_scales = np.sqrt(self._evidence_missing_count_weight * smc)
+        missing_mass_rows = self._species_penalty_block(active, mm_scales)
         if missing_mass_rows.shape[0] > 0:
             A_aug = np.vstack([A_aug, missing_mass_rows])
             y_aug = np.concatenate(
                 [y_aug, np.zeros(missing_mass_rows.shape[0], dtype=float)]
             )
 
-        missing_count_rows = self._species_penalty_block(
-            active,
-            np.sqrt(
-                self._evidence_missing_count_weight
-                * np.maximum(species_evidence["strong_missing_count"], 0.0)
-            ),
-        )
+        missing_count_rows = self._species_penalty_block(active, smc_scales)
         if missing_count_rows.shape[0] > 0:
             A_aug = np.vstack([A_aug, missing_count_rows])
             y_aug = np.concatenate(
@@ -1507,6 +1659,20 @@ class PeakyIndexerV3:
                     "_select_pseudo_wavelengths must be re-run after species filtering"
                 )
                 A_pseudo_norm *= pseudo_species_weights[np.newaxis, :]
+                if w_data is not None:
+                    # capped z-units per pseudo row (same procedure-noise
+                    # floor as the data rows): the predicted-amplitude
+                    # reference comes from each species' observed
+                    # bright-line level, so one predicted-but-missing
+                    # strong line cannot be charged an unbounded
+                    # chi-squared (db wavelength error, blend) — the same
+                    # failure class the evidence-ridge z-form prevents.
+                    a_pred_ref = A_pseudo_norm @ a_ref
+                    row_sigma = np.sqrt(
+                        floor_ref ** 2
+                        + (PROCEDURE_NOISE_FRACTION * a_pred_ref) ** 2)
+                    A_pseudo_norm = (A_pseudo_norm
+                                     / row_sigma[:, np.newaxis])
                 pseudo_scale = np.sqrt(self._pseudo_obs_weight)
                 A_aug = np.vstack([A_aug, pseudo_scale * A_pseudo_norm[:, active]])
                 # Append pseudo zero-rows to the EXISTING augmented target, not to
@@ -1525,6 +1691,7 @@ class PeakyIndexerV3:
             f"augmented system row mismatch: A_aug has {A_aug.shape[0]} rows, "
             f"y_aug has {y_aug.shape[0]}"
         )
+        telemetry.count("nnls_solves")
         c_norm, _residual = nnls(A_aug, y_aug)
 
         # Un-normalise the column scaling: the NNLS ran on A / col_max, so
@@ -1534,7 +1701,11 @@ class PeakyIndexerV3:
         c[active] = c_norm / col_max[active]
 
         predicted = A_norm[:, active] @ c_norm
-        cost = float(np.sum((self._obs_amp - predicted) ** 2))
+        residual = self._obs_amp - predicted
+        if w_data is not None:
+            cost = float(np.sum((residual * w_data) ** 2))
+        else:
+            cost = float(np.sum(residual ** 2))
         # Charge the evidence ridge terms that the NNLS minimised to the
         # returned cost as well, so the outer (T, ne, sigma, gamma) search
         # cannot hide misfit in penalties it is never billed for.
@@ -1612,6 +1783,12 @@ class PeakyIndexerV3:
         sig = (np.asarray(amp_sigma, dtype=float)[:obs_amp.size]
                if amp_sigma is not None else None)
         detection_z: Dict[str, float] = {}
+        # Same weights as the concentration solve: the tied per-element
+        # estimate is the 1-D Gauss-Markov solution, so under the
+        # weighted objective it must whiten by the same sigma_eff or the
+        # aggregate would re-introduce the bright-line dominance the
+        # WNNLS removed.  sigma_eff is None -> historical unit weights.
+        sigma_eff = self._sigma_eff()
 
         element_concentrations: Dict[str, float] = {}
         stage_disagreement: Dict[str, float] = {}
@@ -1624,7 +1801,8 @@ class PeakyIndexerV3:
                 continue
             a_stages = A[:, solved]
             a_tied = np.sum(a_stages, axis=1)
-            denom = float(np.dot(a_tied, a_tied))
+            a_tied_w = a_tied / sigma_eff if sigma_eff is not None else a_tied
+            denom = float(np.dot(a_tied_w, a_tied_w))
             if denom <= 0.0:
                 continue
             # The element's own signal as measured: observations minus the
@@ -1646,8 +1824,10 @@ class PeakyIndexerV3:
                 if z < ELEMENT_DETECT_Z_MIN:
                     continue
             residual_el = self._obs_amp - (predicted_total - own)
+            residual_w = (residual_el / sigma_eff if sigma_eff is not None
+                          else residual_el)
             element_concentrations[element] = max(
-                0.0, float(np.dot(a_tied, residual_el) / denom)
+                0.0, float(np.dot(a_tied_w, residual_w) / denom)
             )
             if len(solved) >= 2:
                 stage_disagreement[element] = float(
@@ -1698,6 +1878,7 @@ class PeakyIndexerV3:
             if not np.any(keep_mask):
                 break
 
+            telemetry.count("prune_refits")
             self.line_table.filter_species(keep_mask)
             self._select_pseudo_wavelengths(temperature, log_ne)
             self._rebuild_overlap(sigma, gamma)
@@ -1763,7 +1944,7 @@ class PeakyIndexerV3:
 
         rel_sq = ((obs - gamma_inst - stark) / gamma_ref) ** 2
         mean_misfit = float(np.sum(amp_weight * rel_sq) / np.sum(amp_weight))
-        return self._stark_width_weight * float(np.sum(self._obs_amp ** 2)) * mean_misfit
+        return self._stark_width_weight * self._zero_model_cost() * mean_misfit
 
     def _outer_objective(self, params: np.ndarray) -> float:
         """Objective for Bayesian optimisation over (T, nₑ, σ, γ).
@@ -1780,24 +1961,74 @@ class PeakyIndexerV3:
             self._sa_tau_scale = float(10.0 ** params[4])
         T, log_ne, sigma, gamma = params[:4]
 
+        telemetry.count("outer_objective_evals")
         self._rebuild_overlap(sigma, gamma)
 
         _, cost = self._solve_concentrations(T, log_ne)
         cost += self._width_cost(log_ne)
+        cost += self._ne_prior_cost(log_ne)
         return cost
 
+    def _ne_prior_cost(self, log_ne: float) -> float:
+        """Gaussian ne-prior charge in chi-squared units (weighted mode).
+
+        Only meaningful when the cost is a chi-squared; in the unweighted
+        amplitude-squared objective a few-unit prior would be invisible,
+        and ne there is legacy-handled by bounds alone.
+        """
+        if self._ne_prior is None or not getattr(self, "_weighted_solve",
+                                                 False):
+            return 0.0
+        center, sigma_dex = self._ne_prior
+        if sigma_dex <= 0:
+            return 0.0
+        return float(((float(log_ne) - center) / sigma_dex) ** 2)
+
+    #: overlap-map cache capacity (FIFO).  One entry per distinct trial
+    #: (sigma, gamma) at a given candidate-table state; the grid search
+    #: evaluates ~100 (T, ne) nodes at ONE broadening, so a handful of
+    #: entries turns its 2 x nodes map builds into 2 total.
+    _OVERLAP_CACHE_MAX = 16
+
     def _rebuild_overlap(self, sigma: float, gamma: float):
-        """Rebuild the peak-line overlap matrix with new broadening."""
+        """Set the peak-line overlap matrices for this broadening.
+
+        The maps depend only on (sigma, gamma) given the current candidate
+        table, NOT on (T, ne) — so (T, ne)-only moves are served from a
+        cache.  The key fingerprints the candidate-table state (identity +
+        line/species counts + pseudo positions), which changes on every
+        ``build_candidate_matrix`` and every evidence prune, so stale hits
+        are impossible without invalidation hooks at each mutation site.
+        """
         lt = self.line_table
         if lt is None:
             return
+        cache = getattr(self, "_overlap_cache", None)
+        if cache is None:
+            cache = self._overlap_cache = {}
+        key = (round(float(sigma), 12), round(float(gamma), 12),
+               None if self._shift_tolerance is None
+               else float(self._shift_tolerance),
+               id(lt), int(getattr(lt, "n_lines", -1)),
+               int(getattr(lt, "n_species", -1)),
+               self._pseudo_wavelengths.tobytes())
+        hit = cache.get(key)
+        if hit is not None:
+            telemetry.count("overlap_cache_hits")
+            self.peak_line_map, self.pseudo_line_map = hit
+            return
+        telemetry.count("overlap_rebuilds")
         self.peak_line_map = self._build_overlap_map(self._obs_wl, sigma, gamma)
         self.pseudo_line_map = self._build_overlap_map(
             self._pseudo_wavelengths,
             sigma,
             gamma,
         )
+        if len(cache) >= self._OVERLAP_CACHE_MAX:
+            cache.pop(next(iter(cache)))
+        cache[key] = (self.peak_line_map, self.pseudo_line_map)
 
+    @telemetry.timed("outer_search")
     def fit(
         self,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
@@ -1807,6 +2038,7 @@ class PeakyIndexerV3:
         n_calls: int = 40,
         verbose: bool = True,
         search: str = "gp",
+        random_state: int = 42,
     ) -> FitResult:
         """Run Bayesian optimisation + NNLS fitting.
 
@@ -1818,6 +2050,11 @@ class PeakyIndexerV3:
             Number of Bayesian optimisation evaluations.
         verbose : bool
             Print progress.
+        random_state : int
+            Seed for the GP optimiser.  Exposed (rather than fixed at 42)
+            so the sensitivity harness can measure seed dependence — a
+            reproducible pipeline should give the same composition under a
+            seed change, and that claim must be testable.
         search : {"gp", "grid"}
             ``"gp"`` (default) is the historical cold-start Bayesian
             optimisation.  ``"grid"`` first runs a coarse profile-likelihood
@@ -1876,6 +2113,7 @@ class PeakyIndexerV3:
         n_initial_points = min(n_calls, max(10, n_calls // 4))
 
         x0 = y0 = None
+        grid_nodes = None
         if search == "grid":
             sigma0 = float(np.clip(np.median(self.peak_array[:, 2]),
                                    sigma_bounds[0], sigma_bounds[1]))
@@ -1893,6 +2131,8 @@ class PeakyIndexerV3:
             x0 = [gx[i] for i in order]
             y0 = [gy[i] for i in order]
             n_initial_points = 1     # the grid seeds carry the initialization
+            grid_nodes = (np.asarray(gx, dtype=float),
+                          np.asarray(gy, dtype=float), (15, 7))
             if verbose:
                 print(f"  grid scan {len(gx)} nodes at sigma={sigma0:.3f} "
                       f"gamma={gamma0:.3f}: best T={x0[0][0]:.0f} "
@@ -1907,14 +2147,28 @@ class PeakyIndexerV3:
             n_initial_points=n_initial_points,
             x0=x0,
             y0=y0,
-            random_state=42,
+            random_state=random_state,
             verbose=False,
         )
 
         # Extract best parameters
-        best_T, best_ne, best_sigma, best_gamma = result.x[:4]
-        if self._sa_fit and len(result.x) >= 5:
-            self._sa_tau_scale = float(10.0 ** result.x[4])
+        best_params = np.asarray(result.x, dtype=float)
+
+        # Basin selection (grid mode): the grid surface exposes every
+        # (T, ne) basin; refine each local minimum cheaply — the overlap
+        # cache makes (T, ne)-only moves rebuild-free — and choose by BIC,
+        # not raw cost: chi-squared alone cannot compare basins with
+        # different active-species counts ("a line-rich element fits
+        # anything" is exactly an un-penalized complexity win).
+        bic_info = None
+        if grid_nodes is not None:
+            best_params, bic_info = self._select_basin_bic(
+                grid_nodes, best_params, T_bounds, ne_bounds,
+                verbose=verbose)
+
+        best_T, best_ne, best_sigma, best_gamma = best_params[:4]
+        if self._sa_fit and best_params.size >= 5:
+            self._sa_tau_scale = float(10.0 ** best_params[4])
         if verbose:
             print(f"\nBest: T={best_T:.0f} K, ne={best_ne:.1f}, "
                   f"σ={best_sigma:.4f}, γ={best_gamma:.4f}")
@@ -1932,15 +2186,146 @@ class PeakyIndexerV3:
         )
         cost += self._width_cost(best_ne)
 
+        extra = {
+            'n_evaluations': eval_count[0],
+            'best_params': list(best_params),
+            'all_costs': result.func_vals.tolist(),
+        }
+        if bic_info is not None:
+            extra.update(bic_info)
         return self._build_result(
             best_T, best_ne, best_sigma, best_gamma, concentrations, cost,
-            extra_convergence={
-                'n_evaluations': eval_count[0],
-                'best_params': result.x,
-                'all_costs': result.func_vals.tolist(),
-            },
+            extra_convergence=extra,
             verbose=verbose,
         )
+
+    #: ΔBIC below which the runner-up basin is considered a live
+    #: alternative (Kass-Raftery "positive" evidence threshold).
+    BIC_AMBIGUITY = 6.0
+
+    def _select_basin_bic(self, grid_nodes, gp_best, T_bounds, ne_bounds,
+                          verbose=False):
+        """Choose the (T, ne) basin by BIC and summarise the posterior.
+
+        ``BIC_b = cost_b + k_b * ln(n_peaks)`` with ``k_b`` = NNLS
+        active-set size + 4 plasma parameters.  Candidates are the GP's
+        best point plus every grid local minimum, each refined by a short
+        Nelder-Mead over (T, ne) at the GP's fitted broadening — those
+        moves hit the overlap cache, so refinement costs one NNLS per
+        evaluation.  Also computes a posterior-weighted mean composition
+        over the grid (weights exp(-Δcost/2)): under the weighted
+        chi-squared objective this is a real likelihood weight, and the
+        posterior mean is continuous where the argmax basin choice flips
+        between near-degenerate basins (the direct mechanism behind the
+        adjacent-shot dominant-element flips on scan data).
+        """
+        from scipy.optimize import minimize
+
+        gx, gy, shape = grid_nodes
+        n_t, n_ne = shape
+        surface = gy.reshape(n_t, n_ne)
+
+        # grid local minima (4-neighbourhood)
+        minima = []
+        for i in range(n_t):
+            for j in range(n_ne):
+                v = surface[i, j]
+                neigh = []
+                if i > 0:
+                    neigh.append(surface[i - 1, j])
+                if i < n_t - 1:
+                    neigh.append(surface[i + 1, j])
+                if j > 0:
+                    neigh.append(surface[i, j - 1])
+                if j < n_ne - 1:
+                    neigh.append(surface[i, j + 1])
+                if all(v <= w for w in neigh):
+                    minima.append((float(v), i * n_ne + j))
+        minima.sort()
+        basin_seeds = [gx[idx] for _v, idx in minima[:3]]
+
+        sigma_star, gamma_star = float(gp_best[2]), float(gp_best[3])
+        tail = list(gp_best[4:])          # sa log-tau dimension, if any
+
+        def cost_at(T, ne):
+            p = [float(np.clip(T, *T_bounds)),
+                 float(np.clip(ne, *ne_bounds)),
+                 sigma_star, gamma_star] + tail
+            return float(self._outer_objective(np.asarray(p))), p
+
+        def _duplicate(p, pool):
+            return any(abs(p[0] - q[0]) < 150.0 and abs(p[1] - q[1]) < 0.05
+                       for q in pool)
+
+        candidates = [np.asarray(gp_best, dtype=float)]
+        for seed in basin_seeds:
+            res = minimize(
+                lambda q: cost_at(q[0], q[1])[0],
+                x0=np.asarray(seed[:2], dtype=float),
+                method="Nelder-Mead",
+                options=dict(maxfev=40, xatol=50.0, fatol=1e-3),
+            )
+            _c, p = cost_at(res.x[0], res.x[1])
+            p = np.asarray(p, dtype=float)
+            # merge refinements that fell into an already-known minimum, so
+            # delta_bic_runner_up measures a genuinely DIFFERENT basin
+            if not _duplicate(p, candidates):
+                candidates.append(p)
+
+        n_obs = max(int(self.n_peaks), 2)
+        log_n = np.log(n_obs)
+        scored = []
+        for p in candidates:
+            self._rebuild_overlap(float(p[2]), float(p[3]))
+            c, cost = self._solve_concentrations(float(p[0]), float(p[1]))
+            cost += self._ne_prior_cost(float(p[1]))
+            k = int(np.count_nonzero(c)) + 4
+            scored.append((float(cost + k * log_n), float(cost), k, p))
+        scored.sort(key=lambda t: t[0])
+        best_bic, best_cost, best_k, best_p = scored[0]
+        delta_bic = (scored[1][0] - best_bic) if len(scored) > 1 else float("inf")
+
+        # posterior-weighted composition over the grid surface
+        rel = gy - float(np.min(gy))
+        w = np.exp(-0.5 * np.clip(rel, 0.0, 200.0))
+        w /= w.sum()
+        keep = np.flatnonzero(w > 1e-4)
+        post_fr: Dict[str, float] = {}
+        post_m2: Dict[str, float] = {}
+        for idx in keep:
+            p = gx[idx]
+            self._rebuild_overlap(float(p[2]), float(p[3]))
+            c, _cost = self._solve_concentrations(float(p[0]), float(p[1]))
+            _conc, fr, _dis = self._aggregate_elements(
+                c, self._last_A, amp_sigma=self._amp_sigma)
+            for el, f in fr.items():
+                post_fr[el] = float(post_fr.get(el, 0.0) + w[idx] * f)
+                post_m2[el] = float(post_m2.get(el, 0.0) + w[idx] * f * f)
+        post_spread = {
+            el: float(np.sqrt(max(post_m2[el] - post_fr[el] ** 2, 0.0)))
+            for el in post_fr
+        }
+
+        info = dict(
+            basin_bic=round(best_bic, 3),
+            basin_cost=round(best_cost, 3),
+            basin_k=best_k,
+            delta_bic_runner_up=(round(delta_bic, 3)
+                                 if np.isfinite(delta_bic) else None),
+            basin_ambiguous=bool(delta_bic < self.BIC_AMBIGUITY),
+            n_basins_considered=len(scored),
+            posterior_fractions={el: round(f, 6)
+                                 for el, f in sorted(post_fr.items())},
+            posterior_spread={el: round(s, 6)
+                              for el, s in sorted(post_spread.items())},
+            n_posterior_nodes=int(keep.size),
+        )
+        if verbose:
+            print(f"  basin BIC: chose T={best_p[0]:.0f} ne={best_p[1]:.2f} "
+                  f"(BIC {best_bic:.1f}, ΔBIC to runner-up "
+                  f"{delta_bic if np.isfinite(delta_bic) else 'inf'}, "
+                  f"{len(scored)} basins)")
+        return best_p, info
 
     def solve_at(
         self,
@@ -2144,6 +2529,7 @@ class PeakyIndexerV3:
         n_calls: int = 40,
         verbose: bool = True,
         search: str = "gp",
+        random_state: int = 42,
     ) -> FitResult:
         """Execute the full v3 pipeline.
 
@@ -2210,6 +2596,7 @@ class PeakyIndexerV3:
             n_calls=n_calls,
             verbose=verbose,
             search=search,
+            random_state=random_state,
         )
 
 

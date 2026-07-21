@@ -22,6 +22,7 @@ from alibz.pipeline import (
     DEFAULT_DRAWS,
     DEFAULT_N_CALLS,
     DEFAULT_TIMEOUT_S,
+    AnalysisConfig,
     _analyze_file,
     _error_row,
     resolve_dbpath,
@@ -486,13 +487,19 @@ def main(argv=None) -> int:
                 shift_prior = tuple(
                     float(value) if value is not None else float("nan")
                     for value in calibration["shift_prior_nm"])
-            job_args = (
-                entry["path"], str(dbpath), args.n_calls, args.draws,
-                args.timeout, args.stimulated_emission,
-                response_fallback, shift_offsets_nm, shift_prior,
-                response_source, response_uncertainty,
+            job_cfg = AnalysisConfig(
+                dbpath=str(dbpath), n_calls=args.n_calls, draws=args.draws,
+                timeout_s=args.timeout,
+                stimulated_emission=bool(args.stimulated_emission),
+                segment_response_fallback_ratio=response_fallback,
+                segment_response_fallback_source=response_source,
+                segment_response_fallback_uncertainty=response_uncertainty,
+                segment_shift_offsets_nm=
+                AnalysisConfig._tuple_or_none(shift_offsets_nm),
+                segment_shift_prior_nm=
+                AnalysisConfig._tuple_or_none(shift_prior),
             )
-            pending.append((test_id, job_args))
+            pending.append((test_id, (entry["path"], job_cfg)))
 
     def record(test_id: int, row: dict, elapsed_s: float) -> None:
         entry = by_id[test_id]

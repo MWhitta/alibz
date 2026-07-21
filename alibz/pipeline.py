@@ -93,6 +93,7 @@ import sys
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass, field, asdict, replace  # noqa: F401
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -124,6 +125,7 @@ from alibz.detections import (  # noqa: F401
     merge_contests,
     resolve_confounded,
 )
+from alibz import telemetry
 
 DEFAULT_PATTERN = "*.csv"
 DEFAULT_N_CALLS = 40
@@ -144,6 +146,8 @@ STAGE_FLAG_THRESHOLD = 0.5
 DEFAULT_STIMULATED_EMISSION = False
 #: long-format per-(sample, element) detection report filename.
 DETECTIONS_NAME = "detections.csv"
+#: per-file telemetry profile (one JSON line per analyzed spectrum).
+PROFILE_NAME = "profile.jsonl"
 #: basin guard for the corroborated (pass-3) re-index: seeding dozens of
 #: weak low-excitation lines can let the re-optimizer drift into a low-T
 #: basin where ONE element's tiny Saha-Boltzmann response explains
@@ -178,6 +182,54 @@ FIT_R2_FAIL = 0.30
 FIT_R2_WARN = 0.50
 PLASMA_T_BOUNDS = (4000.0, 25000.0)
 PLASMA_LOG_NE_BOUNDS = (14.0, 19.0)
+#: outer search mode for the indexer passes ("gp" or "grid"); the value is
+#: an opaque string validated inside the engine (PeakyIndexerV3.fit), so
+#: new engines/modes need no pipeline change.
+DEFAULT_SEARCH = "gp"
+#: seed for the GP optimiser; exposed so the sensitivity harness can
+#: measure (and regress) seed dependence of the composition.
+DEFAULT_GP_SEED = 42
+#: counts per photoelectron-equivalent for the weighted solve's
+#: shot-noise term (sigma^2 += amp/gain).  1.0 treats export counts as
+#: photon events — exact for the synthetic generator, a provisional
+#: assumption for real SciAps exports until the corpus export-kernel
+#: calibration pins the true scale.
+POISSON_GAIN_COUNTS = 1.0
+
+
+@dataclass(frozen=True)
+class AnalysisConfig:
+    """Everything that parameterizes one spectrum analysis.
+
+    One instance travels from the CLI through :func:`analyze_directory`
+    to each worker's :func:`_analyze_file` — replacing the former
+    positional job tuple, whose index-based unpacking made every new
+    knob a fragile, error-prone change.  ``asdict(cfg)`` is the exact
+    config snapshot the run manifest records, so what ran and what is
+    recorded cannot drift apart.
+    """
+
+    dbpath: str
+    n_calls: int = DEFAULT_N_CALLS
+    draws: int = DEFAULT_DRAWS
+    timeout_s: int = DEFAULT_TIMEOUT_S
+    stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION
+    search: str = DEFAULT_SEARCH
+    gp_seed: int = DEFAULT_GP_SEED
+    #: opt-in WNNLS (see PeakyIndexerV3 weighted_solve) — accurate at the
+    #: true plasma state but its chi-squared still misranks T; off until
+    #: that bias is resolved against suite S.
+    weighted_solve: bool = False
+    segment_response_fallback_ratio: Optional[float] = None
+    segment_response_fallback_source: Optional[str] = None
+    segment_response_fallback_uncertainty: Optional[float] = None
+    segment_shift_offsets_nm: Optional[Tuple[float, ...]] = None
+    segment_shift_prior_nm: Optional[Tuple[float, ...]] = None
+
+    @staticmethod
+    def _tuple_or_none(seq: Optional[Sequence[float]]
+                       ) -> Optional[Tuple[float, ...]]:
+        return None if seq is None else tuple(float(v) for v in seq)
 
 
 def composition_collapsed(fr_before: dict, fr_after: dict) -> bool:
@@ -263,6 +315,17 @@ def _get_db(dbpath: str):
     return db
 
 
+def _get_sb(dbpath: str):
+    """Per-process SahaBoltzmann singleton (level caches are expensive)."""
+    from alibz.utils.sahaboltzmann import SahaBoltzmann
+    key = (dbpath, "sb")
+    sb = _DB_CACHE.get(key)
+    if sb is None:
+        sb = SahaBoltzmann(dbpath)
+        _DB_CACHE[key] = sb
+    return sb
+
+
 def _halpha_ne(peak_array: np.ndarray):
     """Per-shot (ne_init, ne_bounds) from the H-alpha Stark width.
 
@@ -284,6 +347,9 @@ def analyze_spectrum(
     draws: int = DEFAULT_DRAWS,
     seed_minor: bool = True,
     stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION,
+    search: str = DEFAULT_SEARCH,
+    gp_seed: int = DEFAULT_GP_SEED,
+    weighted_solve: bool = False,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
     segment_response_fallback_uncertainty: Optional[float] = None,
@@ -327,10 +393,12 @@ def analyze_spectrum(
                                         estimate_wavelength_shift_segments,
                                         shift_at)
 
+    telemetry.reset()
     db = _get_db(dbpath)
     finder = PeakyFinder.__new__(PeakyFinder)  # fit_spectrum needs no data dir
-    fit = finder.fit_spectrum(x, y, subtract_background=True, plot=False,
-                              n_sigma=0)
+    with telemetry.stage("blind_fit"):
+        fit = finder.fit_spectrum(x, y, subtract_background=True, plot=False,
+                                  n_sigma=0)
     peaks = fit["sorted_parameter_array"]
     if peaks.size == 0:
         raise ValueError("blind fit found no peaks")
@@ -343,8 +411,9 @@ def analyze_spectrum(
     # pure model evidence; the asymmetric (self-absorption) family needs
     # resonance physics of elements actually PRESENT, so those verdicts
     # are recorded but deferred until pass 1 provides an element posterior
-    refined, dec_data = refine_fit(x, y, fit, db=db, shift_nm=shift0,
-                                   asymmetric="defer")
+    with telemetry.stage("refine_data"):
+        refined, dec_data = refine_fit(x, y, fit, db=db, shift_nm=shift0,
+                                       asymmetric="defer")
     rpeaks = refined["sorted_parameter_array"]
 
     # per-detector-segment shifts, from the REFINED table: the three
@@ -353,7 +422,8 @@ def analyze_spectrum(
     # to ~150 pm, so only the refined table's medians are clean enough
     # for the estimator's significance gate to separate genuine drift
     # from fit noise (segments failing the gate keep the global shift)
-    shift, n_shift_anchor = estimate_wavelength_shift_segments(rpeaks, db)
+    with telemetry.stage("segment_shift"):
+        shift, n_shift_anchor = estimate_wavelength_shift_segments(rpeaks, db)
     shift_prior_applied = (False,) * len(shift.shifts)
     if (segment_shift_offsets_nm is not None
             and segment_shift_prior_nm is not None):
@@ -388,9 +458,20 @@ def analyze_spectrum(
         shift_prior_applied = tuple(bool(v) for v in use_prior)
 
     ne_init, ne_bounds = _halpha_ne(rpeaks)
-    idx_kwargs = dict(dbpath=dbpath)
+    # physical ne prior: H-alpha Stark anchor when present, else the
+    # instrument-level default.  The data cost is flat in ne while the
+    # composition is not (Saha-carrying aggregation), so in weighted mode
+    # this prior — not an arbitrary optimiser pick — must set ne.
+    ne_prior = ((float(ne_init), 0.15) if ne_init is not None
+                else (17.0, 0.5))
+    sb = _get_sb(dbpath)
+    idx_kwargs = dict(dbpath=dbpath, db=db, sb=sb,
+                      weighted_solve=bool(weighted_solve),
+                      ne_prior=ne_prior)
+    # amp_sigma_floor is attached after the noise scale is measured below
     run_kwargs = dict(sa_doublets=True, n_calls=n_calls, verbose=verbose,
-                      sa_stimulated_emission=bool(stimulated_emission))
+                      sa_stimulated_emission=bool(stimulated_emission),
+                      search=search, random_state=gp_seed)
     if ne_init is not None:
         idx_kwargs["ne_init"] = ne_init
         run_kwargs["ne_bounds"] = ne_bounds
@@ -411,16 +492,23 @@ def analyze_spectrum(
                                 segment_response_fallback)
     _resid = y - bg0
     _noise = 1.4826 * float(np.median(np.abs(_resid - np.median(_resid))))
+    # the weighted concentration solve may not trust any fitted area below
+    # the spectrum's own noise scale (the GLS sigma collapses to ~0 where
+    # the local window is quiet), and every peak carries photon-counting
+    # noise of its own amplitude that quiet-region noise estimates miss
+    idx_kwargs["amp_sigma_floor"] = _noise
+    idx_kwargs["amp_sigma_poisson_gain"] = POISSON_GAIN_COUNTS
     fallback, fallback_meta = segment_response_fallback(
         edges=(620.0,), return_metadata=True)
     fallback_unc = [rec.get("uncertainty") for rec in fallback_meta]
     if segment_response_fallback_ratio is not None:
         fallback = [float(segment_response_fallback_ratio)]
         fallback_unc = [segment_response_fallback_uncertainty]
-    seg_response, seg_response_meta = estimate_segment_response(
-        x, bg0, edges=(620.0,), noise_scale=_noise,
-        fallback=fallback, fallback_uncertainty=fallback_unc,
-        return_metadata=True)
+    with telemetry.stage("segment_response"):
+        seg_response, seg_response_meta = estimate_segment_response(
+            x, bg0, edges=(620.0,), noise_scale=_noise,
+            fallback=fallback, fallback_uncertainty=fallback_unc,
+            return_metadata=True)
     for rec, configured in zip(seg_response_meta, fallback_meta):
         if rec["source"] == "fallback":
             rec["source"] = (
@@ -441,20 +529,35 @@ def analyze_spectrum(
         out[:, 1] -= shift_at(shift, out[:, 1])
         return correct_segment_response(out, seg_response, edges=(620.0,))
 
+    _amp_sigma_memo: dict = {}
+
     def _amp_sigma(peaks_obs: np.ndarray) -> np.ndarray:
         # per-peak area (amplitude) noise, aligned with the peak order, so the
         # indexer can gate elements on detection significance rather than a
         # fraction of the brightest peak.  Scaled by the SAME segment response
         # as the amplitudes, so detection SNR stays gain-invariant.
-        sig = estimate_peak_uncertainties(x, y - bg0, peaks_obs)[:, 0]
+        # Memoized on the exact peak table: x and y - bg0 are fixed for this
+        # spectrum, and the final detections call repeats the last table
+        # verbatim (as may deepening rounds that added nothing).
+        peaks_obs = np.asarray(peaks_obs)
+        memo_key = peaks_obs.tobytes()
+        cached = _amp_sigma_memo.get(memo_key)
+        if cached is not None:
+            telemetry.count("amp_sigma_memo_hits")
+            return cached.copy()
+        with telemetry.stage("amp_sigma"):
+            sig = estimate_peak_uncertainties(x, y - bg0, peaks_obs)[:, 0]
         seg = np.searchsorted(_seg_edges, np.atleast_2d(peaks_obs)[:, 1])
-        return sig / seg_response[seg]
+        out = sig / seg_response[seg]
+        _amp_sigma_memo[memo_key] = out.copy()
+        return out
 
     # pass 1: establish elements (a PROVISIONAL posterior — its basin can
     # be wrong; its outputs only license seeding and condition stage 3b)
-    idx1 = PeakyIndexerV3(_db_frame(rpeaks), **idx_kwargs)
-    idx1._amp_sigma = _amp_sigma(rpeaks)
-    res1 = idx1.run(**run_kwargs)
+    with telemetry.stage("indexer_pass1"):
+        idx1 = PeakyIndexerV3(_db_frame(rpeaks), amp_sigma=_amp_sigma(rpeaks),
+                              **idx_kwargs)
+        res1 = idx1.run(**run_kwargs)
     established = sorted(
         [el for el, f in res1.element_fractions.items()
          if f >= ESTABLISHED_MIN_FRACTION],
@@ -470,9 +573,10 @@ def analyze_spectrum(
     # retained candidates still replaces "any line in the periodic
     # table" with "species plausibly in this plasma".
     posterior = sorted({sp.element for sp in res1.species})
-    refined, dec_phys = refine_fit(x, y, refined, db=db,
-                                   elements=posterior or None,
-                                   shift_nm=shift, asymmetric="only")
+    with telemetry.stage("refine_physics"):
+        refined, dec_phys = refine_fit(x, y, refined, db=db,
+                                       elements=posterior or None,
+                                       shift_nm=shift, asymmetric="only")
     decisions = dec_data + dec_phys
     rpeaks = refined["sorted_parameter_array"]
 
@@ -512,17 +616,19 @@ def analyze_spectrum(
 
     final, records = refined, []
     if seed_minor and established:
-        final, records = seed_minor_lines(x, y, refined, db, established,
-                                          kT_ev=KB_EV_K * res1.temperature,
-                                          shift_nm=shift,
-                                          segment_edges=(620.0,),
-                                          exclude=tuple(sa_zones))
+        with telemetry.stage("seed_minor"):
+            final, records = seed_minor_lines(x, y, refined, db, established,
+                                              kT_ev=KB_EV_K * res1.temperature,
+                                              shift_nm=shift,
+                                              segment_edges=(620.0,),
+                                              exclude=tuple(sa_zones))
     # element-agnostic recovery: significant positive residual peaks are
     # real lines the seeder could not predict (e.g. Fe lines when the Fe
     # stage scale fails the Boltzmann trust gate) — fit them from the
     # data alone; the pass-2 indexer then identifies them.
-    final, recovered = recover_residual_lines(x, y, final,
-                                              exclude=tuple(sa_zones))
+    with telemetry.stage("recover_residual"):
+        final, recovered = recover_residual_lines(x, y, final,
+                                                  exclude=tuple(sa_zones))
 
     # shoulder-triggered deblends: peaks whose profile shows a one-sided
     # flank bump (an unresolved overlapping line contaminating the fitted
@@ -532,17 +638,36 @@ def analyze_spectrum(
     # deliberate)
     from alibz.profiles import (analyze_peak_profiles, deblend_shoulders,
                                 element_shape_quality, recover_sa_areas)
-    prof_pre = analyze_peak_profiles(x, y, final)
-    final, deblends = deblend_shoulders(x, y, final, prof_pre,
-                                        exclude=tuple(sa_zones))
+    with telemetry.stage("deblend"):
+        prof_pre = analyze_peak_profiles(x, y, final)
+        final, deblends = deblend_shoulders(x, y, final, prof_pre,
+                                            exclude=tuple(sa_zones))
     fpeaks = final["sorted_parameter_array"]
 
     # pass 2: identify elements + plasma state, warm-started at pass-1 state
-    idx2 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
-                          temperature_init=res1.temperature,
-                          ne_init=res1.ne)
-    idx2._amp_sigma = _amp_sigma(fpeaks)
-    res2 = idx2.run(**run_kwargs)
+    with telemetry.stage("indexer_pass2"):
+        idx2 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
+                              db=db, sb=sb,
+                              amp_sigma=_amp_sigma(fpeaks),
+                              amp_sigma_floor=_noise,
+                              amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
+                              weighted_solve=bool(weighted_solve),
+                              ne_prior=ne_prior,
+                              temperature_init=res1.temperature,
+                              ne_init=res1.ne)
+        res2 = idx2.run(**run_kwargs)
+
+    # Basin-selection diagnostics from the pass-2 fit: deepening replaces
+    # `result` with fixed-state solve_at results whose convergence_info
+    # has no basin/posterior keys, so capture them here or they are lost
+    # to the report.
+    _info2 = res2.convergence_info or {}
+    basin_info = {k: _info2[k] for k in
+                  ("basin_bic", "basin_cost", "basin_k",
+                   "delta_bic_runner_up", "basin_ambiguous",
+                   "n_basins_considered", "posterior_fractions",
+                   "posterior_spread", "n_posterior_nodes")
+                  if k in _info2}
 
     # ITERATIVE DEEPENING: pass 2 has now CONFIRMED which elements are
     # present and quantified the confident ones from their intense peaks.
@@ -600,34 +725,43 @@ def analyze_spectrum(
             for bar in DEEPEN_BARS:
                 if not confident:
                     break
-                work, corr = seed_minor_lines(
-                    x, y, work, db, confident,
-                    kT_ev=KB_EV_K * res2.temperature, shift_nm=shift,
-                    accept_snr=bar, min_expected_snr=bar,
-                    robust_elements=set(confident),
-                    segment_edges=(620.0,),
-                    exclude=tuple(sa_zones))
+                telemetry.count("deepen_rounds")
+                with telemetry.stage("deepen_seed"):
+                    work, corr = seed_minor_lines(
+                        x, y, work, db, confident,
+                        kT_ev=KB_EV_K * res2.temperature, shift_nm=shift,
+                        accept_snr=bar, min_expected_snr=bar,
+                        robust_elements=set(confident),
+                        segment_edges=(620.0,),
+                        exclude=tuple(sa_zones))
                 n_seed = sum(1 for r in corr if r.get("action") == "added")
-                work, rec = recover_residual_lines(
-                    x, y, work, exclude=tuple(sa_zones),
-                    supported_lines=supported,
-                    snr_min_supported=bar, accept_snr_supported=bar,
-                    support_tol_nm=SUPPORT_TOL_NM)
+                with telemetry.stage("deepen_recover"):
+                    work, rec = recover_residual_lines(
+                        x, y, work, exclude=tuple(sa_zones),
+                        supported_lines=supported,
+                        snr_min_supported=bar, accept_snr_supported=bar,
+                        support_tol_nm=SUPPORT_TOL_NM)
                 n_rec = sum(1 for r in rec if r.get("action") == "added")
                 if n_seed + n_rec == 0:
                     rounds.append(dict(bar=bar, seeded=0, recovered=0,
                                        used=False))
                     continue
                 # basin-safe fixed re-solve on the grown peak table
-                idxN = PeakyIndexerV3(
-                    _db_frame(work["sorted_parameter_array"]), dbpath=dbpath,
-                    temperature_init=res2.temperature, ne_init=res2.ne)
-                idxN._amp_sigma = _amp_sigma(work["sorted_parameter_array"])
-                idxN.build_candidate_matrix(
-                    sa_doublets=True,
-                    sa_stimulated_emission=bool(stimulated_emission))
-                resN = idxN.solve_at(res2.temperature, res2.ne,
-                                     res2.sigma, res2.gamma)
+                with telemetry.stage("deepen_solve"):
+                    idxN = PeakyIndexerV3(
+                        _db_frame(work["sorted_parameter_array"]),
+                        dbpath=dbpath, db=db, sb=sb,
+                        amp_sigma=_amp_sigma(work["sorted_parameter_array"]),
+                        amp_sigma_floor=_noise,
+                        amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
+                        weighted_solve=bool(weighted_solve),
+                        ne_prior=ne_prior,
+                        temperature_init=res2.temperature, ne_init=res2.ne)
+                    idxN.build_candidate_matrix(
+                        sa_doublets=True,
+                        sa_stimulated_emission=bool(stimulated_emission))
+                    resN = idxN.solve_at(res2.temperature, res2.ne,
+                                         res2.sigma, res2.gamma)
                 # guard against the TRUSTED pass-2 baseline (catches slow
                 # cumulative drift, not just round-to-round)
                 if composition_collapsed(res2.element_fractions,
@@ -666,10 +800,11 @@ def analyze_spectrum(
     # amplitudes and the composition is re-solved LINEARLY at the fitted
     # plasma state (no new Bayesian pass -> no basin risk; a corrected
     # composition that newly collapses is rejected wholesale)
-    profiles = analyze_peak_profiles(x, y, final)
-    result, sa_records, sa_used = recover_sa_areas(
-        fidx, result, x, y, final, profiles, exclude=tuple(sa_zones),
-        premeasured=tuple(sa_merges))
+    with telemetry.stage("sa_recovery"):
+        profiles = analyze_peak_profiles(x, y, final)
+        result, sa_records, sa_used = recover_sa_areas(
+            fidx, result, x, y, final, profiles, exclude=tuple(sa_zones),
+            premeasured=tuple(sa_merges))
 
     # detection report + confounder (true-negative rival) analysis; when
     # SA recovery was applied, detections see the SAME corrected
@@ -686,8 +821,9 @@ def analyze_spectrum(
                 fidx._obs_amp[idx] *= factor
                 area_sigma[idx] *= factor
     try:
-        det = analyze_detections(fidx, result, area_sigma, shift=shift,
-                                 dbpath=dbpath, draws=draws)
+        with telemetry.stage("detections"):
+            det = analyze_detections(fidx, result, area_sigma, shift=shift,
+                                     dbpath=dbpath, draws=draws)
     finally:
         if amp_stash is not None:
             fidx._obs_amp = amp_stash
@@ -718,6 +854,7 @@ def analyze_spectrum(
         resolved_fractions=det["resolved_fractions"],
         profiles=profiles, shape_quality=shape_quality,
         corroboration=corroboration,
+        basin_info=basin_info,
         shape_refit=dict(deblends=deblends, sa=sa_records, sa_used=sa_used),
     )
 
@@ -757,6 +894,10 @@ def _summary_row(path: str, analysis: dict) -> dict:
                     or (dom.get("sa_share") or 0.0) > 0.5)
             if weak:
                 flags.append(f"{top_el}:dominant-weak-shape")
+    basin = analysis.get("basin_info") or {}
+    if basin.get("basin_ambiguous"):
+        d = basin.get("delta_bic_runner_up")
+        flags.append(f"basin-ambiguous(dBIC={d if d is not None else 'inf'})")
     corro = analysis.get("corroboration") or {}
     if "collapse" in (corro.get("reason") or ""):
         flags.append("deepening-stopped(collapse)")
@@ -804,6 +945,13 @@ def _summary_row(path: str, analysis: dict) -> dict:
         qc_warn.append("global-only-wavelength-shift")
     qc_status = "fail" if qc_fail else "warn" if qc_warn else "pass"
     qc_reasons = ";".join(dict.fromkeys(qc_fail + qc_warn))
+    # guard_triggered: the reactive-guard vocabulary, regularized into its
+    # own column so guard-fire rates are directly measurable.  qc_fail
+    # entries already use controlled names; deepening's collapse guard is
+    # promoted from the free-form flags string.
+    guards = list(qc_fail)
+    if any(f == "deepening-stopped(collapse)" for f in flags):
+        guards.append("deepening-collapse")
     return dict(
         file=os.path.basename(path),
         sample=sample_name(path),
@@ -829,6 +977,9 @@ def _summary_row(path: str, analysis: dict) -> dict:
         r_squared=round(float(res.r_squared), 4),
         sa_converged=info.get("sa_converged"),
         flags=";".join(flags),
+        failure_stage="",
+        failure_reason="",
+        guard_triggered=";".join(dict.fromkeys(guards)),
         fractions={el: float(f) for el, f in res.element_fractions.items()
                    if f > 0},
         concentrations={el: float(value) for el, value in
@@ -838,7 +989,15 @@ def _summary_row(path: str, analysis: dict) -> dict:
     )
 
 
-def _error_row(path: str, message: str) -> dict:
+def _error_row(path: str, message: str, failure_reason: str = "error",
+               telemetry_snapshot: Optional[dict] = None) -> dict:
+    """Failure row with taxonomy: ``failure_reason`` is a controlled
+    vocabulary (``timeout``, ``exception:<Type>``, ``no-peaks``,
+    ``worker-died``, ``not-analyzed``, ``error``) and ``failure_stage``
+    is the telemetry stage the failure escaped from — together they turn
+    "fails often" into a per-stage, per-cause rate.
+    """
+    snap = telemetry_snapshot or {}
     return dict(
         file=os.path.basename(path), path=path, sample=sample_name(path),
         status=f"error: {message}"[:200], n_peaks=0, shift_pm="",
@@ -848,6 +1007,12 @@ def _error_row(path: str, message: str) -> dict:
         response_620_source="",
         qc_status="fail", qc_reasons="analysis-error",
         T_K="", log_ne="", r_squared="", sa_converged="", flags="",
+        t_total_s=snap.get("t_total_s", ""),
+        failure_stage=(snap.get("failure_stage")
+                       or snap.get("open_stage") or ""),
+        failure_reason=failure_reason,
+        guard_triggered="",
+        telemetry=snap or None,
         fractions={}, concentrations={}, uncertainties={}, detections=[],
     )
 
@@ -873,50 +1038,70 @@ def _worker_init():
         os.environ.setdefault(var, "1")
 
 
-def _analyze_file(args) -> dict:
+def _analyze_file(job) -> dict:
     """Analyze one file; NEVER raises — every failure becomes an error row.
 
-    The timeout alarm is confined to the analysis call and disarmed before
-    any exception handling runs, so an alarm that fires during teardown
-    cannot escape as a stray ``_Timeout``.
+    ``job`` is ``(path, AnalysisConfig)``.  The timeout alarm is confined
+    to the analysis call and disarmed before any exception handling runs,
+    so an alarm that fires during teardown cannot escape as a stray
+    ``_Timeout``.
     """
-    path, dbpath, n_calls, draws, timeout_s, stim = args[:6]
-    response_fallback = args[6] if len(args) > 6 else None
-    shift_offsets = args[7] if len(args) > 7 else None
-    shift_prior = args[8] if len(args) > 8 else None
-    response_source = args[9] if len(args) > 9 else None
-    response_uncertainty = args[10] if len(args) > 10 else None
-    use_alarm = bool(timeout_s) and hasattr(signal, "SIGALRM")
+    path, cfg = job
+    telemetry.reset()
+    use_alarm = bool(cfg.timeout_s) and hasattr(signal, "SIGALRM")
     try:
         x, y = load_spectrum_csv(path)
         old = None
         if use_alarm:
             old = signal.signal(signal.SIGALRM, _alarm)
-            signal.alarm(int(timeout_s))
+            # REPEATING timer, not a one-shot alarm: an exception raised
+            # by a signal handler can be silently eaten when delivery
+            # lands inside C code that clears pending errors (measured:
+            # numpy's string->float astype fallback in db_lines_in ate
+            # the _Timeout, and the spectrum ran to completion past its
+            # deadline).  A 5 s repeat interval keeps re-raising until
+            # one delivery lands in a propagating context.
+            signal.setitimer(signal.ITIMER_REAL, float(cfg.timeout_s), 5.0)
         try:
-            analysis = analyze_spectrum(x, y, dbpath, n_calls=n_calls,
-                                        draws=draws,
-                                        stimulated_emission=stim,
-                                        segment_response_fallback_ratio=
-                                        response_fallback,
-                                        segment_response_fallback_source=
-                                        response_source,
-                                        segment_response_fallback_uncertainty=
-                                        response_uncertainty,
-                                        segment_shift_offsets_nm=shift_offsets,
-                                        segment_shift_prior_nm=shift_prior)
+            analysis = analyze_spectrum(
+                x, y, cfg.dbpath, n_calls=cfg.n_calls,
+                draws=cfg.draws,
+                stimulated_emission=cfg.stimulated_emission,
+                search=cfg.search,
+                gp_seed=cfg.gp_seed,
+                weighted_solve=cfg.weighted_solve,
+                segment_response_fallback_ratio=
+                cfg.segment_response_fallback_ratio,
+                segment_response_fallback_source=
+                cfg.segment_response_fallback_source,
+                segment_response_fallback_uncertainty=
+                cfg.segment_response_fallback_uncertainty,
+                segment_shift_offsets_nm=cfg.segment_shift_offsets_nm,
+                segment_shift_prior_nm=cfg.segment_shift_prior_nm)
         finally:
             if use_alarm:
-                signal.alarm(0)                       # disarm FIRST
+                signal.setitimer(signal.ITIMER_REAL, 0.0)  # disarm FIRST
                 signal.signal(signal.SIGALRM, old)
-        return _summary_row(path, analysis)
+        row = _summary_row(path, analysis)
+        snap = telemetry.snapshot()
+        row["t_total_s"] = snap["t_total_s"]
+        row["telemetry"] = snap
+        return row
     except _Timeout:
-        return _error_row(path, f"timeout after {timeout_s}s")
+        return _error_row(path, f"timeout after {cfg.timeout_s}s",
+                          failure_reason="timeout",
+                          telemetry_snapshot=telemetry.snapshot())
     except BaseException as exc:  # noqa: BLE001 - isolate every failure
         if isinstance(exc, KeyboardInterrupt):
             raise
         traceback.print_exc(file=sys.stderr)
-        return _error_row(path, f"{type(exc).__name__}: {exc}")
+        reason = ("no-peaks"
+                  if isinstance(exc, ValueError)
+                  and "found no peaks" in str(exc)
+                  else f"exception:{type(exc).__name__}")
+        return _error_row(path, f"{type(exc).__name__}: {exc}",
+                          failure_reason=reason,
+                          telemetry_snapshot=telemetry.snapshot())
 
 
 def analyze_directory(
@@ -929,12 +1114,17 @@ def analyze_directory(
     timeout_s: int = DEFAULT_TIMEOUT_S,
     limit: Optional[int] = None,
     stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION,
+    search: str = DEFAULT_SEARCH,
+    gp_seed: int = DEFAULT_GP_SEED,
+    weighted_solve: bool = False,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
     segment_response_fallback_uncertainty: Optional[float] = None,
     segment_shift_offsets_nm: Optional[Sequence[float]] = None,
     segment_shift_prior_nm: Optional[Sequence[float]] = None,
     exclude: Sequence[str] = ("summary.csv", DETECTIONS_NAME),
+    provenance: bool = True,
+    strict_provenance: bool = False,
     progress=print,
 ) -> List[dict]:
     """Analyze every spectrum matching ``pattern`` in ``data_dir``.
@@ -944,6 +1134,12 @@ def analyze_directory(
     basenames to skip — by default the tool's own ``summary.csv``, so a
     re-run in the same directory does not try to analyze its previous
     output as a spectrum.
+
+    Unless ``provenance=False``, a ``run_manifest.json`` (git state,
+    config snapshot, input hashes) is written into ``data_dir``; a dirty
+    worktree is captured under ``data_dir/provenance/`` — or refused
+    outright when ``strict_provenance`` is set — so no result can again
+    outlive the exact code that produced it unrecorded.
     """
     dbpath = resolve_dbpath(dbpath)
     files = sorted(f for f in glob.glob(os.path.join(data_dir, pattern))
@@ -963,18 +1159,60 @@ def analyze_directory(
         except (ValueError, OSError):
             pass
 
-    jobs = {f: (f, dbpath, n_calls, draws, timeout_s,
-                bool(stimulated_emission), segment_response_fallback_ratio,
-                segment_shift_offsets_nm, segment_shift_prior_nm,
-                segment_response_fallback_source,
-                segment_response_fallback_uncertainty)
-            for f in files}
+    cfg = AnalysisConfig(
+        dbpath=dbpath, n_calls=n_calls, draws=draws, timeout_s=timeout_s,
+        stimulated_emission=bool(stimulated_emission),
+        search=search, gp_seed=gp_seed,
+        weighted_solve=bool(weighted_solve),
+        segment_response_fallback_ratio=segment_response_fallback_ratio,
+        segment_response_fallback_source=segment_response_fallback_source,
+        segment_response_fallback_uncertainty=
+        segment_response_fallback_uncertainty,
+        segment_shift_offsets_nm=
+        AnalysisConfig._tuple_or_none(segment_shift_offsets_nm),
+        segment_shift_prior_nm=
+        AnalysisConfig._tuple_or_none(segment_shift_prior_nm),
+    )
+    jobs = {f: (f, cfg) for f in files}
+
+    manifest = None
+    if provenance:
+        from alibz.provenance import run_manifest, DirtyWorktreeError
+        try:
+            manifest = run_manifest(data_dir, asdict(cfg), files,
+                                    dbpath=dbpath,
+                                    strict=strict_provenance,
+                                    progress=progress)
+        except DirtyWorktreeError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - provenance is best-effort
+            progress(f"provenance manifest failed (continuing): {exc}")
     rows: Dict[str, dict] = {}          # keyed by full path (basenames collide)
     t0 = time.time()
     n = len(files)
 
+    # per-file stage/counter profile, one JSON line per completed row —
+    # the measurement layer every optimization is judged against
+    profile_path = os.path.join(data_dir, PROFILE_NAME)
+    try:
+        open(profile_path, "w").close()     # truncate any previous run
+    except OSError:
+        profile_path = None
+
     def _record(i, path, row):
         rows[path] = row
+        if profile_path is not None:
+            line = dict(row.get("telemetry") or {})
+            line.update(file=row.get("file"), sample=row.get("sample"),
+                        status=row.get("status"),
+                        failure_stage=row.get("failure_stage", ""),
+                        failure_reason=row.get("failure_reason", ""),
+                        guard_triggered=row.get("guard_triggered", ""))
+            try:
+                with open(profile_path, "a") as fh:
+                    fh.write(json.dumps(line) + "\n")
+            except (OSError, TypeError, ValueError):
+                pass                        # telemetry must never kill a run
         _emit(f"[{i}/{n}] {row['sample']}: {row['status']}"
               f"  ({time.time() - t0:.0f}s elapsed)")
 
@@ -1005,7 +1243,8 @@ def analyze_directory(
                         try:
                             row = fut.result()
                         except Exception as exc:  # worker died / pool broke
-                            row = _error_row(path, f"worker failed: {exc}")
+                            row = _error_row(path, f"worker failed: {exc}",
+                                             failure_reason="worker-died")
                         _record(i, path, row)
                 except KeyboardInterrupt:
                     _emit("interrupted; cancelling and writing partial results")
@@ -1019,8 +1258,16 @@ def analyze_directory(
                     os.environ[v] = val
 
     # files with no row (interrupted before completion) become error rows
-    return [rows.get(f, _error_row(f, "not analyzed (interrupted)"))
-            for f in files]
+    out = [rows.get(f, _error_row(f, "not analyzed (interrupted)",
+                                  failure_reason="not-analyzed"))
+           for f in files]
+    if manifest is not None:
+        from alibz.provenance import finalize_manifest
+        try:
+            finalize_manifest(data_dir, manifest, out)
+        except Exception as exc:  # noqa: BLE001 - provenance is best-effort
+            progress(f"provenance finalize failed: {exc}")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1044,7 +1291,9 @@ def write_summary_csv(rows: Sequence[dict], path: str) -> List[str]:
             "shift_segment_applied", "shift_prior_applied",
             "response_620", "response_620_unc",
             "response_620_source", "T_K", "log_ne", "r_squared",
-            "sa_converged", "qc_status", "qc_reasons", "flags"]
+            "sa_converged", "qc_status", "qc_reasons", "flags",
+            "t_total_s", "failure_stage", "failure_reason",
+            "guard_triggered"]
     header = meta + [c for el in elements for c in (el, f"{el}_unc")]
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)

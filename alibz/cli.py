@@ -12,8 +12,10 @@ import sys
 
 from alibz.pipeline import (
     DEFAULT_DRAWS,
+    DEFAULT_GP_SEED,
     DEFAULT_N_CALLS,
     DEFAULT_PATTERN,
+    DEFAULT_SEARCH,
     DEFAULT_STIMULATED_EMISSION,
     DEFAULT_TIMEOUT_S,
     DETECTIONS_NAME,
@@ -82,6 +84,28 @@ def main(argv=None) -> int:
                    help="apply the induced-emission factor "
                         "(1 - exp(-hc/lambda kT)) to self-absorption "
                         "optical depths")
+    p.add_argument("--search", default=DEFAULT_SEARCH,
+                   help="outer plasma-state search mode for the indexer "
+                        "passes: 'gp' (historical cold-start Bayesian "
+                        "optimisation) or 'grid' (profile-likelihood scan "
+                        "over T, ne seeding the GP; basin-stable). "
+                        f"Default {DEFAULT_SEARCH!r}.")
+    p.add_argument("--gp-seed", type=int, default=DEFAULT_GP_SEED,
+                   help=argparse.SUPPRESS)  # sensitivity-harness knob
+    p.add_argument("--weighted-solve",
+                   action=argparse.BooleanOptionalAction, default=False,
+                   help="EXPERIMENTAL: whiten the concentration solve by "
+                        "the per-peak area uncertainties (chi-squared "
+                        "objective). Accurate at the true plasma state but "
+                        "currently biases the fitted temperature; off by "
+                        "default until that is resolved.")
+    p.add_argument("--no-provenance", action="store_true",
+                   help="skip writing run_manifest.json (git state, config "
+                        "snapshot, input hashes)")
+    p.add_argument("--strict-provenance", action="store_true",
+                   help="refuse to run when the worktree has uncommitted "
+                        "or untracked changes (default: capture them under "
+                        "<data_dir>/provenance/ and warn)")
     args = p.parse_args(argv)
 
     data_dir = os.path.abspath(args.data_dir)
@@ -101,6 +125,10 @@ def main(argv=None) -> int:
         workers=args.workers, n_calls=args.n_calls, draws=args.draws,
         timeout_s=args.timeout, limit=args.limit,
         stimulated_emission=args.stimulated_emission,
+        search=args.search, gp_seed=args.gp_seed,
+        weighted_solve=args.weighted_solve,
+        provenance=not args.no_provenance,
+        strict_provenance=args.strict_provenance,
         exclude=(args.out, DETECTIONS_NAME),
     )
     n_ok = sum(1 for r in rows if r["status"] == "ok")

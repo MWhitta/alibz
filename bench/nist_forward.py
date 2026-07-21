@@ -45,17 +45,29 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-# --- make the dev/dev1/cflibs prototype importable (kept as prototype until the
-#     Stage-2 benchmark decides whether to promote it into the package) ---
+# --- the dev/dev1/cflibs prototype this module bridges to was REMOVED from
+#     the worktree (dev1 ideas were salvaged into alibz; see commit 7e36dad).
+#     Import is guarded so bench/ stays importable from a clean checkout:
+#     the cflibs engine reports unavailable instead of breaking the whole
+#     benchmark package.  The in-repo generator now lives in
+#     bench/synth_cases.py (alibz.synthetic). ---
 _CFLIBS_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "dev", "dev1", "cflibs")
 )
 if _CFLIBS_ROOT not in sys.path:
     sys.path.insert(0, _CFLIBS_ROOT)
 
-from cflibs import atomic as catomic          # noqa: E402
-from cflibs.atomic import Level, Line, PartitionFunction  # noqa: E402
-from cflibs.forward import ForwardModel        # noqa: E402
+try:
+    from cflibs import atomic as catomic          # noqa: E402
+    from cflibs.atomic import Level, Line, PartitionFunction  # noqa: E402
+    from cflibs.forward import ForwardModel        # noqa: E402
+    CFLIBS_AVAILABLE = True
+    CFLIBS_UNAVAILABLE_REASON = None
+except ImportError as _exc:                        # pragma: no cover
+    catomic = Level = Line = PartitionFunction = ForwardModel = None
+    CFLIBS_AVAILABLE = False
+    CFLIBS_UNAVAILABLE_REASON = (
+        f"cflibs prototype not present at {_CFLIBS_ROOT}: {_exc}")
 
 from alibz.utils.database import Database       # noqa: E402
 
@@ -162,6 +174,8 @@ def build_nist_forward(
         ``meta`` reports per-element line/level counts and the ionization
         energies used.
     """
+    if not CFLIBS_AVAILABLE:
+        raise ImportError(CFLIBS_UNAVAILABLE_REASON)
     db = Database(dbpath)
     grid = np.asarray(wavelength_grid_nm, dtype=float)
     lo, hi = grid.min() - window_pad_nm, grid.max() + window_pad_nm

@@ -8,16 +8,11 @@ helpers from one another.
 from __future__ import annotations
 
 import csv
-import hashlib
-import importlib.metadata
 import json
 import os
-import platform
 import re
-import subprocess
-import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -37,11 +32,6 @@ ACTIVE_WAVELENGTH_NM = (190.0, 910.0)
 _ID_RE = re.compile(r"^(\d+)-")
 _ACQUISITION_RE = re.compile(
     r"(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})\.(\d{2})(?:\.csv)?$")
-_PACKAGE_NAMES = (
-    "alibz", "numpy", "scipy", "scikit-learn", "scikit-optimize",
-    "matplotlib", "pulp", "periodictable",
-)
-
 _LINE_NUMERIC_COLUMNS = (
     "test_id",
     "height_um",
@@ -58,6 +48,22 @@ _LINE_NUMERIC_COLUMNS = (
 )
 
 
+# Provenance primitives were promoted to alibz.provenance so every
+# analyze_directory run records them; re-exported here for compatibility
+# with the frozen MW2-112 workflow and its tests.
+from alibz.provenance import (  # noqa: F401
+    _git_value,
+    _tree_hash,
+    atomic_json,
+    database_state,
+    hash_file,
+    jsonable,
+    sha256_bytes,
+    software_state,
+    utc_now,
+)
+
+
 def write_csv(path: Path, records: Iterable[dict],
               header: Sequence[str] | None = None) -> None:
     """Atomically write dictionaries with stable first-record column order."""
@@ -69,61 +75,6 @@ def write_csv(path: Path, records: Iterable[dict],
         writer = csv.DictWriter(fh, fieldnames=header, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(records)
-    os.replace(tmp, path)
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def hash_file(path: Path, chunk_size: int = 2 ** 20) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(chunk_size), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _tree_hash(paths: Iterable[Path]) -> str:
-    """Historical path-dependent hash retained for manifest compatibility."""
-    digest = hashlib.sha256()
-    for path in sorted((item.resolve() for item in paths), key=str):
-        if not path.is_file():
-            continue
-        digest.update(str(path).encode())
-        digest.update(b"\0")
-        digest.update(hash_file(path).encode())
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
-def jsonable(value):
-    if isinstance(value, dict):
-        return {str(key): jsonable(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [jsonable(item) for item in value]
-    if isinstance(value, np.ndarray):
-        return [jsonable(item) for item in value.tolist()]
-    if isinstance(value, np.generic):
-        return jsonable(value.item())
-    if isinstance(value, float) and not np.isfinite(value):
-        return None
-    return value
-
-
-def atomic_json(path: Path, value: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    with tmp.open("w") as fh:
-        json.dump(jsonable(value), fh, indent=2, sort_keys=True,
-                  allow_nan=False)
-        fh.write("\n")
-        fh.flush()
-        os.fsync(fh.fileno())
     os.replace(tmp, path)
 
 
@@ -231,52 +182,6 @@ def build_inventory(paths: Sequence[Path], progress=print) -> list[dict]:
 def write_inventory(entries: Sequence[dict], path: Path) -> None:
     header = list(entries[0]) if entries else []
     write_csv(path, entries, header=header)
-
-
-def _git_value(repo: Path, *args: str) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", *args], cwd=repo, check=True, capture_output=True)
-        return result.stdout.decode(errors="replace").strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
-
-
-def software_state(repo: Path) -> dict:
-    diff = subprocess.run(
-        ["git", "diff", "--binary", "HEAD"], cwd=repo, check=False,
-        capture_output=True).stdout
-    untracked = _git_value(repo, "ls-files", "--others", "--exclude-standard")
-    source_paths = list((repo / "alibz").rglob("*.py"))
-    source_paths += list((repo / "scripts").rglob("*.py"))
-    versions = {}
-    for package in _PACKAGE_NAMES:
-        try:
-            versions[package] = importlib.metadata.version(package)
-        except importlib.metadata.PackageNotFoundError:
-            versions[package] = None
-    return {
-        "git_commit": _git_value(repo, "rev-parse", "HEAD"),
-        "git_branch": _git_value(repo, "branch", "--show-current"),
-        "git_dirty": bool(diff or untracked),
-        "git_diff_sha256": sha256_bytes(diff),
-        "untracked_files": untracked.splitlines() if untracked else [],
-        "source_tree_sha256": _tree_hash(source_paths),
-        "python": sys.version,
-        "executable": sys.executable,
-        "platform": platform.platform(),
-        "hostname": platform.node(),
-        "packages": versions,
-    }
-
-
-def database_state(dbpath: Path) -> dict:
-    files = [path for path in dbpath.rglob("*") if path.is_file()]
-    return {
-        "path": str(dbpath.resolve()),
-        "n_files": len(files),
-        "tree_sha256": _tree_hash(files),
-    }
 
 
 def calibration_job(job: tuple[int, str, str]) -> tuple[int, dict]:

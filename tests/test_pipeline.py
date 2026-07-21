@@ -751,12 +751,14 @@ class TestCli(unittest.TestCase):
 
 class TestDriverRobustness(unittest.TestCase):
     def test_analyze_file_never_raises_on_bad_csv(self):
-        from alibz.pipeline import _analyze_file
+        from alibz.pipeline import AnalysisConfig, _analyze_file
         with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
             fh.write("wavelength,intensity\nnot,numbers\n")
             path = fh.name
         try:
-            row = _analyze_file((path, "db", 4, 4, 0, False))
+            cfg = AnalysisConfig(dbpath="db", n_calls=4, draws=4,
+                                 timeout_s=0, stimulated_emission=False)
+            row = _analyze_file((path, cfg))
             self.assertTrue(row["status"].startswith("error:"))
             self.assertEqual(row["n_peaks"], 0)
         finally:

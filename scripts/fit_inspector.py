@@ -180,6 +180,7 @@ def capture(x, y):
         o[:, 1] -= shift_at(SHIFT, o[:, 1])
         return correct_segment_response(o, seg_response, edges=(620.0,))
 
+    idx_kw["amp_sigma_floor"] = _noise
     idx1 = PeakyIndexerV3(dbf(rp), **idx_kw)
     idx1._amp_sigma = _amp_sigma(x, y, bg0, rp, seg_response)
     res1 = idx1.run(**run_kw)
@@ -225,7 +226,7 @@ def capture(x, y):
                        peaks=final["sorted_parameter_array"], fit=final))
 
     fp = final["sorted_parameter_array"]
-    idx2 = PeakyIndexerV3(dbf(fp), dbpath=DBPATH,
+    idx2 = PeakyIndexerV3(dbf(fp), dbpath=DBPATH, amp_sigma_floor=_noise,
                           temperature_init=res1.temperature, ne_init=res1.ne)
     idx2._amp_sigma = _amp_sigma(x, y, bg0, fp, seg_response)
     res2 = idx2.run(**run_kw)
@@ -272,7 +273,8 @@ def capture(x, y):
                     + sum(1 for r in rec if r.get("action") == "added")) == 0:
                 continue
             idxN = PeakyIndexerV3(dbf(work["sorted_parameter_array"]),
-                                  dbpath=DBPATH, temperature_init=res2.temperature,
+                                  dbpath=DBPATH, amp_sigma_floor=_noise,
+                                  temperature_init=res2.temperature,
                                   ne_init=res2.ne)
             idxN._amp_sigma = _amp_sigma(x, y, bg0,
                                          work["sorted_parameter_array"],
