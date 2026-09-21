@@ -206,6 +206,32 @@ instrument. Tests: exact-and-fast on all four files, determinism, recovery
 of an imposed shift and stretch; the slow search test is opt-in
 (`ALIBZ_SLOW_TESTS=1`).
 
+**Generality and robustness to variance (2026-09-21, batch runs with
+`scripts/batch_native_grid.py`, summarised by
+`scripts/summarize_native_grid_batch.py`; raw rows in
+`reports/native_grid_batches/`):**
+
+| set (host) | spectra | exact in all 3 segments | relres median / max | NIR shift p5–p95 | VIS shift p5–p95 | UV shift p5–p95 | stretch p5–p95 |
+|---|---:|---:|---|---|---|---|---|
+| MW2-112 scan, 929 shots (beryl) | 928 | 928 (100 %) | 6.0e-11 / 7.2e-11 | +2.02 … +3.47 px | −1.32 … +1.72 px | +0.44 … +0.79 px | 62 … 303 ppm |
+| MDD drill-core set, 38 spectra (beryl) | 38 | 38 (100 %) | 6e-11 / 8.5e-11 | +1.23 … +2.15 px | +0.09 … +1.53 px | −0.98 … +1.18 px | −7 … 210 ppm |
+
+The one MW2-112 file that did not recover is an empty CSV (shot 1632,
+zero rows); the other two "failures" were `summary.csv` and
+`detections.csv`, not spectra (the script now skips them). Every genuine
+spectrum was recovered to the solver floor with 13 of 13 windows used, at
+~31 s per spectrum on beryl's slower cores with single-threaded BLAS.
+
+The per-shot recalibration is real and varies shot to shot within a single
+session (MW2-112 NIR shift standard deviation 0.54 px, VIS 1.13 px), so a
+per-session correction would not do; the per-spectrum measurement is
+necessary and sufficient. The moissanite archive runs (1,481 archive
+spectra across five projects, 627 raw SD-card pulls, and a one-per-folder
+sample of the 29,011 Profile Builder exports across 44 campaigns) are
+recorded below as they complete.
+
+MOISSANITE-BATCH-PENDING
+
 ### 1.4 The better route: get the native export
 
 Recovery by inversion is a workaround. The SciAps software holds the
@@ -350,14 +376,59 @@ tests pass again (0 failures); unit tests added in
 `tests/test_peaky_indexer.py` (hedge keeps the ion stage under a cold warm
 start, no-hedge regression, evidence prefilter stays single-state, guard).
 
-**Not repaired, and now the visible problem:** the pass-1 degenerate basin
-itself. With Ca II back, the pass-2 composition on scan9x9 is still Bi 0.99 at
-T = 4000 K (r² 0.87), i.e. the same degenerate corner pass 1 lives in. The
-unweighted amplitude objective with a free, wide overlap kernel rewards
-line-rich or single-huge-line species; physical width bounds alone move
-the degeneracy to Zn (E7/E9 in the diagnosis log). That is the objective
-problem already recorded in project memory (basin collapse guard,
-pixel-likelihood estimator) and is out of scope here.
+**Degenerate basin repaired (2026-09-21, after a portal user reported
+Bi = 1.0 on a Profile Builder export).** Mechanism, read off the design
+matrix of that spectrum: the entire Bi claim was one Bi II line at 190.2 nm
+(in the off-model UV edge zone, the species' only line in range) matched
+to a 38-count peak; its predicted emissivity there was 1.6e-4 of the
+strongest species', so fitting 38 counts needed a concentration ten times
+potassium's, and the atom-fraction normalisation reported Bi 0.8–1.0. The
+evidence gate was vacuous for single-line species (it required
+`min(2, lines in range)` supported lines). On other spectra the same
+mechanism moved to Zn, Mg or Ca at the 4000 K search floor, where
+high-lying lines lose their emissivity and the amplitude cost, which is
+nearly flat in T, is *lower* for the unphysical solution. A fixed-T scan
+showed the composition swinging from Si 0.97 (4 kK) to K 0.76 (14 kK) on
+the same spectrum while the cost changed by 10 %.
+
+Four changes, all in `PeakyIndexerV3`, shipped and validated:
+
+1. Overlap-kernel widths default to data-driven bounds (twice the median
+   fitted width; the free 0.3 nm cap let every line within the match
+   tolerance count fully; the cold GP railed there on every real spectrum).
+2. A species whose entire observed support is one peak must be a strong
+   emitter there (≥ 5 % of the strongest species' predicted contribution,
+   `SINGLE_LINE_MIN_RELATIVE_INTENSITY`). A lone strong line (Ca I 422.7 nm
+   in the synthetic scene) is legitimate; a lone 1.6e-4 line is not.
+3. The relative-emissivity floor (`min_init_relative_intensity`, 1e-3) is
+   applied at every trial (T, n_e) in the solve, not only at the init
+   state. With it the 4000 K floor costs 10–20× more and the search settles
+   at 5–7 kK.
+4. The provisional pass-1 search uses 24 evaluations (pass 2 keeps 40) and
+   deepening runs two rounds (3σ, 2σ) instead of three.
+
+Rejected on evidence: a strict "≥ 2 supported lines" rule (drops Ca I and
+Mg I themselves in the synthetic round trip), a "≥ 2 matched lines of any
+strength" rule (same), and the significance-weighted solve as default
+(removes the collapse on real data but inverts the Ca/Mg ratio on the
+synthetic truth, 0.61/0.39 against 0.4/0.6; it stays opt-in).
+
+Full pipeline, final defaults (before the budget trim):
+
+| spectrum | before | after | T (K) | r² | QC |
+|---|---|---|---:|---:|---|
+| Profile Builder 2025-06-24 export | Bi 1.00 | Si 0.77 / K 0.16 / Al 0.04 / Rb 0.02 | 6052 | 0.89 | warn |
+| scan9x9 | Bi 0.99 | Si 0.80 / Al 0.12 / Fe 0.04 / Mn 0.02 | 5155 | 0.90 | warn |
+| REE_44 | Bi 1.00 | Si 0.46 / Fe 0.22 / Al 0.19 / Ti 0.04 / K 0.03 / Ca 0.03 | 5910 | 0.72 | warn |
+| argon_noAr | K 0.63 / Na 0.26 | K 0.44 / Na 0.31 / Ca 0.22 | 12193 | 0.25 | fail (r²) |
+| REE_01 | C 0.99 | Si 0.60 / Al 0.31 / Na 0.03 / K 0.03 | 5349 | −0.33 | fail (r²) |
+
+The synthetic round-trip tests pass (0 failures); the physics-integration
+and indexer unit tests pass. Still open: the amplitude objective remains
+nearly flat in T, so T (and with it the Si/K split on the feldspar-like
+spectrum, Si 0.66 at 6.8 kK vs K 0.69 at 9 kK) is weakly determined; the
+stage-consistency thermometer (minimum disagreement at 9–10 kK on that
+spectrum) is the physics that should pick it, and is the next step.
 
 ### 2.5 Physics-over-data gates that do not touch the residual (for completeness)
 

@@ -129,6 +129,9 @@ from alibz import telemetry
 
 DEFAULT_PATTERN = "*.csv"
 DEFAULT_N_CALLS = 40
+#: Bayesian-optimisation budget of the PROVISIONAL pass-1 indexer (pass 2
+#: uses the full ``n_calls``); see analyze_spectrum.
+PASS1_N_CALLS = 24
 DEFAULT_TIMEOUT_S = 900
 #: pass-1 element fraction above which an element is treated as
 #: "established" and eligible to seed minor lines.
@@ -171,7 +174,7 @@ CONFIDENT_MIN_REFS = 4
 #: are not distinguishable from noise).  Each round re-solves the
 #: composition at the FIXED pass-2 plasma state (no re-optimisation, so no
 #: basin drift) and is rejected wholesale if it collapses.
-DEEPEN_BARS = (3.0, 2.5, 2.0)
+DEEPEN_BARS = (3.0, 2.0)
 #: gA floor for a confident ion's database line to mark "coverage" for the
 #: guarded low-bar agnostic recovery (a bump near a strong line of a
 #: present ion is very likely that ion's faint line, not noise).
@@ -578,7 +581,10 @@ def analyze_spectrum(
     with telemetry.stage("indexer_pass1"):
         idx1 = PeakyIndexerV3(_db_frame(rpeaks), amp_sigma=_amp_sigma(rpeaks),
                               **idx_kwargs)
-        res1 = idx1.run(**run_kwargs)
+        # pass 1 is provisional (it licenses seeding and the 3b gates and
+        # is re-done in pass 2 on the final peak table): a shorter search
+        # costs nothing downstream and ~30 % of the indexer time
+        res1 = idx1.run(**dict(run_kwargs, n_calls=min(n_calls, PASS1_N_CALLS)))
     established = sorted(
         [el for el, f in res1.element_fractions.items()
          if f >= ESTABLISHED_MIN_FRACTION],

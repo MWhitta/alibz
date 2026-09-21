@@ -39,6 +39,10 @@ from alibz.utils.wavelength import shift_at as _shift_at
 
 #: Default plasma temperature for Boltzmann line ratios (corpus median
 #: T = 8818 K for MW2-112).
+#: Strongest predicted candidates fitted per (element, stage) by
+#: seed_minor_lines; None fits all (see the note at the sort).
+MAX_CANDIDATES_PER_STAGE = 80
+
 DEFAULT_KT_EV = 0.76
 
 
@@ -184,7 +188,8 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
                      segment_edges=None,
                      robust_elements=None,
                      robust_min_ref_lines=6,
-                     exclude=()) -> Tuple[dict, List[dict]]:
+                     exclude=(),
+                     max_candidates_per_stage=MAX_CANDIDATES_PER_STAGE) -> Tuple[dict, List[dict]]:
     """Fit predicted-but-unfitted minor lines of established elements.
 
     ``elements`` is the established-element list (from the indexer or
@@ -373,6 +378,18 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
                 "scale_refs": info["n_ref"],
             })
     candidates.sort(key=lambda c: -c["expected_area"])
+    if max_candidates_per_stage:
+        # a line-rich stage (Fe I: 15,786 database lines) predicts
+        # thousands of >= 2 sigma candidates and each one costs a windowed
+        # joint refit -- measured 48 s of a 124 s run on scan9x9.  The
+        # faintest predictions carry the least evidence and are the first
+        # to be refused by the consistency gate anyway; keep the strongest.
+        kept, seen = [], {}
+        for c in candidates:
+            key = (c["element"], c["stage"])
+            if seen.get(key, 0) < max_candidates_per_stage:
+                kept.append(c); seen[key] = seen.get(key, 0) + 1
+        candidates = kept
 
     def _fit_with_priors(xw, yw, w, p0, lo, hi, prior):
         """least_squares with soft area priors.

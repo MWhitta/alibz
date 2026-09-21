@@ -97,8 +97,8 @@ def main(argv=None) -> int:
                    help="EXPERIMENTAL: whiten the concentration solve by "
                         "the per-peak area uncertainties (chi-squared "
                         "objective). Accurate at the true plasma state but "
-                        "currently biases the fitted temperature; off by "
-                        "default until that is resolved.")
+                        "inverts the Ca/Mg ratio on the synthetic round "
+                        "trip (2026-09-21); off by default.")
     p.add_argument("--no-provenance", action="store_true",
                    help="skip writing run_manifest.json (git state, config "
                         "snapshot, input hashes)")

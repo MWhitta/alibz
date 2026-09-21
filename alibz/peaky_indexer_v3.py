@@ -84,6 +84,17 @@ _COL_GK = 13
 #: state (see its docstring).
 PREFILTER_TEMPERATURES_K = (10_000.0,)
 
+#: A species whose entire observed support is ONE peak is kept only if its
+#: predicted contribution there is at least this fraction of the strongest
+#: species' contribution (see ``_prefilter_species_by_initial_strength``).
+SINGLE_LINE_MIN_RELATIVE_INTENSITY = 0.05
+
+#: Per-trial floor on a species' strongest design-column entry, relative to
+#: the strongest species' (see ``_solve_concentrations_thin``).  The
+#: candidate-matrix ``min_init_relative_intensity`` (default 1e-3) is used
+#: when set; 0 disables the gate, as it disables the init-state prefilter.
+RELATIVE_COLUMN_FLOOR = 1e-3
+
 class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
 
@@ -844,6 +855,16 @@ class PeakyIndexerV3:
             if np.any(km) and min_relative_intensity > 0:
                 max_signal = float(np.max(species_signal[km]))
                 km &= species_signal >= max_signal * min_relative_intensity
+                # A species supported by a SINGLE observed peak must be a
+                # strong emitter there: a lone weak line makes an
+                # unfalsifiable abundance claim (Bi II, one 1.6e-4-relative
+                # line at 190.2 nm matched to a 38-count edge peak, needed
+                # 10x potassium's concentration and was reported as 80-100 %
+                # of the sample).  A lone STRONG line (Ca I 422.7 nm in a
+                # narrow synthetic scene) is legitimate and kept.
+                n_touched = np.sum(A_init > 1e-30, axis=0)
+                km &= ~((n_touched <= 1)
+                        & (species_signal < max_signal * SINGLE_LINE_MIN_RELATIVE_INTENSITY))
                 if not np.any(km):
                     km[int(np.argmax(species_signal))] = True
             keep_mask = km if keep_mask is None else (keep_mask | km)
@@ -880,6 +901,7 @@ class PeakyIndexerV3:
         supported_strong_lines = np.zeros(n_species, dtype=np.int32)
         strong_missing_count = np.zeros(n_species, dtype=np.int32)
         strong_line_count = np.zeros(n_species, dtype=np.int32)
+        matched_line_count = np.zeros(n_species, dtype=np.int32)
         net_evidence = np.zeros(n_species, dtype=float)
 
         if lt is None or lt.n_species == 0:
@@ -892,6 +914,7 @@ class PeakyIndexerV3:
                 "strong_missing_count": strong_missing_count,
                 "strong_line_count": strong_line_count,
                 "net_evidence": net_evidence,
+                "matched_line_count": matched_line_count,
             }
 
         presence = self._line_presence()
@@ -935,6 +958,7 @@ class PeakyIndexerV3:
             supported_strong_lines[sp_idx] = support_count
             strong_missing_count[sp_idx] = missing_count
             strong_line_count[sp_idx] = n_strong
+            matched_line_count[sp_idx] = int(np.sum(presence[span] >= presence_threshold))
             net_evidence[sp_idx] = (
                 matched
                 - self._evidence_missing_mass_weight * missing
@@ -960,9 +984,17 @@ class PeakyIndexerV3:
         """Return a boolean keep mask from species evidence metrics."""
         total_mass = np.asarray(evidence["total_mass"], dtype=float)
         strong_line_count = np.asarray(evidence["strong_line_count"], dtype=np.int32)
+        # A species must be supported by at least ``evidence_min_supported_lines``
+        # of its strong lines IN RANGE -- not ``min(that, lines in range)``.
+        # The old form made the rule vacuous for species with a single line
+        # in the table: Bi II (one line at 190.2 nm, in the off-model UV edge
+        # zone) matched one 38-count peak, and because its predicted
+        # emissivity there is tiny the solver needed ten times potassium's
+        # concentration to fit it -- reported as Bi = 0.8-1.0 of the sample
+        # (measured 2026-09-21 on a Profile Builder export and on scan9x9 /
+        # REE_44).  One coincidence can never establish an element.
         required_support = np.minimum(self._evidence_min_supported_lines, strong_line_count)
         allowed_missing = np.minimum(self._evidence_max_missing_lines, strong_line_count)
-
         keep = total_mass > 0
         keep &= np.asarray(evidence["coverage"], dtype=float) >= self._evidence_min_coverage
         keep &= (
@@ -1586,6 +1618,25 @@ class PeakyIndexerV3:
         if line_weight_scale is not None:
             lw = lw * line_weight_scale
         A = self._build_design_matrix(lw)
+        if A.size:
+            # Per-trial relative emissivity gate: a species whose strongest
+            # predicted contribution at THIS (T, ne) is below
+            # RELATIVE_COLUMN_FLOOR of the strongest species' cannot be
+            # quantified from this spectrum at this state -- fitting even a
+            # small peak with it demands an absurd concentration.  The
+            # initial-strength prefilter applied the same floor only at the
+            # init state, so the cold GP could walk to the 4000 K floor
+            # where high-lying lines lose their emissivity and one such
+            # species (Zn on scan9x9, Si on a Profile Builder export)
+            # absorbed the composition at an amplitude cost LOWER than the
+            # physical solution's.  With the gate the floor costs 10-20x
+            # more and the search settles at 6-7 kK (measured 2026-09-21).
+            cm = np.max(A, axis=0)
+            rel = float(getattr(self, "_init_relative_intensity", RELATIVE_COLUMN_FLOOR))
+            floor = rel * float(np.max(cm)) if cm.size and rel > 0.0 else 0.0
+            if floor > 0.0 and np.any(cm < floor):
+                A = A.copy()
+                A[:, cm < floor] = 0.0
         if A.size == 0:
             c = np.zeros(self.line_table.n_species, dtype=float)
             self._last_A = A
@@ -2068,8 +2119,8 @@ class PeakyIndexerV3:
         self,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
-        sigma_bounds: Tuple[float, float] = (0.01, 0.3),
-        gamma_bounds: Tuple[float, float] = (0.01, 0.3),
+        sigma_bounds: Optional[Tuple[float, float]] = None,
+        gamma_bounds: Optional[Tuple[float, float]] = None,
         n_calls: int = 40,
         verbose: bool = True,
         search: str = "gp",
@@ -2106,6 +2157,20 @@ class PeakyIndexerV3:
             return self._empty_result("empty_peak_table")
         if n_calls < 1:
             raise ValueError("n_calls must be at least 1")
+        # Overlap-kernel widths are an INSTRUMENT property, not a plasma
+        # unknown: unless the caller pins them, bound the search to twice the
+        # median fitted width of the observed peaks (floor 0.02 nm, cap
+        # 0.3 nm).  A free 0.3 nm kernel lets every database line within the
+        # match tolerance count fully regardless of position, and the cold GP
+        # railed there on every real single-shot spectrum tested
+        # (sigma = gamma = 0.3), which is how a line-poor or weakly emitting
+        # species could absorb the composition.
+        if sigma_bounds is None or gamma_bounds is None:
+            s_med, g_med = self._median_peak_widths()
+            if sigma_bounds is None:
+                sigma_bounds = (0.01, float(np.clip(2.0 * s_med, 0.02, 0.3)))
+            if gamma_bounds is None:
+                gamma_bounds = (0.01, float(np.clip(2.0 * g_med, 0.02, 0.3)))
 
         try:
             from skopt import gp_minimize
@@ -2559,8 +2624,8 @@ class PeakyIndexerV3:
         sa_stimulated_emission: bool = False,
         T_bounds: Tuple[float, float] = (4_000.0, 25_000.0),
         ne_bounds: Tuple[float, float] = (14.0, 19.0),
-        sigma_bounds: Tuple[float, float] = (0.01, 0.3),
-        gamma_bounds: Tuple[float, float] = (0.01, 0.3),
+        sigma_bounds: Optional[Tuple[float, float]] = None,
+        gamma_bounds: Optional[Tuple[float, float]] = None,
         n_calls: int = 40,
         verbose: bool = True,
         search: str = "gp",
