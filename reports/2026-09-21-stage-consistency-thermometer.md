@@ -94,13 +94,17 @@ That is why nₑ must be bounded. The amplitude objective is exactly flat in n�
 at fixed T, so a bound costs no data fidelity. When an H-alpha Stark width is
 present its bounds already apply (scan9x9: the search then lands at 10.2 kK).
 Otherwise the pipeline now bounds the search by the default prior
-(`NE_PRIOR_DEFAULT = (17.0, 0.5)` dex, ± `NE_PRIOR_BOUND_SIGMAS = 2`, i.e.
-log nₑ 16–18, typical LIBS plasmas in the emission window); the QC
-`electron-density-at-bound` flag tests the bounds actually used
-(`analysis["ne_bounds"]`, source `"halpha"` or `"prior"`). Read off the
-surfaces, the expected states inside those bounds are: Ca/Mg synthetic →
-(10 000, 17) (the truth); silicate synthetic → (8 500, 16) over the truth by
-0.1 %; `user_spec1` → (7 000, 16); REE_44 → (10 000, 18).
+(`NE_PRIOR_DEFAULT = (17.0, 0.5)` dex, ± `NE_PRIOR_BOUND_SIGMAS = 1`, i.e.
+log nₑ 16.5–17.5); the QC `electron-density-at-bound` flag tests the bounds
+actually used (`analysis["ne_bounds"]`, source `"halpha"` or `"prior"`).
+The width was set on the synthetic scenes (grid search): with a 2σ box
+(16–18) the Ca/Mg scene settled at its low edge, 8242 K / 16.06, Mg 0.53 /
+Ca 0.47 (wrong dominant), and the feldspar scene at 9703 K with r² 0.67;
+with the 1σ box they give 8908 K / 16.50, Ca 0.52 / Mg 0.48 and 9242 K
+with r² 0.85. Because the data leans cold along the ridge the search sits
+at the low edge of whatever box it is given, so results without an H-alpha
+line will usually carry the at-bound flag; that is an honest statement
+that nₑ is prior-limited there.
 
 ## 4. Pipeline results
 
