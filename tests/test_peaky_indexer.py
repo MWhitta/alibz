@@ -648,3 +648,83 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPrefilterTemperatureLadder(unittest.TestCase):
+    """The candidate prefilters must not depend on the warm-start T.
+
+    Measured failure (2026-09-20, scan9x9 / REE_44): pass 1 railed to the
+    4000 K floor; pass 2 warm-started there pruned every ion-stage species
+    (Ca II) from its candidate table and could not explain the strongest
+    lines in the spectrum (r^2 0.97 -> 0.24).  A species negligible at the
+    init state but strong at another ladder temperature must survive.
+    """
+
+    def _indexer(self, weights_by_T):
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]),
+                           temperature_init=4_000.0)
+        idx._shift_tolerance = 0.1
+        idx.line_table = _FakeLineTable(
+            [
+                Species("Ca", 1, 20, 1.0, 0, 1),
+                Species("Ca", 2, 20, 1.0, 1, 2),
+            ],
+            wavelengths=[500.0, 500.02],
+            species_idx=[0, 1],
+        )
+        idx.peak_line_map = scipy.sparse.csr_matrix(
+            ([1.0, 1.0], ([0, 0], [0, 1])),
+            shape=(1, 2),
+        )
+        idx._line_weights = lambda T, _log_ne: np.asarray(weights_by_T(T), float)
+        return idx
+
+    @staticmethod
+    def _saha_like(T):
+        # neutral dominates cold, ion dominates hot
+        return [1.0, 1e-6] if T < 6_000.0 else [1e-6, 1.0]
+
+    def test_ion_stage_survives_cold_warm_start_with_ladder(self):
+        idx = self._indexer(self._saha_like)
+        idx._prefilter_temperatures = (4_000.0, 10_000.0)
+        idx._prefilter_species_by_initial_strength(1e-3)
+        self.assertEqual(idx.line_table.n_species, 2)
+
+    def test_ion_stage_dropped_without_ladder(self):
+        idx = self._indexer(self._saha_like)
+        idx._prefilter_temperatures = (4_000.0,)
+        idx._prefilter_species_by_initial_strength(1e-3)
+        self.assertEqual(idx.line_table.n_species, 1)
+        self.assertEqual(idx.line_table.species[0].ion, 1)
+
+    def test_line_evidence_prefilter_stays_at_init_state(self):
+        # the ladder must NOT widen the evidence prefilter (it would re-admit
+        # line-rich species; measured: synthetic Ca/Mg round trip -> Sn 0.98)
+        idx = self._indexer(self._saha_like)
+        idx._evidence_top_k = 20
+        idx._prefilter_temperatures = (4_000.0, 10_000.0)
+        calls = []
+        real = idx._species_evidence_keep_mask
+
+        def spy(evidence, require_net):
+            calls.append(require_net)
+            return real(evidence, require_net)
+        idx._species_evidence_keep_mask = spy
+        idx._prefilter_species_by_line_evidence(4_000.0, 17.0)
+        self.assertEqual(len(calls), 1)
+
+    def test_default_ladder_is_the_default_init_state_only(self):
+        from alibz.peaky_indexer_v3 import PREFILTER_TEMPERATURES_K
+        # wider ladders re-admit line-rich species (synthetic round trip
+        # collapsed onto Sn); the hedge is the default init state only
+        self.assertEqual(tuple(PREFILTER_TEMPERATURES_K), (10_000.0,))
+
+
+class TestWarmStartTemperatureGuard(unittest.TestCase):
+    def test_railed_temperature_falls_back_to_default(self):
+        from alibz.pipeline import _warm_start_temperature, PLASMA_T_BOUNDS
+        self.assertEqual(_warm_start_temperature(PLASMA_T_BOUNDS[0]), 10_000.0)
+        self.assertEqual(_warm_start_temperature(PLASMA_T_BOUNDS[0] + 0.5), 10_000.0)
+        self.assertEqual(_warm_start_temperature(PLASMA_T_BOUNDS[1]), 10_000.0)
+        self.assertEqual(_warm_start_temperature(float("nan")), 10_000.0)
+        self.assertEqual(_warm_start_temperature(8_765.0), 8_765.0)

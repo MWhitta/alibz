@@ -232,6 +232,27 @@ class AnalysisConfig:
         return None if seq is None else tuple(float(v) for v in seq)
 
 
+
+def _warm_start_temperature(temperature: float,
+                            bounds: Tuple[float, float] = PLASMA_T_BOUNDS,
+                            default: float = 10_000.0) -> float:
+    """Temperature to warm-start the next indexer pass from.
+
+    A pass whose fitted temperature sits ON a search bound has not
+    measured T (measured: the cold pass-1 GP rails to the 4000 K floor in
+    the wide-kernel degenerate basin on single-shot spectra).  Handing
+    that value to the next pass as ``temperature_init`` used to prune the
+    ion-stage species from its candidate table (see
+    ``PREFILTER_TEMPERATURES_K``); the prefilters are now ladder-robust,
+    but the pseudo-observation selection, Stark assignments and doublet
+    anchoring still evaluate at the init state, so a railed T is replaced
+    by the default here.
+    """
+    t = float(temperature)
+    if not np.isfinite(t) or t <= bounds[0] + 1.0 or t >= bounds[1] - 1.0:
+        return float(default)
+    return t
+
 def composition_collapsed(fr_before: dict, fr_after: dict) -> bool:
     """Basin-guard criterion for the corroborated (pass-3) re-index.
 
@@ -653,7 +674,8 @@ def analyze_spectrum(
                               amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
                               weighted_solve=bool(weighted_solve),
                               ne_prior=ne_prior,
-                              temperature_init=res1.temperature,
+                              temperature_init=_warm_start_temperature(
+                                  res1.temperature),
                               ne_init=res1.ne)
         res2 = idx2.run(**run_kwargs)
 

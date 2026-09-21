@@ -19,7 +19,7 @@ import scipy.sparse
 from scipy.optimize import nnls
 from scipy.special import voigt_profile as voigt
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from alibz.utils.database import Database
 from alibz.utils.voigt import voigt_width as _voigt_width
@@ -65,6 +65,24 @@ _COL_EK = 5
 _COL_GI = 12
 _COL_GK = 13
 
+
+#: Extra temperatures (K) at which the initial-STRENGTH candidate prefilter
+#: (Saha-Boltzmann population) is evaluated in addition to the caller's
+#: ``temperature_init``; a species is KEPT if it passes at ANY of them.  The
+#: prefilter used to run at the single warm-start state: when a previous
+#: pass had railed to the 4000 K floor, every ion-stage species (Ca II,
+#: Sr II, ...) had a negligible Saha population there and was pruned from
+#: the design before the optimiser ran -- the pass then could not explain
+#: the strongest lines in the spectrum (measured: Ca II H&K = 81 % of the
+#: pass-2 residual, r^2 0.97 -> 0.24 on scan9x9, 0.74 -> 0.05 on REE_44).
+#: Hedging with the default 10,000 K state keeps the ion stages in the
+#: design under a cold warm start while leaving a cold start unchanged.
+#: A wider ladder (5-20 kK) was tried and rejected: it re-admits line-rich
+#: species that pass the relative-strength test at some temperature and the
+#: unweighted amplitude objective then collapses onto them (synthetic Ca/Mg
+#: round trip -> Sn 0.98).  The line-EVIDENCE prefilter stays at the init
+#: state (see its docstring).
+PREFILTER_TEMPERATURES_K = (10_000.0,)
 
 class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
@@ -576,6 +594,7 @@ class PeakyIndexerV3:
         evidence_missing_count_weight: float = 0.1,
         evidence_min_net: float = 0.0,
         evidence_max_refits: int = 2,
+        prefilter_temperatures: Optional[Sequence[float]] = None,
         stark_width_weight: float = 0.0,
         stark_c4: float = 1e-4,
         stark_log_ne_ref: float = 17.0,
@@ -650,6 +669,9 @@ class PeakyIndexerV3:
         )
 
         self.peak_line_map = self._build_observed_overlap_map()
+        ladder = (PREFILTER_TEMPERATURES_K if prefilter_temperatures is None
+                  else tuple(float(t) for t in prefilter_temperatures))
+        self._prefilter_temperatures = tuple(sorted(set(ladder) | {float(self.T_init)}))
         self._prefilter_species_by_initial_strength(self._init_relative_intensity)
         self._prefilter_species_by_line_evidence(self.T_init, self.ne_init)
         self._select_pseudo_wavelengths(self.T_init, self.ne_init)
@@ -807,22 +829,26 @@ class PeakyIndexerV3:
         if lt is None or lt.n_species == 0:
             return
 
-        init_weights = self._line_weights(self.T_init, self.ne_init)
-        A_init = self._build_design_matrix_from_map(self.peak_line_map, init_weights)
-        if A_init.size == 0:
+        # Union of the per-temperature keep masks over the prefilter ladder
+        # (see PREFILTER_TEMPERATURES_K): a species negligible at the
+        # warm-start temperature but strong at another plausible one must
+        # stay in the design -- the optimiser, not the prefilter, decides T.
+        keep_mask = None
+        for T in getattr(self, "_prefilter_temperatures", (self.T_init,)):
+            init_weights = self._line_weights(T, self.ne_init)
+            A_init = self._build_design_matrix_from_map(self.peak_line_map, init_weights)
+            if A_init.size == 0:
+                return
+            species_signal = np.max(A_init, axis=0)
+            km = species_signal > 0
+            if np.any(km) and min_relative_intensity > 0:
+                max_signal = float(np.max(species_signal[km]))
+                km &= species_signal >= max_signal * min_relative_intensity
+                if not np.any(km):
+                    km[int(np.argmax(species_signal))] = True
+            keep_mask = km if keep_mask is None else (keep_mask | km)
+        if keep_mask is None or np.all(keep_mask):
             return
-
-        species_signal = np.max(A_init, axis=0)
-        keep_mask = species_signal > 0
-        if np.any(keep_mask) and min_relative_intensity > 0:
-            max_signal = float(np.max(species_signal[keep_mask]))
-            keep_mask &= species_signal >= max_signal * min_relative_intensity
-            if not np.any(keep_mask):
-                keep_mask[int(np.argmax(species_signal))] = True
-
-        if np.all(keep_mask):
-            return
-
         lt.filter_species(keep_mask)
         self.peak_line_map = self._build_observed_overlap_map()
 
@@ -961,6 +987,15 @@ class PeakyIndexerV3:
         if lt is None or lt.n_species == 0 or self._evidence_top_k <= 0:
             return
 
+        # Evaluated at the (guarded) init state only.  The temperature
+        # ladder is deliberately NOT applied here: a union over
+        # temperatures re-admits line-rich species that pass the
+        # multi-line support test at some temperature (measured: the
+        # synthetic Ca/Mg round trip then collapses onto Sn = 0.98), and the
+        # unweighted amplitude objective cannot reject them afterwards.
+        # Ion-stage survival under a cold warm start is handled by the
+        # ladder in ``_prefilter_species_by_initial_strength`` (Saha
+        # population), which is the prefilter that pruned Ca II.
         evidence = self._species_line_evidence(self._line_weights(temperature, log_ne))
         keep_mask = self._species_evidence_keep_mask(evidence, require_net=False)
         if np.all(keep_mask):
