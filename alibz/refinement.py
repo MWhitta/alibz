@@ -31,6 +31,7 @@ knowledge only with a large margin.
 
 from typing import List, Optional, Tuple
 
+import os
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.special import voigt_profile as _voigt
@@ -448,6 +449,38 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
 # Driver
 # ---------------------------------------------------------------------------
 
+def _refine_workers() -> int:
+    """Worker processes for the feature classification (``ALIBZ_WORKERS``).
+
+    The S/A/B classification of each ambiguous feature is a set of local
+    least-squares fits that depend only on the fixed first-pass table, so
+    features can be classified in parallel and the verdicts applied in
+    order afterwards (see ``refine_fit``).  Default 1 keeps the historical
+    sequential path; the Moissanite worker sets 8 (its cores are ~5x
+    slower than a laptop's and the two refinement passes were 42 s of a
+    124 s run).
+    """
+    try:
+        n = int(os.environ.get("ALIBZ_WORKERS", "1"))
+    except ValueError:
+        n = 1
+    return max(1, n)
+
+
+_PAR_CTX: dict = {}
+
+
+def _classify_job(indices, absorbed):
+    """Classify one feature from the forked module context (see refine_fit)."""
+    c = _PAR_CTX
+    own_idx = list(indices) + list(absorbed)
+    own = _multi_voigt(c["x"], np.ravel(c["peaks"][own_idx, :4]))
+    return classify_feature(c["x"], c["y_bgsub"], c["peaks"], indices, c["noise"],
+                            db=c["db"], elements=c["elements"], shift_nm=c["shift_nm"],
+                            model_others=c["model_total"] - own,
+                            extra_area=float(c["peaks"][list(absorbed), 0].sum()))
+
+
 def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
                snr_min=4.0, segment_edges=None,
                s2_action_max=50.0,
@@ -544,10 +577,8 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
 
     decisions = []
     drop, add = set(), []
-    for kind, indices in _feature_candidates(
-            x, y_bgsub, peaks, model_total, noise, snr_min=snr_min):
-        if any(int(i) in drop for i in indices):
-            continue  # consumed by an earlier feature's absorption
+
+    def _absorbed_for(indices, dropped):
         sub = peaks[list(indices)]
         mu0, _, span = _feature_window(sub)
         feat_area = float(np.sum(sub[:, 0]))
@@ -555,14 +586,57 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
                   & (fwhm_all > 1.5 * wmed)
                   & (peaks[:, 0] <= 0.25 * feat_area))
         absorb[list(indices)] = False
-        absorb[[k for k in np.flatnonzero(absorb) if int(k) in drop]] = False
-        absorbed = [int(k) for k in np.flatnonzero(absorb)]
-        own_idx = list(indices) + absorbed
-        own = _multi_voigt(x, np.ravel(peaks[own_idx, :4]))
-        dec = classify_feature(x, y_bgsub, peaks, indices, noise,
-                               db=db, elements=elements, shift_nm=shift_nm,
-                               model_others=model_total - own,
-                               extra_area=float(peaks[absorbed, 0].sum()))
+        absorb[[k for k in np.flatnonzero(absorb) if int(k) in dropped]] = False
+        return [int(k) for k in np.flatnonzero(absorb)]
+
+    features = list(_feature_candidates(
+        x, y_bgsub, peaks, model_total, noise, snr_min=snr_min))
+
+    # Parallel pre-classification (ALIBZ_WORKERS > 1): every feature is
+    # classified against the FIRST-PASS table with nothing yet dropped.
+    # The verdicts are then applied in order below; a feature whose
+    # absorbed set changed because an earlier verdict dropped a component
+    # is re-classified sequentially, so the result is identical to the
+    # sequential path.
+    pre = {}
+    n_workers = _refine_workers()
+    if n_workers > 1 and len(features) > 1:
+        try:
+            import multiprocessing
+            from concurrent.futures import ProcessPoolExecutor
+            ctx = multiprocessing.get_context("fork")
+        except (ValueError, ImportError):
+            ctx = None
+        if ctx is not None:
+            _PAR_CTX.update(x=x, y_bgsub=y_bgsub, peaks=peaks, noise=noise,
+                            model_total=model_total, db=db, elements=elements,
+                            shift_nm=shift_nm)
+            jobs = [(fi, tuple(int(i) for i in idx), tuple(_absorbed_for(idx, set())))
+                    for fi, (_kind, idx) in enumerate(features)]
+            try:
+                with ProcessPoolExecutor(max_workers=min(n_workers, len(jobs)),
+                                         mp_context=ctx) as ex:
+                    futs = {ex.submit(_classify_job, idx, absd): (fi, absd)
+                            for fi, idx, absd in jobs}
+                    for fut, (fi, absd) in futs.items():
+                        pre[fi] = (absd, fut.result())
+            finally:
+                _PAR_CTX.clear()
+
+    for fi, (kind, indices) in enumerate(features):
+        if any(int(i) in drop for i in indices):
+            continue  # consumed by an earlier feature's absorption
+        absorbed = _absorbed_for(indices, drop)
+        cached = pre.get(fi)
+        if cached is not None and tuple(absorbed) == tuple(cached[0]):
+            dec = cached[1]
+        else:
+            own_idx = list(indices) + absorbed
+            own = _multi_voigt(x, np.ravel(peaks[own_idx, :4]))
+            dec = classify_feature(x, y_bgsub, peaks, indices, noise,
+                                   db=db, elements=elements, shift_nm=shift_nm,
+                                   model_others=model_total - own,
+                                   extra_area=float(peaks[absorbed, 0].sum()))
         if dec is None:
             continue
         dec["kind"] = kind

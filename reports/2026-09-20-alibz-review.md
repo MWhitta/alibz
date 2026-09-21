@@ -424,7 +424,27 @@ Full pipeline, final defaults (before the budget trim):
 | REE_01 | C 0.99 | Si 0.60 / Al 0.31 / Na 0.03 / K 0.03 | 5349 | −0.33 | fail (r²) |
 
 The synthetic round-trip tests pass (0 failures); the physics-integration
-and indexer unit tests pass. Still open: the amplitude objective remains
+and indexer unit tests pass.
+
+**Runtime (2026-09-21).** Per-stage telemetry on the two spectra (laptop;
+Moissanite's Xeon Gold 6226R is ~5× slower per core, 177 s vs 35 s on the
+same spectrum, independent of BLAS threads):
+
+| stage | scan9x9 before | after budget trim + candidate cap | + 8 refinement workers |
+|---|---:|---:|---:|
+| refine_data + refine_physics | 25.0 + 15.7 s | 25.9 + 15.7 s | 4.3 + ~2 s |
+| deepen_seed + deepen_recover | 47.7 + 11.5 s | 32.7 + 11.3 s | 33.0 + 11.4 s |
+| outer_search (2 passes) | 8.3 s | 8.5 s | 8.2 s |
+| total | 124 s | 110 s | 76 s |
+| Profile Builder export, total | 57 s | 40 s | 31 s |
+
+`refine_fit` now classifies its ambiguous features in `ALIBZ_WORKERS`
+forked processes and applies the verdicts in order (re-classifying
+sequentially only when an earlier verdict changed a feature's absorbed
+set), so results are identical to the sequential path; the Moissanite
+worker unit sets 8. The deepening seeds are the remaining sequential cost
+(the minor-line candidate loop carries state between acceptances) and are
+the next target. Still open: the amplitude objective remains
 nearly flat in T, so T (and with it the Si/K split on the feldspar-like
 spectrum, Si 0.66 at 6.8 kK vs K 0.69 at 9 kK) is weakly determined; the
 stage-consistency thermometer (minimum disagreement at 9–10 kK on that
