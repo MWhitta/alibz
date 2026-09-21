@@ -728,3 +728,122 @@ class TestWarmStartTemperatureGuard(unittest.TestCase):
         self.assertEqual(_warm_start_temperature(PLASMA_T_BOUNDS[1]), 10_000.0)
         self.assertEqual(_warm_start_temperature(float("nan")), 10_000.0)
         self.assertEqual(_warm_start_temperature(8_765.0), 8_765.0)
+
+
+class TestStageConsistencyThermometer(unittest.TestCase):
+    """The stage-tie cost charges the misfit of tying an element's ion
+    stages, in data-misfit units, and only enters the OUTER search.
+
+    Mechanism (2026-09-21): with independent per-stage unknowns the
+    amplitude objective is nearly flat in (T, ne) -- the Saha fractions
+    only scale columns a free concentration absorbs.  At the true state the
+    stage estimates agree, so the extra misfit of tying them is ~0; at a
+    wrong state it is the misfit the data would pay for the Saha ratio.
+    """
+
+    def _indexer(self):
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05],
+                                     [1.0, 510.0, 0.05, 0.05],
+                                     [1.0, 520.0, 0.05, 0.05]]))
+        idx.line_table = _FakeLineTable(
+            [Species("Fe", 1, 26, 1.0, 0, 1),
+             Species("Fe", 2, 26, 1.0, 1, 2),
+             Species("Na", 1, 11, 1.0, 2, 3)],
+            wavelengths=[500.0, 510.0, 520.0], species_idx=[0, 1, 2])
+        idx._amp_sigma = None
+        return idx
+
+    def test_consistent_stages_cost_nothing(self):
+        idx = self._indexer()
+        # Fe I / Fe II on disjoint peaks; both stages estimate density 2
+        A = np.array([[1.0, 0.0, 0.0],
+                      [0.0, 3.0, 0.0],
+                      [0.0, 0.0, 5.0]])
+        idx._obs_amp = np.array([2.0, 6.0, 5.0])
+        c = np.array([2.0, 2.0, 1.0])
+        total, per = idx._stage_tie_cost(c, A)
+        self.assertAlmostEqual(total, 0.0)
+        self.assertAlmostEqual(per["Fe"], 0.0)
+        self.assertNotIn("Na", per)      # single stage: nothing to tie
+
+    def test_inconsistent_stages_pay_the_tied_misfit(self):
+        idx = self._indexer()
+        A = np.array([[1.0, 0.0, 0.0],
+                      [0.0, 3.0, 0.0],
+                      [0.0, 0.0, 5.0]])
+        # free stage estimates 2 (Fe I) and 1 (Fe II) -- wrong Saha ratio
+        idx._obs_amp = np.array([2.0, 3.0, 5.0])
+        c = np.array([2.0, 1.0, 1.0])
+        total, per = idx._stage_tie_cost(c, A)
+        # tied 1-D estimate (1*2 + 3*3)/(1 + 9) = 1.1; residual (2-1.1)^2 +
+        # (3-3.3)^2 = 0.81 + 0.09 = 0.9 against a free misfit of 0
+        self.assertAlmostEqual(per["Fe"], 0.9)
+        self.assertAlmostEqual(total, 0.9)
+
+    def test_gated_stage_still_votes_through_the_ungated_columns(self):
+        idx = self._indexer()
+        # Fe II column zeroed by the relative-emissivity gate at this (cold)
+        # trial state, but its line IS observed (peak 1, 3 counts) and the
+        # ungated column predicts it with a tiny emissivity
+        A = np.array([[1.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 5.0]])
+        A_all = np.array([[1.0, 0.0, 0.0],
+                          [0.0, 1e-6, 0.0],
+                          [0.0, 0.0, 5.0]])
+        idx._obs_amp = np.array([2.0, 3.0, 5.0])
+        c = np.array([2.0, 0.0, 1.0])
+        # without the ungated columns the thermometer is silent by absence
+        total, per = idx._stage_tie_cost(c, A)
+        self.assertEqual(total, 0.0)
+        self.assertEqual(per, {})
+        # with them: the free per-stage fit explains the ion line (huge
+        # density on the tiny column), the tied fit cannot -> 3^2 charged
+        total, per = idx._stage_tie_cost(c, A, A_all=A_all)
+        self.assertAlmostEqual(per["Fe"], 9.0, places=4)
+        self.assertAlmostEqual(total, 9.0, places=4)
+
+    def test_unsupported_stage_does_not_vote(self):
+        idx = self._indexer()
+        # Fe II has no observed line at all (all-zero column everywhere)
+        A = np.array([[1.0, 0.0, 0.0],
+                      [0.0, 0.0, 0.0],
+                      [0.0, 0.0, 5.0]])
+        idx._obs_amp = np.array([2.0, 3.0, 5.0])
+        c = np.array([2.0, 0.0, 1.0])
+        total, per = idx._stage_tie_cost(c, A, A_all=A)
+        self.assertEqual(total, 0.0)
+        self.assertEqual(per, {})
+
+    def test_blended_stages_use_the_others_removed_residual(self):
+        idx = self._indexer()
+        # Fe I and Na share peak 0; the Fe residual must exclude Na's fit
+        A = np.array([[1.0, 0.0, 4.0],
+                      [0.0, 3.0, 0.0],
+                      [0.0, 0.0, 5.0]])
+        idx._obs_amp = np.array([6.0, 6.0, 5.0])
+        c = np.array([2.0, 2.0, 1.0])       # exact fit, consistent stages
+        total, _per = idx._stage_tie_cost(c, A)
+        self.assertAlmostEqual(total, 0.0)
+
+    def test_weight_zero_leaves_outer_objective_unchanged(self):
+        idx = self._indexer()
+        idx._stage_consistency_weight = 0.0
+        idx._last_A = np.array([[1.0, 0.0, 0.0], [0.0, 3.0, 0.0],
+                                [0.0, 0.0, 5.0]])
+        idx._obs_amp = np.array([2.0, 3.0, 5.0])
+        self.assertEqual(idx._stage_consistency_cost(np.array([2.0, 1.0, 1.0])),
+                         0.0)
+        idx._stage_consistency_weight = 1.0
+        self.assertAlmostEqual(
+            idx._stage_consistency_cost(np.array([2.0, 1.0, 1.0])), 0.9)
+
+    def test_default_weight_is_unity_and_threaded_through_the_pipeline(self):
+        from alibz.peaky_indexer_v3 import STAGE_CONSISTENCY_WEIGHT
+        from alibz.pipeline import AnalysisConfig
+        self.assertEqual(STAGE_CONSISTENCY_WEIGHT, 1.0)
+        self.assertEqual(AnalysisConfig(dbpath="db").stage_consistency_weight,
+                         1.0)
+        idx = PeakyIndexer(np.array([[1.0, 500.0, 0.05, 0.05]]),
+                           stage_consistency_weight=0.5)
+        self.assertEqual(idx._stage_consistency_weight, 0.5)

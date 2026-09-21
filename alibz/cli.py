@@ -17,6 +17,7 @@ from alibz.pipeline import (
     DEFAULT_PATTERN,
     DEFAULT_SEARCH,
     DEFAULT_STIMULATED_EMISSION,
+    STAGE_CONSISTENCY_WEIGHT,
     DEFAULT_TIMEOUT_S,
     DETECTIONS_NAME,
     analyze_directory,
@@ -99,6 +100,13 @@ def main(argv=None) -> int:
                         "objective). Accurate at the true plasma state but "
                         "inverts the Ca/Mg ratio on the synthetic round "
                         "trip (2026-09-21); off by default.")
+    p.add_argument("--stage-consistency-weight", type=float,
+                   default=STAGE_CONSISTENCY_WEIGHT,
+                   help="weight of the stage-consistency thermometer in "
+                        "the plasma-state search: the extra misfit of "
+                        "tying each element's ion stages (Saha ratio), in "
+                        "data-misfit units; 0 disables it "
+                        f"(default {STAGE_CONSISTENCY_WEIGHT})")
     p.add_argument("--no-provenance", action="store_true",
                    help="skip writing run_manifest.json (git state, config "
                         "snapshot, input hashes)")
@@ -127,6 +135,7 @@ def main(argv=None) -> int:
         stimulated_emission=args.stimulated_emission,
         search=args.search, gp_seed=args.gp_seed,
         weighted_solve=args.weighted_solve,
+        stage_consistency_weight=args.stage_consistency_weight,
         provenance=not args.no_provenance,
         strict_provenance=args.strict_provenance,
         exclude=(args.out, DETECTIONS_NAME),

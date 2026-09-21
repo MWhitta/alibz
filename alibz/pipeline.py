@@ -126,6 +126,7 @@ from alibz.detections import (  # noqa: F401
     resolve_confounded,
 )
 from alibz import telemetry
+from alibz.peaky_indexer_v3 import STAGE_CONSISTENCY_WEIGHT
 
 DEFAULT_PATTERN = "*.csv"
 DEFAULT_N_CALLS = 40
@@ -185,10 +186,35 @@ FIT_R2_FAIL = 0.30
 FIT_R2_WARN = 0.50
 PLASMA_T_BOUNDS = (4000.0, 25000.0)
 PLASMA_LOG_NE_BOUNDS = (14.0, 19.0)
+#: Default log10(ne) prior (centre, sigma in dex) when no H-alpha Stark
+#: width is available.  The plasma-state search is bounded to +/-
+#: NE_PRIOR_BOUND_SIGMAS of it: the amplitude objective is exactly FLAT
+#: in ne at fixed T (identical costs from 1e14 to 1e18 on every spectrum
+#: scanned 2026-09-21), so the bound costs no data fidelity, while the
+#: stage-consistency thermometer sees ne only through the Saha (T, ne)
+#: degeneracy ridge -- unbounded, it slid to the cold end of that ridge at
+#: ne ~ 1e15 (7 kK on the 10 kK synthetic scenes).  Typical LIBS plasmas
+#: in the emission window are 1e16-1e18 cm^-3.  The bound is +/- 1 sigma
+#: (log ne 16.5-17.5): two-element thermometry separates T from ne only
+#: weakly along the ridge and the amplitude data leans cold, so the
+#: search sits at the LOW edge of whatever box it is given; measured on
+#: the synthetic scenes (grid search, 2026-09-21) the 1-sigma box gives
+#: Ca 0.52 / Mg 0.48 at 8.9 kK (truth 0.6 / 0.4, 10 kK) where the
+#: 2-sigma box gave Mg 0.53 / Ca 0.47 at 8.2 kK, and the feldspar scene
+#: 9.2 kK / r2 0.85 against 9.7 kK / r2 0.67.  A result at the edge is
+#: flagged ``electron-density-at-bound`` (the bounds actually searched).
+NE_PRIOR_DEFAULT = (17.0, 0.5)
+NE_PRIOR_BOUND_SIGMAS = 1.0
 #: outer search mode for the indexer passes ("gp" or "grid"); the value is
 #: an opaque string validated inside the engine (PeakyIndexerV3.fit), so
-#: new engines/modes need no pipeline change.
-DEFAULT_SEARCH = "gp"
+#: new engines/modes need no pipeline change.  "grid" (a 15 x 7 profile
+#: scan over (T, log ne) seeding the GP) became the default with the
+#: stage-consistency thermometer (2026-09-21): the objective now has a
+#: narrow valley along the Saha (T, ne) ridge that the cold-start GP
+#: missed on every spectrum tested (synthetic Ca/Mg: 13.4 kK / 16.2
+#: against the 10 kK / 17.0 truth; the grid seeds land on the ridge), at
+#: a lower total cost on all five real samples and ~6 s more per pass.
+DEFAULT_SEARCH = "grid"
 #: seed for the GP optimiser; exposed so the sensitivity harness can
 #: measure (and regress) seed dependence of the composition.
 DEFAULT_GP_SEED = 42
@@ -223,6 +249,8 @@ class AnalysisConfig:
     #: true plasma state but its chi-squared still misranks T; off until
     #: that bias is resolved against suite S.
     weighted_solve: bool = False
+    #: stage-consistency thermometer weight (PeakyIndexerV3._stage_tie_cost)
+    stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT
     segment_response_fallback_ratio: Optional[float] = None
     segment_response_fallback_source: Optional[str] = None
     segment_response_fallback_uncertainty: Optional[float] = None
@@ -374,6 +402,7 @@ def analyze_spectrum(
     search: str = DEFAULT_SEARCH,
     gp_seed: int = DEFAULT_GP_SEED,
     weighted_solve: bool = False,
+    stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
     segment_response_fallback_uncertainty: Optional[float] = None,
@@ -487,18 +516,30 @@ def analyze_spectrum(
     # composition is not (Saha-carrying aggregation), so in weighted mode
     # this prior — not an arbitrary optimiser pick — must set ne.
     ne_prior = ((float(ne_init), 0.15) if ne_init is not None
-                else (17.0, 0.5))
+                else NE_PRIOR_DEFAULT)
+    if ne_bounds is None:
+        # no H-alpha: bound the search by the default prior (see
+        # NE_PRIOR_DEFAULT) so the thermometer resolves T along the Saha
+        # ridge at a physical electron density
+        ne_bounds = (max(PLASMA_LOG_NE_BOUNDS[0],
+                         ne_prior[0] - NE_PRIOR_BOUND_SIGMAS * ne_prior[1]),
+                     min(PLASMA_LOG_NE_BOUNDS[1],
+                         ne_prior[0] + NE_PRIOR_BOUND_SIGMAS * ne_prior[1]))
+        ne_bounds_source = "prior"
+    else:
+        ne_bounds_source = "halpha"
     sb = _get_sb(dbpath)
     idx_kwargs = dict(dbpath=dbpath, db=db, sb=sb,
                       weighted_solve=bool(weighted_solve),
+                      stage_consistency_weight=float(stage_consistency_weight),
                       ne_prior=ne_prior)
     # amp_sigma_floor is attached after the noise scale is measured below
     run_kwargs = dict(sa_doublets=True, n_calls=n_calls, verbose=verbose,
                       sa_stimulated_emission=bool(stimulated_emission),
                       search=search, random_state=gp_seed)
-    if ne_init is not None:
-        idx_kwargs["ne_init"] = ne_init
-        run_kwargs["ne_bounds"] = ne_bounds
+    idx_kwargs["ne_init"] = (float(ne_init) if ne_init is not None
+                             else float(ne_prior[0]))
+    run_kwargs["ne_bounds"] = tuple(float(v) for v in ne_bounds)
 
     bg0 = np.asarray(fit.get("background", np.zeros_like(y)), dtype=float)
 
@@ -679,6 +720,8 @@ def analyze_spectrum(
                               amp_sigma_floor=_noise,
                               amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
                               weighted_solve=bool(weighted_solve),
+                              stage_consistency_weight=float(
+                                  stage_consistency_weight),
                               ne_prior=ne_prior,
                               temperature_init=_warm_start_temperature(
                                   res1.temperature),
@@ -783,6 +826,8 @@ def analyze_spectrum(
                         amp_sigma_floor=_noise,
                         amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
                         weighted_solve=bool(weighted_solve),
+                        stage_consistency_weight=float(
+                            stage_consistency_weight),
                         ne_prior=ne_prior,
                         temperature_init=res2.temperature, ne_init=res2.ne)
                     idxN.build_candidate_matrix(
@@ -875,6 +920,7 @@ def analyze_spectrum(
         segment_response_metadata=seg_response_meta,
         shift_prior_applied=shift_prior_applied,
         n_anchor=n_anchor, n_shift_anchor=n_shift_anchor, ne_init=ne_init,
+        ne_bounds=tuple(ne_bounds), ne_bounds_source=ne_bounds_source,
         result=result, established=established,
         element_uncertainty=det["element_uncertainty"],
         detections=det["detections"], support=det["support"],
@@ -958,8 +1004,9 @@ def _summary_row(path: str, analysis: dict) -> dict:
     if (res.temperature <= PLASMA_T_BOUNDS[0] + 1.0
             or res.temperature >= PLASMA_T_BOUNDS[1] - 1.0):
         qc_fail.append("temperature-at-bound")
-    if (res.ne <= PLASMA_LOG_NE_BOUNDS[0] + 0.01
-            or res.ne >= PLASMA_LOG_NE_BOUNDS[1] - 0.01):
+    ne_bounds = tuple(analysis.get("ne_bounds") or PLASMA_LOG_NE_BOUNDS)
+    if (res.ne <= ne_bounds[0] + 0.01
+            or res.ne >= ne_bounds[1] - 0.01):
         qc_fail.append("electron-density-at-bound")
     if max(fr.values(), default=0.0) >= COLLAPSE_TOP_FRACTION:
         qc_fail.append("composition-collapse")
@@ -1098,6 +1145,7 @@ def _analyze_file(job) -> dict:
                 search=cfg.search,
                 gp_seed=cfg.gp_seed,
                 weighted_solve=cfg.weighted_solve,
+                stage_consistency_weight=cfg.stage_consistency_weight,
                 segment_response_fallback_ratio=
                 cfg.segment_response_fallback_ratio,
                 segment_response_fallback_source=
@@ -1145,6 +1193,7 @@ def analyze_directory(
     search: str = DEFAULT_SEARCH,
     gp_seed: int = DEFAULT_GP_SEED,
     weighted_solve: bool = False,
+    stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
     segment_response_fallback_uncertainty: Optional[float] = None,
@@ -1192,6 +1241,7 @@ def analyze_directory(
         stimulated_emission=bool(stimulated_emission),
         search=search, gp_seed=gp_seed,
         weighted_solve=bool(weighted_solve),
+        stage_consistency_weight=float(stage_consistency_weight),
         segment_response_fallback_ratio=segment_response_fallback_ratio,
         segment_response_fallback_source=segment_response_fallback_source,
         segment_response_fallback_uncertainty=

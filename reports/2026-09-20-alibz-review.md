@@ -470,11 +470,14 @@ sequentially only when an earlier verdict changed a feature's absorbed
 set), so results are identical to the sequential path; the Moissanite
 worker unit sets 8. The deepening seeds are the remaining sequential cost
 (the minor-line candidate loop carries state between acceptances) and are
-the next target. Still open: the amplitude objective remains
-nearly flat in T, so T (and with it the Si/K split on the feldspar-like
-spectrum, Si 0.66 at 6.8 kK vs K 0.69 at 9 kK) is weakly determined; the
-stage-consistency thermometer (minimum disagreement at 9–10 kK on that
-spectrum) is the physics that should pick it, and is the next step.
+the next target. The flat-in-T amplitude objective (and with it the
+Si/K split on the feldspar-like spectrum, Si 0.66 at 6.8 kK vs K 0.69 at
+9 kK) is addressed by the stage-consistency thermometer, shipped
+2026-09-21 and documented in
+`reports/2026-09-21-stage-consistency-thermometer.md`: the outer search
+now charges the misfit of tying each element's ion stages (Saha ratio) in
+data units, the electron density is bounded by the H-alpha width or the
+1-sigma prior box, and the grid-seeded search is the default.
 
 ### 2.5 Physics-over-data gates that do not touch the residual (for completeness)
 

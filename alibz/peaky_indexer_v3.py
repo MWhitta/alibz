@@ -95,6 +95,14 @@ SINGLE_LINE_MIN_RELATIVE_INTENSITY = 0.05
 #: when set; 0 disables the gate, as it disables the init-state prefilter.
 RELATIVE_COLUMN_FLOOR = 1e-3
 
+#: Weight of the stage-consistency thermometer in the outer (T, nₑ)
+#: objective (see :meth:`PeakyIndexerV3._stage_tie_cost`).  1.0 charges the
+#: extra misfit of tying an element's ion stages in the SAME squared units
+#: as the data misfit, i.e. the Saha-Boltzmann stage ratio is trusted
+#: exactly as much as the observed amplitudes; 0 disables the thermometer
+#: (historical behaviour: T set by within-stage Boltzmann ratios only).
+STAGE_CONSISTENCY_WEIGHT = 1.0
+
 class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
 
@@ -437,8 +445,11 @@ class PeakyIndexerV3:
         amp_sigma_poisson_gain: float = 0.0,
         weighted_solve: bool = False,
         ne_prior: Optional[Tuple[float, float]] = None,
+        stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
     ):
         self.peak_array = np.asarray(peak_array, dtype=float)
+        # Stage-consistency thermometer weight (see _stage_tie_cost).
+        self._stage_consistency_weight = float(stage_consistency_weight)
         self.n_peaks = self.peak_array.shape[0]
         self.pca_scores = pca_scores
 
@@ -1618,6 +1629,10 @@ class PeakyIndexerV3:
         if line_weight_scale is not None:
             lw = lw * line_weight_scale
         A = self._build_design_matrix(lw)
+        # the UNGATED matrix: the stage-consistency thermometer needs every
+        # stage's predicted pattern, including the ones the relative gate
+        # below removes from the solve (see _stage_tie_cost)
+        self._last_A_all = A
         if A.size:
             # Per-trial relative emissivity gate: a species whose strongest
             # predicted contribution at THIS (T, ne) is below
@@ -1932,6 +1947,112 @@ class PeakyIndexerV3:
         self._last_detection_z = detection_z
         return element_concentrations, element_fractions, stage_disagreement
 
+    def _stage_tie_cost(
+        self,
+        concentrations: np.ndarray,
+        A: np.ndarray,
+        A_all: Optional[np.ndarray] = None,
+    ) -> Tuple[float, Dict[str, float]]:
+        """Stage-consistency thermometer: the cost of TYING ion stages.
+
+        The concentration solve keeps every (element, ion) column an
+        independent unknown, so each stage's lines estimate the element's
+        density on their own.  That makes the amplitude objective nearly
+        FLAT in the plasma state: the Saha stage fractions only scale the
+        columns, and a free per-stage concentration absorbs any scale, so
+        the search sees T only through within-stage Boltzmann ratios (weak
+        when the observed lines share similar upper levels) and nₑ hardly
+        at all.  Measured 2026-09-21: on a feldspar-like export the data
+        cost differs by <2% between 6 and 10 kK while the Si/K split flips;
+        on the synthetic Ca/Mg scene (truth 10 kK, log nₑ 17) it differs by
+        0.6% between 7 and 10 kK.
+
+        At the TRUE (T, nₑ) the independent stage estimates of one element
+        agree (they measure the same nuclei density through the Saha
+        fractions built into the columns); at a wrong state they do not.
+        This method charges that disagreement in the SAME squared units as
+        the data misfit.  For each element with >= 2 stages that have
+        observed support it takes the element's own residual (observations
+        minus every other species' fitted contribution) and fits it twice:
+        FREE, one non-negative density per stage, and TIED, one density
+        through the summed stage columns (the estimate
+        :meth:`_aggregate_elements` reports).  It returns
+        ``sum_el max(0, misfit_tied - misfit_free)`` -- exactly the misfit
+        the data would pay if the Saha ratios were enforced, so a weight of
+        1 trusts the physics as much as the data and no more.  Measured on
+        the synthetic Ca/Mg scene: 360 at the truth node against 3.7e3 at
+        the nearest point of the Saha (T, nₑ) degeneracy ridge and 2e6 at
+        the state the amplitude objective alone had chosen (7 kK, 17.25).
+
+        ``A_all`` is the design matrix BEFORE the per-trial relative
+        emissivity gate (``_last_A_all``).  The free fit uses it so a stage
+        the gate removed from the global solve still votes: at a cold trial
+        state the ion column is tiny, the free fit can only explain the
+        observed ion lines with an enormous ion density, and the tied fit
+        cannot explain them at all -- that difference is the charge.
+        Without it the thermometer went SILENT wherever a stage was gated
+        out (tie = 0 by absence) and pushed one spectrum to the 4000 K
+        floor (REE_01, 2026-09-21).  Stages with no observed support
+        (all-zero column) carry no measurement and do not vote.
+
+        The reported composition is NOT tied: the free global solve (with
+        its ``stage_disagreement`` diagnostic, the phase-heterogeneity
+        proxy) is unchanged.  The thermometer only enters the outer search
+        over (T, nₑ, σ, γ), where it picks the state at which the whole set
+        of elements is most nearly consistent with a single plasma; the
+        per-element terms are exposed for the report.
+        """
+        concentrations = np.asarray(concentrations, dtype=float)
+        A = np.asarray(A, dtype=float)
+        if A.size == 0 or concentrations.size == 0:
+            return 0.0, {}
+        A_all = A if A_all is None else np.asarray(A_all, dtype=float)
+        if A_all.shape != A.shape:
+            A_all = A
+        col_max = np.max(A_all, axis=0)
+        predicted_total = A @ concentrations
+        obs = np.asarray(self._obs_amp, dtype=float)
+        sigma_eff = self._sigma_eff()
+        w = None if sigma_eff is None else 1.0 / sigma_eff
+
+        by_element: Dict[str, List[int]] = {}
+        for s_idx, sp in enumerate(self.line_table.species):
+            by_element.setdefault(sp.element, []).append(s_idx)
+
+        per_element: Dict[str, float] = {}
+        total = 0.0
+        for element, s_indices in by_element.items():
+            supported = [s for s in s_indices if col_max[s] > 1e-30]
+            if len(supported) < 2:
+                continue
+            c_st = concentrations[supported]
+            if not np.any(c_st > 0.0):
+                continue
+            a_st = A_all[:, supported]
+            own = A[:, supported] @ c_st
+            r_el = obs - (predicted_total - own)
+            a_tied = np.sum(a_st, axis=1)
+            if w is not None:
+                r_el = r_el * w
+                a_st = a_st * w[:, np.newaxis]
+                a_tied = a_tied * w
+            denom = float(np.dot(a_tied, a_tied))
+            if denom <= 0.0:
+                continue
+            c_el = max(0.0, float(np.dot(a_tied, r_el) / denom))
+            misfit_tied = float(np.sum((r_el - a_tied * c_el) ** 2))
+            # free per-stage fit on the same residual (columns normalised
+            # so a gated stage's tiny emissivity is a scale, not a
+            # conditioning problem)
+            scale = np.max(a_st, axis=0)
+            c_free, _res = nnls(a_st / scale[np.newaxis, :], r_el)
+            misfit_free = float(np.sum(
+                (r_el - (a_st / scale[np.newaxis, :]) @ c_free) ** 2))
+            d = max(misfit_tied - misfit_free, 0.0)
+            per_element[element] = d
+            total += d
+        return float(total), per_element
+
     def _prune_and_refit(
         self,
         temperature: float,
@@ -2050,10 +2171,20 @@ class PeakyIndexerV3:
         telemetry.count("outer_objective_evals")
         self._rebuild_overlap(sigma, gamma)
 
-        _, cost = self._solve_concentrations(T, log_ne)
+        c, cost = self._solve_concentrations(T, log_ne)
         cost += self._width_cost(log_ne)
         cost += self._ne_prior_cost(log_ne)
+        cost += self._stage_consistency_cost(c)
         return cost
+
+    def _stage_consistency_cost(self, concentrations: np.ndarray) -> float:
+        """Weighted stage-tie cost of the LAST solve (0 when disabled)."""
+        if self._stage_consistency_weight <= 0.0:
+            return 0.0
+        tie, _per = self._stage_tie_cost(
+            concentrations, self._last_A,
+            A_all=getattr(self, "_last_A_all", None))
+        return self._stage_consistency_weight * tie
 
     def _ne_prior_cost(self, log_ne: float) -> float:
         """Gaussian ne-prior charge in chi-squared units (weighted mode).
@@ -2379,6 +2510,7 @@ class PeakyIndexerV3:
             self._rebuild_overlap(float(p[2]), float(p[3]))
             c, cost = self._solve_concentrations(float(p[0]), float(p[1]))
             cost += self._ne_prior_cost(float(p[1]))
+            cost += self._stage_consistency_cost(c)
             k = int(np.count_nonzero(c)) + 4
             scored.append((float(cost + k * log_n), float(cost), k, p))
         scored.sort(key=lambda t: t[0])
@@ -2549,8 +2681,14 @@ class PeakyIndexerV3:
             self._aggregate_elements(concentrations, A,
                                      amp_sigma=self._amp_sigma)
         )
+        tie_total, tie_by_element = self._stage_tie_cost(
+            concentrations, A, A_all=getattr(self, "_last_A_all", None))
 
         convergence_info = {
+            'stage_consistency_weight': self._stage_consistency_weight,
+            'stage_tie_cost': tie_total,
+            'stage_tie_by_element': {el: float(v) for el, v in
+                                     sorted(tie_by_element.items())},
             'gamma_inst': self._last_gamma_inst,
             'detection_z': dict(self._last_detection_z),
             'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
