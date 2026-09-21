@@ -230,7 +230,33 @@ spectra across five projects, 627 raw SD-card pulls, and a one-per-folder
 sample of the 29,011 Profile Builder exports across 44 campaigns) are
 recorded below as they complete.
 
-MOISSANITE-BATCH-PENDING
+**Moissanite archive runs (2026-09-21; 8,213 spectra, 25,923 segment
+rows, 3 unreadable files):** the 1,481-spectrum z300 archive, the 627 raw
+SD-card pulls, and one spectrum per folder of the 29,011 Profile Builder
+exports. A survey of every archive CSV found 97.9 % on the standard 23,431-
+point 1/30 nm grid, 2.1 % on a 0.1 nm uniform export (7,810 points; the
+MaxPower campaign and a few 2025 Profile Builder runs), 4 native-resolution
+exports (5,852 points, 0.127 nm pitch: the CMI/NETL files, which need no
+recovery at all) and 13 odd files.
+
+| export format | spectra | NIR exact | VIS exact | UV exact |
+|---|---:|---:|---:|---:|
+| standard 1/30 nm | 7,821 | 99.1 % | 96.6 % | 97.3 % |
+| 0.1 nm uniform | 628 | 79.8 % | 11.1 % | 99.7 % |
+| native-resolution | 3 | (nothing to recover) | | |
+
+On the standard export the median residual is 7e-11 in every segment;
+the segments that miss the 1e-6 bar sit at 1.3e-5 (median) to 9e-5 (p90)
+and are spread thinly over campaigns (at most 8 in any one), i.e.
+occasional window-search misses on individual spectra, not an instrument
+difference. Per-shot corrections across the whole archive: NIR shift
+−2.9 … +5.4 px, VIS −1.6 … +2.0 px, UV −0.6 … +1.5 px (p5–p95);
+stretch up to ~600 ppm in the NIR. The 0.1 nm export is a different
+vendor product (its VIS windows do not fit the spline-of-native model at
+all) and needs its own calibration or the search fallback; it is not
+covered. Rows: `reports/native_grid_batches/2026-09-21-moissanite-*.csv`;
+format survey: `2026-09-21-moissanite-grid-survey.txt`.
+
 
 ### 1.4 The better route: get the native export
 
