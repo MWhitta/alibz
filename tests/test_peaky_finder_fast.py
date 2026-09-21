@@ -181,3 +181,56 @@ class TestPeakyFinderFast(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDeadDetectorEdges(unittest.TestCase):
+    """Zero-padded detector edges must not bend the baseline (REE_01: the
+    arPLS rolled off to 5 counts under a 78-count continuum at 947.7 nm)."""
+
+    def _padded_spectrum(self):
+        rng = np.random.default_rng(3)
+        x = np.linspace(620.0, 960.0, 6000)          # one SciAps segment
+        continuum = 60.0 + 0.5 * (x - 620.0)          # rising NIR continuum
+        y = continuum + rng.normal(0.0, 1.0, x.size)
+        for center, amp in ((700.0, 400.0), (766.5, 900.0), (900.0, 300.0)):
+            y += amp * np.exp(-0.5 * ((x - center) / 0.08) ** 2)
+        y[:150] = 0.0                                  # dead leading pixels
+        y[-400:] = 0.0                                 # dead trailing pixels
+        return x, y, continuum
+
+    def test_valid_signal_mask_flags_only_edge_runs(self) -> None:
+        x, y, _ = self._padded_spectrum()
+        y[3000:3010] = 4321.0                          # interior clip: not an edge
+        valid = PeakyFinder.valid_signal_mask(x, y, segment_edges=())
+        self.assertFalse(valid[:150].any())
+        self.assertFalse(valid[-400:].any())
+        self.assertTrue(valid[150:-400].all())
+        unpadded = y.copy()
+        unpadded[:150] = 5.0 + np.arange(150) * 0.01      # signal right up to the edges
+        unpadded[-400:] = 5.0 + np.arange(400) * 0.01
+        self.assertTrue(PeakyFinder.valid_signal_mask(x, unpadded, segment_edges=()).all(),
+                        'a spectrum without constant edge runs is fully valid')
+
+    def test_background_ignores_dead_edges(self) -> None:
+        finder = PeakyFinder.__new__(PeakyFinder)
+        x, y, continuum = self._padded_spectrum()
+        bg = finder.find_background(x, y, segment_edges=())
+        np.testing.assert_array_equal(bg[:150], 0.0)
+        np.testing.assert_array_equal(bg[-400:], 0.0)
+        # the last 2 nm of real signal: baseline tracks the continuum, no roll-off
+        edge = slice(-400 - 36, -400)
+        self.assertLess(np.abs(bg[edge] - continuum[edge]).max(), 0.1 * continuum[edge].mean())
+        edge0 = slice(150, 150 + 36)
+        self.assertLess(np.abs(bg[edge0] - continuum[edge0]).max(), 0.1 * continuum[edge0].mean())
+
+    def test_fit_spectrum_records_valid_mask(self) -> None:
+        finder = PeakyFinder.__new__(PeakyFinder)
+        x, y, _ = self._padded_spectrum()
+        result = finder.fit_spectrum(x, y, subtract_background=True, plot=False,
+                                     segment_edges=())
+        valid = result['valid']
+        self.assertEqual(valid.shape, y.shape)
+        self.assertEqual(int((~valid).sum()), 550)
+        np.testing.assert_array_equal((y - result['background'])[~valid], 0.0)
+        centers = result['sorted_parameter_array'][:, 1]
+        self.assertFalse(np.any(centers > x[-401]), 'no peak fitted inside the dead edge')

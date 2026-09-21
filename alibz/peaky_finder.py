@@ -249,7 +249,7 @@ class PeakyFinder():
         transformed = transformer.fit_transform(y.reshape(-1, 1))[:, 0]
         return transformed, np.asarray(transformer.lambdas_, dtype=float)
 
-    def _empty_fit_result(self, x, y, y_bgsub, bg, n_sigma, plot, skip_profile):
+    def _empty_fit_result(self, x, y, y_bgsub, bg, n_sigma, plot, skip_profile, valid=None):
         """Return a stable empty-fit structure for spectra without usable peaks."""
         transformer = PowerTransformer()
         yj_data, power_lambda = self._safe_power_transform(transformer, y_bgsub)
@@ -259,6 +259,7 @@ class PeakyFinder():
             'profile': None if skip_profile else np.zeros_like(y_bgsub),
             'residual_data': None if skip_profile else np.asarray(y_bgsub, dtype=float).copy(),
             'background': bg,
+            'valid': np.ones(np.asarray(y).size, dtype=bool) if valid is None else np.asarray(valid, dtype=bool),
             'sorted_parameter_array': np.empty((0, 4), dtype=float),
             'n_sigma': n_sigma,
         }
@@ -362,6 +363,70 @@ class PeakyFinder():
             w = w_new
         return z
 
+    #: minimum length (px) of a constant run at a segment edge to count as dead
+    DEAD_EDGE_MIN_RUN = 4
+
+    @staticmethod
+    def _segment_spans(x, segment_edges):
+        """Boolean masks of the detector segments delimited by ``segment_edges``."""
+        x = np.asarray(x, dtype=float)
+        if x.size == 0:
+            return []
+        if segment_edges is None or len(segment_edges) == 0:
+            return [np.ones(x.size, dtype=bool)]
+        boundaries = [x[0] - 1.0, *sorted(float(e) for e in segment_edges), x[-1] + 1.0]
+        spans = []
+        for lo, hi in zip(boundaries[:-1], boundaries[1:]):
+            mask = (x > lo) & (x <= hi)
+            if np.any(mask):
+                spans.append(mask)
+        return spans
+
+    @classmethod
+    def valid_signal_mask(cls, x, y, segment_edges=None, min_run=None):
+        """Pixels that carry signal: ``False`` on dead detector edges.
+
+        SciAps exports pad each detector segment with exact zeros (REE_01:
+        232 px before 187.7 nm, 398 px after 947.7 nm), and other
+        instruments clip to a constant.  A baseline fitted across such a
+        pad must bend from the true continuum down to the pad level, so it
+        rolls off over the last few nm of real signal (measured: 5 counts
+        under a 78-count continuum at 947.7 nm) and leaves a broad
+        positive ledge that the peak finder then fits as lines, plus a
+        negative ramp inside the pad.  A pixel is dead when it belongs to
+        a leading or trailing run of identical values, at least
+        ``min_run`` long, inside its own segment.  Interior constant runs
+        (saturated tops, dead pixels mid-segment) are NOT flagged: only
+        the edges, where there is nothing on the other side to anchor the
+        baseline.
+        """
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        min_run = int(cls.DEAD_EDGE_MIN_RUN if min_run is None else min_run)
+        valid = np.ones(y.size, dtype=bool)
+        if segment_edges is None:
+            segment_edges = cls.DEFAULT_SEGMENT_EDGES
+        for span in cls._segment_spans(x, segment_edges):
+            idx = np.flatnonzero(span)
+            ys = y[idx]
+            n = ys.size
+            if n < 2 * min_run:
+                continue
+            lead = 1
+            while lead < n and ys[lead] == ys[0]:
+                lead += 1
+            trail = 1
+            while trail < n and ys[n - 1 - trail] == ys[n - 1]:
+                trail += 1
+            if lead + trail >= n:          # the whole segment is one constant
+                valid[idx] = False
+                continue
+            if lead >= min_run:
+                valid[idx[:lead]] = False
+            if trail >= min_run:
+                valid[idx[n - trail:]] = False
+        return valid
+
     def find_background(self, x, y, lam=None, smooth_nm=1.9, segment_edges=None,
                         max_iter=20, plot=False, **_legacy):
         """Estimate the background of a spectrum with per-segment arPLS.
@@ -404,6 +469,15 @@ class PeakyFinder():
         plot : bool, optional
             If ``True`` plot the estimated background.
 
+        Dead detector edges -- leading or trailing runs of identical values
+        (zero padding, constant clips) at least ``DEAD_EDGE_MIN_RUN`` px
+        long inside a segment, see :meth:`valid_signal_mask` -- are
+        excluded from the fit and returned as ``bg == y``, so the
+        background-subtracted spectrum is exactly 0 there.  Fitting across
+        them bent the baseline down to the pad level over the last few nm
+        of real signal (5 counts under a 78-count continuum on REE_01) and
+        left a ledge the peak finder fitted as eight spurious lines.
+
         Legacy keyword arguments of the retired anchor method (``range``,
         ``n_sigma``) are accepted and ignored.
         """
@@ -417,15 +491,16 @@ class PeakyFinder():
             pitch = pitch if np.isfinite(pitch) and pitch > 0 else 1.0
             lam = (float(smooth_nm) / pitch) ** 4
 
-        bg = np.empty_like(y)
-        if len(segment_edges) > 0:
-            boundaries = [x[0] - 1.0, *sorted(float(e) for e in segment_edges), x[-1] + 1.0]
-            for lo, hi in zip(boundaries[:-1], boundaries[1:]):
-                mask = (x > lo) & (x <= hi)
-                if np.any(mask):
-                    bg[mask] = self._arpls(y[mask], lam=lam, max_iter=max_iter)
-        else:
-            bg[:] = self._arpls(y, lam=lam, max_iter=max_iter)
+        # Dead detector edges (zero pads, constant clips) are excluded from
+        # the fit and pinned to the data (bg == y, so y - bg == 0 there):
+        # a baseline that must reach the pad level rolls off over the last
+        # few nm of real signal and leaves a ledge the peak finder fits.
+        valid = self.valid_signal_mask(x, y, segment_edges=segment_edges)
+        bg = y.copy()
+        for span in self._segment_spans(x, segment_edges):
+            live = span & valid
+            if np.count_nonzero(live) >= 5:
+                bg[live] = self._arpls(y[live], lam=lam, max_iter=max_iter)
 
         if plot:
             plt.figure(figsize=(35, 5))
@@ -1262,11 +1337,12 @@ class PeakyFinder():
 
         if y.size == 0:
             return self._empty_fit_result(x, y, y, np.zeros_like(y), n_sigma, plot, skip_profile)
+        valid = self.valid_signal_mask(x, y, segment_edges=segment_edges)
 
         if np.allclose(y, y[0]):
             bg = y.copy() if subtract_background else np.zeros_like(y)
             y_bgsub = y - bg
-            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile, valid=valid)
 
         if subtract_background:
             try:
@@ -1279,7 +1355,7 @@ class PeakyFinder():
             y_bgsub = y
 
         if np.asarray(y_bgsub).size == 0 or np.allclose(y_bgsub, y_bgsub[0]):
-            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile, valid=valid)
 
         # find peaks and profile parameters (on the background-subtracted
         # spectrum: detection and fitting must see the same signal, and the
@@ -1289,7 +1365,7 @@ class PeakyFinder():
                 y_bgsub, n_sigma=n_sigma, segment_indices=segment_indices
             )
         except (IndexError, RuntimeError, TypeError, ValueError):
-            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile)
+            return self._empty_fit_result(x, y, y_bgsub, bg, n_sigma, plot, skip_profile, valid=valid)
         if verbose:
             print('fourier peaks done')
         peak_dictionary = self.fit_peaks(x, y_bgsub, peak_indices, plot=plot, fast=True)
@@ -1392,6 +1468,7 @@ class PeakyFinder():
                     'profile': profile,
                     'residual_data': residual_data,
                     'background': bg,
+                    'valid': valid,
                     'sorted_parameter_array': sorted_parameter_array,
                     'n_sigma': n_sigma}
 
