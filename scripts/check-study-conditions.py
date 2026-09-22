@@ -56,7 +56,7 @@ def main():
         delays, periods, pp = json.loads(s['delays']), json.loads(s['periods']), params['pulsePeriod']
         shots = 10 if (s['study_type'] or 'delay_period') == 'delay_period' else params['numShotsPerLocation']
     grid = [(d, p) for d in delays for p in periods]
-    best = {}   # condition -> best evidence
+    best = {}   # (delay, period, pulsePeriod) -> best evidence
     for r in data['runs']:
         key = (r['d'], r['p'], r['pp'])
         if r['state'] == 'succeeded' and r['shots'] and r['shots'] > 0:
@@ -64,12 +64,16 @@ def main():
             e['runs'] += 1
             if r['shots'] == r['req']: e['full'] = max(e['full'], r['shots'])
             else: e['partial'] = max(e['partial'], r['shots'])
+    min_shots = data.get('min_shots') or 6
     rows = []
     for d, p in grid:
         e = best.get((d, p, pp), {'full': 0, 'partial': 0, 'runs': 0})
         verified = e['full'] >= shots
+        other_pp = sorted((k[2], v['full'] or v['partial']) for k, v in best.items() if k[:2] == (d, p) and k[2] != pp)
         rows.append({'delay': d, 'period': p, 'pulsePeriod': pp, 'verified': verified, 'full_shots': e['full'],
-                     'best_partial_shots': e['partial'], 'succeeded_runs': e['runs']})
+                     'best_partial_shots': e['partial'], 'succeeded_runs': e['runs'],
+                     'would_verify_at_min_shots': max(e['full'], e['partial']) >= min(shots, min_shots),
+                     'other_pulse_periods': other_pp})
     unverified = [r for r in rows if not r['verified']]
     try:
         ident = json.loads(subprocess.run(['ssh', '-o', 'BatchMode=yes', REMOTE, 'curl', '-s', '-m', '5', PROXY + '/instrument/id'],
@@ -94,11 +98,13 @@ def main():
         print(json.dumps(result, indent=1))
     else:
         print(f"grid {delays} x {periods} @ pulsePeriod {pp}, {shots} shots per batch; require_verified_conditions={result['require_verified_conditions']}")
-        print(f"{'delay/period':>13}  {'verified':>8}  {'full-run shots':>14}  {'best partial':>12}  {'runs':>4}")
+        print(f"{'delay/period':>13}  {'verified':>8}  {'full-run shots':>14}  {'best partial':>12}  {'runs':>4}  {'>=min_shots':>11}  other pulsePeriods")
         for r in rows:
-            print(f"{r['delay']:>6}/{r['period']:<6}  {'yes' if r['verified'] else 'NO':>8}  {r['full_shots'] or '-':>14}  {r['best_partial_shots'] or '-':>12}  {r['succeeded_runs']:>4}")
+            other = ', '.join(f"pp{q} ({n} shots)" for q, n in r['other_pulse_periods']) or '-'
+            print(f"{r['delay']:>6}/{r['period']:<6}  {'yes' if r['verified'] else 'NO':>8}  {r['full_shots'] or '-':>14}  {r['best_partial_shots'] or '-':>12}  {r['succeeded_runs']:>4}  {'yes' if r['would_verify_at_min_shots'] else 'no':>11}  {other}")
+        print(f"(>=min_shots: would verify if the rule were 'stored >= acquire.min_shots={min_shots}' instead of 'fully stored'; other pulsePeriods do not count)")
         if unverified:
-            print('\nTo verify, run one live Acquire-panel batch (10 shots, 1 location, pulsePeriod %d, fresh spot) at:' % pp)
+            print('\nTo verify, run one live Acquire-panel batch (%d shots, 1 location, pulsePeriod %d exactly, fresh spot) at:' % (shots, pp))
             for r in unverified: print(f"  delay {r['delay']} / period {r['period']}")
         print('\nanalyzer:', result['analyzer'])
         for b in blockers: print('BLOCKER:', b)

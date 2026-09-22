@@ -44,7 +44,20 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 14:15 PDT first raster study analyzed; pre-start condition check added
+# Current state — 2026-09-22 14:40 PDT all nine grid conditions verified; study can start
+
+Operator fired 20/10 and 20/50 from the Acquire panel: first at pulsePeriod
+1000 (9 and 8 of 10 stored, verifies nothing: wrong key, not fully stored),
+then at pulsePeriod 100 (10 of 10 each). scripts/check-study-conditions.py now
+reports every 5,10,20 x 10,25,50 condition verified, no blockers: create the
+next delay/period session (shift the raster window off the worn spot
+[134,76,70] first). Source change (pantheum-I 
+"a run storing >= acquire.min_shots verifies its condition, exact pulsePeriod")
+is committed with tests (95 passed) but NOT deployed; optional wrapper
+scripts/deploy-alibz-verify-min-shots.sh (--apply when no study is active).
+Check script shows near-misses at other pulse periods and the min_shots column.
+
+## Earlier today (14:15 PDT) first raster study analyzed; pre-start condition check added
 
 Session opt-b61065d7 (closed by operator) completed 6 of 9 grid conditions on
 fresh raster sites; best single batch 5/10 at 0.400, but the 10/25 baseline's
