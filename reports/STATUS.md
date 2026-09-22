@@ -44,7 +44,22 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 16:50 PDT sequence mode + fresh-site rule COMMITTED (pantheum-I 278d525); deploy pending
+# Current state — 2026-09-22 17:20 PDT sequence mode LIVE; first V sequence stopped by a laser disarm (520); fix committed, deploy pending
+
+Operator deployed 278d525 (live hashes match) and started session
+opt-4f3fbcba "V_pure_run1" (composition V, 3 repeats, 27 slots). Batch 1
+(5/10, site 1) was answered HTTP 520 LaserNotArmed: the laser had re-locked
+by itself; recorded `uncertain` + unresolved hardware hold, session `blocked`,
+sequence stopped. Operator re-armed. Fix committed as pantheum-I 73bd891:
+520/521 now end `failed` with hardware_resolved=1 and a `refused` batch that
+keeps its condition/site/slot and pauses the sequence (113 optimizer/acquire
+tests, 815 broad). Wrapper scripts/deploy-alibz-interlock-refusal.sh (baseline
+278d525, commit 73bd891); dry run hit the reservation lock (held by another
+operation/deploy at 17:18) — rerun. Operator next: reconcile the uncertain
+hold in the portal (no shot was fired), deploy, then create/resume the V
+session (same sample name keeps the fresh-site ledger) and Run all conditions.
+
+## Earlier today (16:50 PDT) sequence mode + fresh-site rule COMMITTED (pantheum-I 278d525); deploy pending
 
 Implemented and verified on a clean 393741d checkout (111 optimizer/acquire
 tests, 46 UI tests, full suite 783 passed): sample-scoped fresh-site rule in

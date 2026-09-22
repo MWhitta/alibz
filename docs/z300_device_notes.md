@@ -37,8 +37,15 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 
 ## 3. Interlocks and operator steps (why fires were refused)
 
-1. **Laser arming.** After a reboot or an app restart the laser is disarmed. A
-   remote fire while disarmed makes the handheld *display* `LaserArmActivity`;
+1. **Laser arming.** After a reboot or an app restart the laser is disarmed
+   **and it also re-locks on its own after a period without fires** (seen
+   2026-09-22 ~16:12 PDT before the first vanadium batch, an hour after the
+   last Fe fire). A remote fire while disarmed is answered HTTP 520 before
+   any shot; since pantheum-I 73bd891 that is a clean `failed` run with the
+   hardware hold resolved and a `refused` batch that keeps its condition,
+   site and sequence slot (arm, then press Run all conditions). Before that
+   commit it was recorded `uncertain` and blocked the session. A remote fire
+   while disarmed makes the handheld *display* `LaserArmActivity`;
    the operator must arm it there (laser PIN; `/storage/sdcard0/sciaps/slpp.bin`
    is absent, so it is typed). Profile Builder's only reaction is "Please arm
    the laser in the LIBZ unit and try again." No API can arm it.
