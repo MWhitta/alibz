@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 from pantheum.alibz.acquire import Acquisition, _now  # noqa: E402
 from pantheum.alibz.optimization import _canonical  # noqa: E402
 from pantheum.alibz.service import Service  # noqa: E402
-from pantheum.alibz.z300 import Z300Client  # noqa: E402
+from pantheum.alibz.z300 import Z300Client, Z300Error  # noqa: E402
 
 SERVICES = ['pantheum-alibz-worker.service', 'pantheum-alibz.service']
 

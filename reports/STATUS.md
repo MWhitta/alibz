@@ -44,7 +44,19 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 13:55 PDT dropped-frame tolerance patched, AWAITING USER DEPLOY
+# Current state — 2026-09-22 14:10 PDT dropped-frame tolerance DEPLOYED; analyzer rebooted
+
+User deployed the five modules (13:05:20). Config is retrieval=data_api. The
+analyzer was power-cycled ~13:5x: API back (identity 200, wlCalibrationNeededCode 0
+= WL calibration wanted; laser will be disarmed), USB cable is NOT connected to Opal
+(no VID_18D1 device; ADB/Opal path unavailable until reconnected + re-authorized).
+Three partial runs (8/9/9 spectra) are `failed`; refetch dry run passed; user runs
+`recover-alibz-awaiting-data.sh --refetch --run <3 ids> --apply` to store + rescore
+(revives sessions opt-b61065d7…, opt-f8c5243d…). Watch E/onyx after reboot.
+
+## Earlier state (superseded)
+
+# Earlier — 2026-09-22 13:55 PDT dropped-frame tolerance patched, AWAITING USER DEPLOY
 
 acquire.min_shots=6: live runs keep the contiguous spectra the analyzer stored
 (first 404 ends the fetch), succeed with dropped_frames recorded or fail below 6;
