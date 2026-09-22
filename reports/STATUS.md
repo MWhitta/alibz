@@ -44,7 +44,23 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 16:20 PDT vanadium next: sequence mode + fresh-site rule IN PROGRESS
+# Current state — 2026-09-22 16:50 PDT sequence mode + fresh-site rule COMMITTED (pantheum-I 278d525); deploy pending
+
+Implemented and verified on a clean 393741d checkout (111 optimizer/acquire
+tests, 46 UI tests, full suite 783 passed): sample-scoped fresh-site rule in
+_batch_geometry; start_sequence/pause_sequence/auto_step with a serve-process
+driver thread; routes /api/optimization/<id>/sequence and /sequence/pause;
+UI "Run all conditions" dialog (repeats 1-5), "Sequence k of N" badge, "Pause
+sequence". Committed index-only from reports/patches/2026-09-22-sequence-mode.patch
+because session pantheum-i-78's D455 camera-power hunks share app.js,
+index.html, __main__.py, test_alibz_ui.cjs, DECISIONS.md (left uncommitted,
+theirs). Deploy: scripts/deploy-alibz-sequence-mode.sh exports the four files
+from commit 278d525 (never the working tree), requires live == 393741d (dry
+run passed: baseline matched, no active work); operator runs --apply. Then a
+vanadium session: composition "V" (v-v1.json is live), sample name new, "Run
+all conditions". Stale rsync warning above still applies.
+
+## Earlier today (16:20 PDT) vanadium next: sequence mode + fresh-site rule IN PROGRESS
 
 Owner switching to vanadium; asked for (1) automatic stepping to a new
 position after every 10-shot test and (2) a one-click run of all specified
