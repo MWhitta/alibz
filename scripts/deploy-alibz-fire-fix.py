@@ -31,7 +31,18 @@ def main():
     manifest = json.loads((args.bundle / 'manifest.json').read_text())
     services = ['pantheum-alibz-worker.service', 'pantheum-alibz.service']
     with (state / 'reservation.lock').open('a+b') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # The serve process holds this lock for up to ~10 s during a dispatch
+        # or a guarded request, so wait for it (bounded) instead of failing the
+        # first non-blocking try; exclusivity while deploying is unchanged.
+        deadline = time.monotonic() + 60
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('reservation lock busy for 60 s; a dispatch or deploy is in progress')
+                time.sleep(0.5)
         for name, after in manifest['files'].items():
             rel = Path(name)
             if rel.is_absolute() or '..' in rel.parts:
