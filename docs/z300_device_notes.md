@@ -128,6 +128,16 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 - Datasets on the old resampled grid still exist (`2679219a…`, `4f678d79…`,
   `0982aede…`); runs now reference native datasets.
 
+### Before a delay/period study
+
+`scripts/check-study-conditions.py [--delays 5,10,20 --periods 10,25,50 | --session opt-…]`
+(read-only) lists which grid conditions have a fully stored live run
+(the optimizer refuses the others), the Acquire-panel batches that would verify
+them, active acquisitions, trigger lock and calibration flags. Exit 1 means
+the study would be refused. The gilbert raster starts at the window origin,
+which is the worn fixed spot of the 2026-09-22 sessions: shift the window
+(startLocation) or the sample first.
+
 ## 8. Anticipated problems (for the owner to decide)
 
 0. **Spectrometer frame drops (active, 2026-09-22 afternoon).** 3 of the last 4

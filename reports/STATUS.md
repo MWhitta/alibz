@@ -44,7 +44,21 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 13:45 PDT clock-reset hang cleared; partial batches recovered; ready to fire
+# Current state — 2026-09-22 14:15 PDT first raster study analyzed; pre-start condition check added
+
+Session opt-b61065d7 (closed by operator) completed 6 of 9 grid conditions on
+fresh raster sites; best single batch 5/10 at 0.400, but the 10/25 baseline's
+repeat SD (0.045, n=6) is as large as the spread between conditions, so no
+ranking yet. Site 1 [134,76,70] is the worn fixed spot from earlier sessions
+(signal halved within the batch): move the raster window before the next study.
+The study stopped because 20/10 was unverified. New
+scripts/check-study-conditions.py lists verified/unverified grid conditions,
+analyzer flags and blockers before a study (exit 1 = would be refused); today it
+reports 20/10 and 20/50 unverified: two Acquire-panel batches verify them.
+Report: reports/2026-09-22-first-raster-study-analysis.md. Elevated: fresh-site
+rule, replicates per condition, min_shots-based verification.
+
+## Earlier today (13:45 PDT) clock-reset hang cleared; partial batches recovered; ready to fire
 
 Operator ran scripts/z300-clock.sh --restart-home, armed the laser and ran WL
 calibration: Geochem Pro foreground, no dialog, skew 4 s, triggerLocked 0,
