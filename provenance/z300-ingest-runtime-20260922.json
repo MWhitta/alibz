@@ -1,0 +1,49 @@
+{
+  "deployed_at_utc": "2026-09-22T17:05:11Z",
+  "retrieval": "opal_database",
+  "services": {
+    "pantheum-alibz.service": "active",
+    "pantheum-alibz-worker.service": "active"
+  },
+  "installed_hashes": {
+    "pantheum/alibz/acquire.py": "4a23a6915c1bc88454c13dacdce5e1de9cbea6a358fb06c9276e324c7d6f147b",
+    "pantheum/alibz/retrieval.py": "fbd2cd965ca4858f63a553f58abe4564d216c835d652f4f681afdc2f14735b02",
+    "pantheum/alibz/optimization.py": "2c96f4a6b9dd3a1dd6f35bb468aff3ae7af4be81b409ab593da22665b1b1e5cd",
+    "pantheum/alibz/__main__.py": "ddf06310bee86f96b1a6a867d8338fdd94f29b8642dc966cd6debef51fbdc717",
+    "pantheum/alibz/optimization_metrics.py": "68d4d4859d349f7629fa6d6a451569632c89a85729247a0f298269735eee850a"
+  },
+  "runtime_before_hashes": {
+    "pantheum/alibz/acquire.py": "aa6a97501557b2589b1c3b9bb59f9c41bbf8683fb435f00423d2794525a9791a",
+    "pantheum/alibz/retrieval.py": null,
+    "pantheum/alibz/optimization.py": "be02da8dc57026463fc1db545947e39a48c62f2cb954aae5d6ccced688f2fe89",
+    "pantheum/alibz/__main__.py": "bf93c01333c9fcaac1e448c62b5e5f9028a46fd1e956492d5a374553dee2cf55",
+    "pantheum/alibz/optimization_metrics.py": "68d4d4859d349f7629fa6d6a451569632c89a85729247a0f298269735eee850a"
+  },
+  "config_sha256": "4daf2c1297ec5b1f555661bb60ebf6f3949bb18f6936ebf73d4200e8a7b5f9a9",
+  "unrelated_config_unchanged": true,
+  "backup": "/home/mwhittaker/pantheum-ingest-backup-20260922T170511149189Z",
+  "unresolved_hardware": 0,
+  "pending_data": 0,
+  "opal": {
+    "producer_sha256": "edaa9748520281f4a2b8452fdfb4c1b994fb27bdbf80bb288674f5b8cdf4d301",
+    "decoder_sha256": "3130e640202bfa40861d58babdc2dcde9066f8bb2f5a49c4c108165733225b23",
+    "adb_sha256": "b4a6b455702684652cccf7b46258b29e653538904359a58fd4931cf3ef286b3f",
+    "archive_root": "C:\\LabData\\LIBS\\pantheum-acquisitions",
+    "producer_root": "C:\\InstrumentControl\\alibz\\z300-ingest-20260922"
+  },
+  "validation": {
+    "run_id": "run-eae9d54f22834928ae2f6af8d4a23779",
+    "test_id": "63f26855-ae3e-4275-a34f-5fee887e5248",
+    "shots": 10,
+    "native_points_per_shot": 5848,
+    "minimum_pitch_nm": 0.07831886201199723,
+    "maximum_pitch_nm": 0.19836585863799883,
+    "zip_sha256": "264be5fc7870ca782196d9d2cf45e70e417aef2817365f7246cadc92fb7ae4bd",
+    "isolated_queue_acquisition_state": "succeeded",
+    "isolated_queue_downstream_preview": "completed",
+    "production_state_modified_by_validation": false,
+    "idempotent": true,
+    "physical_commands": 0
+  },
+  "provider_switches": []
+}

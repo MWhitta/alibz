@@ -1,0 +1,10 @@
+{
+  "app.js": {
+    "status": 200,
+    "sha256": "d04d9b5bddc42d3d51a35e74c4920d9458e75edcbb6f526b85e16d83041ab4a8"
+  },
+  "styles.css": {
+    "status": 200,
+    "sha256": "58cb625c99cd846b48e8c85ebfd7e515babe39a726c97aed2359ea95f935d8e8"
+  }
+}

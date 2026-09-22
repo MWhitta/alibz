@@ -1,0 +1,438 @@
+
+com/sciaps/view/acquisitions/TestViewPanel$3.class onBackground
+0: iconst_1 
+1: istore_2 
+2: aload_0 
+3: getfield com/sciaps/view/acquisitions/TestViewPanel$3.val$startDate Ljava/util/Date;
+6: iconst_5 
+7: invokestatic org/apache/commons/lang/time/DateUtils.truncate (Ljava/util/Date;I)Ljava/util/Date;
+10: invokevirtual java/util/Date.getTime ()J
+13: ldc2_w 1000
+16: ldiv 
+17: lstore_3 
+18: aload_0 
+19: getfield com/sciaps/view/acquisitions/TestViewPanel$3.val$endDate Ljava/util/Date;
+22: iconst_5 
+23: invokestatic org/apache/commons/lang/time/DateUtils.ceiling (Ljava/util/Date;I)Ljava/util/Date;
+26: invokevirtual java/util/Date.getTime ()J
+29: ldc2_w 1000
+32: ldiv 
+33: lstore 5
+35: lload_3 
+36: lstore 7
+38: aload_0 
+39: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+42: invokestatic com/sciaps/view/acquisitions/TestViewPanel.access$900 (Lcom/sciaps/view/acquisitions/TestViewPanel;)Ljava/util/ArrayList;
+45: astore 9
+47: iconst_0 
+48: istore 10
+50: iload_2 
+51: ifeq 374
+54: aload_0 
+55: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+58: getfield com/sciaps/view/acquisitions/TestViewPanel.mApiHandler Lcom/sciaps/libzunitapi/LibzUnitApiHandler;
+61: lload 7
+63: invokeinterface com/sciaps/libzunitapi/LibzUnitApiHandler.getTestsSince (J)Ljava/util/List;
+68: astore_1 
+69: aload_1 
+70: invokeinterface java/util/List.iterator ()Ljava/util/Iterator;
+75: astore 11
+77: aload 11
+79: invokeinterface java/util/Iterator.hasNext ()Z
+84: ifeq 324
+87: aload 11
+89: invokeinterface java/util/Iterator.next ()Ljava/lang/Object;
+94: checkcast 24
+97: astore 12
+99: iconst_0 
+100: istore 10
+102: aload 9
+104: invokevirtual java/util/ArrayList.iterator ()Ljava/util/Iterator;
+107: astore 13
+109: aload 13
+111: invokeinterface java/util/Iterator.hasNext ()Z
+116: ifeq 34
+119: aload 13
+121: invokeinterface java/util/Iterator.next ()Ljava/lang/Object;
+126: checkcast 26
+129: astore 14
+131: aload 12
+133: aload 14
+135: getfield com/sciaps/common/data/LIBZTest.mId Ljava/lang/String;
+138: invokevirtual java/lang/String.compareTo (Ljava/lang/String;)I
+141: ifne 6
+144: iconst_1 
+145: istore 10
+147: goto -38
+150: iload 10
+152: ifne 253
+155: aload_0 
+156: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+159: getfield com/sciaps/view/acquisitions/TestViewPanel.mObjLoader Lcom/sciaps/common/objtracker/DBObjLoaderPB;
+162: ldc com/sciaps/common/data/LIBZTest
+164: aload 12
+166: invokevirtual com/sciaps/common/objtracker/DBObjLoaderPB.deepLoad (Ljava/lang/Class;Ljava/lang/String;)Lcom/sciaps/common/objtracker/DBObj;
+169: checkcast 26
+172: astore 13
+174: aload 13
+176: getfield com/sciaps/common/data/LIBZTest.unixTime J
+179: lload_3 
+180: lcmp 
+181: iflt 26
+184: aload 13
+186: getfield com/sciaps/common/data/LIBZTest.unixTime J
+189: lload 5
+191: lcmp 
+192: ifge 15
+195: aload_0 
+196: getfield com/sciaps/view/acquisitions/TestViewPanel$3.mTests Ljava/util/List;
+199: aload 13
+201: invokeinterface java/util/List.add (Ljava/lang/Object;)Z
+206: pop 
+207: aload 13
+209: getfield com/sciaps/common/data/LIBZTest.unixTime J
+212: lstore 7
+214: aload 13
+216: getfield com/sciaps/common/data/LIBZTest.unixTime J
+219: lload 5
+221: lcmp 
+222: ifle 8
+225: iconst_0 
+226: istore_2 
+227: goto 181
+230: goto 175
+233: astore 13
+235: new java/lang/StringBuilder
+238: dup 
+239: invokespecial java/lang/StringBuilder.<init> ()V
+242: ldc 'Failed to load Test: '
+244: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+247: aload 12
+249: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+252: invokevirtual java/lang/StringBuilder.toString ()Ljava/lang/String;
+255: astore 14
+257: aload_0 
+258: getfield com/sciaps/view/acquisitions/TestViewPanel$3.errMsg Ljava/lang/StringBuilder;
+261: aload 14
+263: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+266: pop 
+267: aload_0 
+268: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+271: getfield com/sciaps/view/acquisitions/TestViewPanel.mObjLoader Lcom/sciaps/common/objtracker/DBObjLoaderPB;
+274: ldc com/sciaps/common/data/LIBZTest
+276: aload 12
+278: invokevirtual com/sciaps/common/objtracker/DBObjLoaderPB.shallowLoad (Ljava/lang/Class;Ljava/lang/String;)Lcom/sciaps/common/objtracker/DBObj;
+281: checkcast 26
+284: astore 15
+286: aload 15
+288: getfield com/sciaps/common/data/LIBZTest.unixTime J
+291: lload_3 
+292: lcmp 
+293: iflt 26
+296: aload 15
+298: getfield com/sciaps/common/data/LIBZTest.unixTime J
+301: lload 5
+303: lcmp 
+304: ifge 15
+307: aload_0 
+308: getfield com/sciaps/view/acquisitions/TestViewPanel$3.mTests Ljava/util/List;
+311: aload 15
+313: invokeinterface java/util/List.add (Ljava/lang/Object;)Z
+318: pop 
+319: aload 15
+321: getfield com/sciaps/common/data/LIBZTest.unixTime J
+324: lstore 7
+326: aload 15
+328: getfield com/sciaps/common/data/LIBZTest.unixTime J
+331: lload 5
+333: lcmp 
+334: ifle 8
+337: iconst_0 
+338: istore_2 
+339: goto 69
+342: aload 15
+344: aconst_null 
+345: putfield com/sciaps/common/data/LIBZTest.standard Lcom/sciaps/common/data/Standard;
+348: aload_0 
+349: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+352: invokestatic com/sciaps/view/acquisitions/TestViewPanel.access$1100 (Lcom/sciaps/view/acquisitions/TestViewPanel;)Lcom/google/common/eventbus/EventBus;
+355: new com/sciaps/events/DBObjEvent
+358: dup 
+359: aload 15
+361: iconst_1 
+362: aload_0 
+363: getfield com/sciaps/view/acquisitions/TestViewPanel$3.this$0 Lcom/sciaps/view/acquisitions/TestViewPanel;
+366: invokestatic com/sciaps/view/acquisitions/TestViewPanel.access$1000 (Lcom/sciaps/view/acquisitions/TestViewPanel;)Ljava/lang/Object;
+369: invokespecial com/sciaps/events/DBObjEvent.<init> (Lcom/sciaps/common/objtracker/DBObj;ILjava/lang/Object;)V
+372: invokevirtual com/google/common/eventbus/EventBus.post (Ljava/lang/Object;)V
+375: aload_0 
+376: getfield com/sciaps/view/acquisitions/TestViewPanel$3.errMsg Ljava/lang/StringBuilder;
+379: ldc '****removing standard from Test'
+381: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+384: ldc '\n'
+386: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+389: pop 
+390: goto 15
+393: astore 15
+395: aload_0 
+396: getfield com/sciaps/view/acquisitions/TestViewPanel$3.errMsg Ljava/lang/StringBuilder;
+399: ldc '\n'
+401: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+404: pop 
+405: goto -328
+408: aload_1 
+409: invokeinterface java/util/List.size ()I
+414: sipush 200
+417: if_icmpge -367
+420: iconst_0 
+421: istore_2 
+422: goto -372
+425: goto 21
+428: astore_1 
+429: aload_0 
+430: getfield com/sciaps/view/acquisitions/TestViewPanel$3.errMsg Ljava/lang/StringBuilder;
+433: aload_1 
+434: invokevirtual java/lang/Exception.getMessage ()Ljava/lang/String;
+437: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+440: ldc '\n'
+442: invokevirtual java/lang/StringBuilder.append (Ljava/lang/String;)Ljava/lang/StringBuilder;
+445: pop 
+446: return 
+
+com/sciaps/common/webserver/LIBZHttpClient.class getTestsSince
+Signature (J)Ljava/util/List<Ljava/lang/String;>;
+0: getstatic com/sciaps/common/webserver/LIBZHttpClient.logger Lorg/slf4j/Logger;
+3: ldc 'requesting tests since {}'
+5: new java/util/Date
+8: dup 
+9: lload_1 
+10: invokespecial java/util/Date.<init> (J)V
+13: invokeinterface org/slf4j/Logger.debug (Ljava/lang/String;Ljava/lang/Object;)V
+18: ldc '%s/data/tests?since=%d'
+20: iconst_2 
+21: anewarray 51
+24: dup 
+25: iconst_0 
+26: aload_0 
+27: getfield com/sciaps/common/webserver/LIBZHttpClient.mBaseUrl Ljava/lang/String;
+30: aastore 
+31: dup 
+32: iconst_1 
+33: lload_1 
+34: invokestatic java/lang/Long.valueOf (J)Ljava/lang/Long;
+37: aastore 
+38: invokestatic java/lang/String.format (Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+41: astore_3 
+42: new org/apache/http/client/methods/HttpGet
+45: dup 
+46: aload_3 
+47: invokespecial org/apache/http/client/methods/HttpGet.<init> (Ljava/lang/String;)V
+50: astore 4
+52: aload_0 
+53: getfield com/sciaps/common/webserver/LIBZHttpClient.mClient Lorg/apache/http/client/HttpClient;
+56: aload 4
+58: aload_0 
+59: getfield com/sciaps/common/webserver/LIBZHttpClient.mContext Lorg/apache/http/protocol/HttpContext;
+62: invokeinterface org/apache/http/client/HttpClient.execute (Lorg/apache/http/client/methods/HttpUriRequest;Lorg/apache/http/protocol/HttpContext;)Lorg/apache/http/HttpResponse;
+67: astore 5
+69: getstatic com/sciaps/common/webserver/LIBZHttpClient.logger Lorg/slf4j/Logger;
+72: ldc 'response: {}'
+74: aload 5
+76: invokeinterface org/apache/http/HttpResponse.getStatusLine ()Lorg/apache/http/StatusLine;
+81: invokeinterface org/slf4j/Logger.debug (Ljava/lang/String;Ljava/lang/Object;)V
+86: aload 5
+88: invokeinterface org/apache/http/HttpResponse.getEntity ()Lorg/apache/http/HttpEntity;
+93: astore 6
+95: new com/google/gson/stream/JsonReader
+98: dup 
+99: new java/io/InputStreamReader
+102: dup 
+103: aload 6
+105: invokeinterface org/apache/http/HttpEntity.getContent ()Ljava/io/InputStream;
+110: invokespecial java/io/InputStreamReader.<init> (Ljava/io/InputStream;)V
+113: invokespecial com/google/gson/stream/JsonReader.<init> (Ljava/io/Reader;)V
+116: astore 7
+118: aload_0 
+119: getfield com/sciaps/common/webserver/LIBZHttpClient.mGson Lcom/google/gson/Gson;
+122: aload 7
+124: ldc com/google/gson/JsonElement
+126: invokevirtual com/google/gson/Gson.fromJson (Lcom/google/gson/stream/JsonReader;Ljava/lang/reflect/Type;)Ljava/lang/Object;
+129: checkcast 161
+132: astore 8
+134: new com/sciaps/common/webserver/LIBZHttpClient$2
+137: dup 
+138: aload_0 
+139: invokespecial com/sciaps/common/webserver/LIBZHttpClient$2.<init> (Lcom/sciaps/common/webserver/LIBZHttpClient;)V
+142: invokevirtual com/sciaps/common/webserver/LIBZHttpClient$2.getType ()Ljava/lang/reflect/Type;
+145: astore 9
+147: aload 8
+149: invokevirtual com/google/gson/JsonElement.getAsJsonObject ()Lcom/google/gson/JsonObject;
+152: astore 10
+154: aload_0 
+155: getfield com/sciaps/common/webserver/LIBZHttpClient.mGson Lcom/google/gson/Gson;
+158: aload 10
+160: ldc 'data'
+162: invokevirtual com/google/gson/JsonObject.get (Ljava/lang/String;)Lcom/google/gson/JsonElement;
+165: aload 9
+167: invokevirtual com/google/gson/Gson.fromJson (Lcom/google/gson/JsonElement;Ljava/lang/reflect/Type;)Ljava/lang/Object;
+170: checkcast 155
+173: astore 11
+175: aload 6
+177: invokeinterface org/apache/http/HttpEntity.consumeContent ()V
+182: aload 11
+184: areturn 
+
+com/sciaps/utils/LIBZTestLoader$1.class onBackground
+0: iconst_1 
+1: istore_1 
+2: new java/util/ArrayList
+5: dup 
+6: invokespecial java/util/ArrayList.<init> ()V
+9: astore_2 
+10: aload_0 
+11: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+14: invokestatic com/sciaps/utils/LIBZTestLoader.access$000 (Lcom/sciaps/utils/LIBZTestLoader;)J
+17: lstore_3 
+18: iload_1 
+19: ifeq 137
+22: aload_0 
+23: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+26: getfield com/sciaps/utils/LIBZTestLoader.mApiHandler Lcom/sciaps/libzunitapi/LibzUnitApiHandler;
+29: lload_3 
+30: invokeinterface com/sciaps/libzunitapi/LibzUnitApiHandler.getTestsSince (J)Ljava/util/List;
+35: astore 5
+37: aload 5
+39: ifnull 112
+42: aload_2 
+43: aload 5
+45: invokeinterface java/util/List.addAll (Ljava/util/Collection;)Z
+50: pop 
+51: aload 5
+53: invokeinterface java/util/List.size ()I
+58: sipush 200
+61: if_icmpge 8
+64: iconst_0 
+65: istore_1 
+66: goto 87
+69: aload 5
+71: aload 5
+73: invokeinterface java/util/List.size ()I
+78: iconst_1 
+79: isub 
+80: invokeinterface java/util/List.get (I)Ljava/lang/Object;
+85: checkcast 13
+88: astore 6
+90: aload_0 
+91: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+94: getfield com/sciaps/utils/LIBZTestLoader.mObjLoader Lcom/sciaps/common/objtracker/DBObjLoaderPB;
+97: ldc com/sciaps/common/data/LIBZTest
+99: aload 6
+101: invokevirtual com/sciaps/common/objtracker/DBObjLoaderPB.deepLoad (Ljava/lang/Class;Ljava/lang/String;)Lcom/sciaps/common/objtracker/DBObj;
+104: checkcast 15
+107: astore 7
+109: aload 7
+111: getfield com/sciaps/common/data/LIBZTest.unixTime J
+114: lstore_3 
+115: aload 7
+117: getfield com/sciaps/common/data/LIBZTest.unixTime J
+120: aload_0 
+121: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+124: invokestatic com/sciaps/utils/LIBZTestLoader.access$100 (Lcom/sciaps/utils/LIBZTestLoader;)J
+127: lcmp 
+128: ifle 5
+131: iconst_0 
+132: istore_1 
+133: goto 20
+136: astore 6
+138: invokestatic com/sciaps/utils/LIBZTestLoader.access$200 ()Lorg/slf4j/Logger;
+141: ldc 'Test load error.'
+143: invokeinterface org/slf4j/Logger.error (Ljava/lang/String;)V
+148: goto 5
+151: iconst_0 
+152: istore_1 
+153: goto -135
+156: aload_2 
+157: invokeinterface java/util/List.size ()I
+162: istore 5
+164: bipush 10
+166: istore 6
+168: iconst_0 
+169: istore 7
+171: iconst_1 
+172: istore 8
+174: iload 5
+176: iload 6
+178: if_icmple 96
+181: iload 8
+183: ifeq 91
+186: iload 5
+188: iload 6
+190: isub 
+191: istore 5
+193: aload_2 
+194: iload 5
+196: iconst_1 
+197: isub 
+198: invokeinterface java/util/List.get (I)Ljava/lang/Object;
+203: checkcast 13
+206: astore 9
+208: aload_0 
+209: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+212: getfield com/sciaps/utils/LIBZTestLoader.mObjLoader Lcom/sciaps/common/objtracker/DBObjLoaderPB;
+215: ldc com/sciaps/common/data/LIBZTest
+217: aload 9
+219: invokevirtual com/sciaps/common/objtracker/DBObjLoaderPB.deepLoad (Ljava/lang/Class;Ljava/lang/String;)Lcom/sciaps/common/objtracker/DBObj;
+222: checkcast 15
+225: astore 10
+227: aload 10
+229: getfield com/sciaps/common/data/LIBZTest.unixTime J
+232: aload_0 
+233: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+236: invokestatic com/sciaps/utils/LIBZTestLoader.access$100 (Lcom/sciaps/utils/LIBZTestLoader;)J
+239: lcmp 
+240: ifle 13
+243: iload 7
+245: iload 6
+247: iadd 
+248: istore 7
+250: goto 6
+253: iconst_0 
+254: istore 8
+256: goto 15
+259: astore 10
+261: invokestatic com/sciaps/utils/LIBZTestLoader.access$200 ()Lorg/slf4j/Logger;
+264: ldc 'Test load error.'
+266: invokeinterface org/slf4j/Logger.error (Ljava/lang/String;)V
+271: goto -97
+274: iload 7
+276: ifle 37
+279: aload_0 
+280: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+283: invokestatic com/sciaps/utils/LIBZTestLoader.access$300 (Lcom/sciaps/utils/LIBZTestLoader;)Ljava/util/List;
+286: aload_2 
+287: iconst_0 
+288: aload_2 
+289: invokeinterface java/util/List.size ()I
+294: iload 7
+296: isub 
+297: iconst_1 
+298: isub 
+299: invokeinterface java/util/List.subList (II)Ljava/util/List;
+304: invokeinterface java/util/List.addAll (Ljava/util/Collection;)Z
+309: pop 
+310: goto 12
+313: aload_0 
+314: getfield com/sciaps/utils/LIBZTestLoader$1.this$0 Lcom/sciaps/utils/LIBZTestLoader;
+317: aload_2 
+318: invokestatic com/sciaps/utils/LIBZTestLoader.access$302 (Lcom/sciaps/utils/LIBZTestLoader;Ljava/util/List;)Ljava/util/List;
+321: pop 
+322: goto 20
+325: astore_3 
+326: invokestatic com/sciaps/utils/LIBZTestLoader.access$200 ()Lorg/slf4j/Logger;
+329: ldc 'Error Downloading Test.'
+331: aload_3 
+332: invokeinterface org/slf4j/Logger.error (Ljava/lang/String;Ljava/lang/Throwable;)V
+337: aload_0 
+338: iconst_0 
+339: putfield com/sciaps/utils/LIBZTestLoader$1.success Z
+342: return 

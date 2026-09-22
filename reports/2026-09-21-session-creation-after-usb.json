@@ -1,0 +1,25 @@
+{
+  "hardware_checkout": {
+    "state": "held",
+    "held_by_you": true,
+    "expires_at": "2026-09-21T21:49:23.956230+00:00"
+  },
+  "live_allowed": false,
+  "blocking_reasons": [
+    "analyzer not reachable"
+  ],
+  "analyzer": {
+    "reachable": false,
+    "checked_at": "2026-09-21T21:42:32.957599+00:00",
+    "id": null,
+    "triggerLocked": null,
+    "detail": "Z300 unreachable: [Errno 104] Connection reset by peer"
+  },
+  "gantry": {
+    "connected": true,
+    "run_status": "Idle",
+    "observed_at": "2026-09-21T21:42:35.811687+00:00"
+  },
+  "live_rate_encoding_enabled": true,
+  "optimization_sessions": 1
+}

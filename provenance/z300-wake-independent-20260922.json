@@ -1,0 +1,40 @@
+{
+  "action": "wake",
+  "after": {
+    "adb_state": "device",
+    "android_release": "4.2.2",
+    "battery_level": 100,
+    "effective_screen_off_timeout_ms": 2147483647,
+    "fingerprint": "generic/full_libz100/libz100:4.2.2/JDQ39/217:eng/test-keys",
+    "model": "Sciaps LIBZ 100",
+    "plug_type": 0,
+    "powered": false,
+    "screen_off_timeout_ms": 2147483647,
+    "screen_on": true,
+    "serial": "0123456789ABCDEF",
+    "stay_on_while_plugged_in": 3,
+    "usb_config": "mtp,adb",
+    "wakefulness": "Awake"
+  },
+  "before": {
+    "adb_state": "device",
+    "android_release": "4.2.2",
+    "battery_level": 100,
+    "effective_screen_off_timeout_ms": 2147483647,
+    "fingerprint": "generic/full_libz100/libz100:4.2.2/JDQ39/217:eng/test-keys",
+    "model": "Sciaps LIBZ 100",
+    "plug_type": 0,
+    "powered": false,
+    "screen_off_timeout_ms": 2147483647,
+    "screen_on": true,
+    "serial": "0123456789ABCDEF",
+    "stay_on_while_plugged_in": 3,
+    "usb_config": "mtp,adb",
+    "wakefulness": "Awake"
+  },
+  "binder_calls": [
+    "Result: Parcel(00000000    '....')"
+  ],
+  "dry_run": false,
+  "needed": false
+}

@@ -1,0 +1,42 @@
+{
+  "health": {
+    "status": "ok",
+    "service": "alibz"
+  },
+  "runtime_hashes_verified": 8,
+  "served_ui_hashes_verified": 3,
+  "services": [
+    "active",
+    "active"
+  ],
+  "resources": {
+    "hardware": {
+      "resource": "hardware",
+      "state": "expired",
+      "holder": "mwhittaker@lbl.gov",
+      "can_reserve": true,
+      "blocked_reasons": []
+    },
+    "analysis": {
+      "resource": "analysis",
+      "state": "free",
+      "holder": null,
+      "can_reserve": true,
+      "blocked_reasons": []
+    }
+  },
+  "legacy_migration": "hardware",
+  "hardware_operations": 0,
+  "active_acquisitions": 0,
+  "laser_actions": [],
+  "rate_100hz_verified": false,
+  "config_sha256": "5946184c259c2994448ad354defe1421e78f73bc82b1d04acfb53fadb015f517",
+  "motion": {
+    "connected": true,
+    "active_port": "COM3",
+    "active_baud": 115200,
+    "run_status": "Running",
+    "observed_at": "2026-09-21T21:15:25.630867+00:00",
+    "state": "connected"
+  }
+}

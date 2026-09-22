@@ -38,3 +38,8 @@ docs/moissanite_remote_setup.md
 
 # Reference papers / downloaded PDFs
 *.pdf
+
+# session artefacts
+output/
+.playwright-cli/
+reports/*backup*/

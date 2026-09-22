@@ -1,0 +1,20 @@
+test_http_get_and_guarded_post (test_alibz_display.DisplayHTTPTests.test_http_get_and_guarded_post) ... ok
+test_http_helper_failure_is_sanitized_503 (test_alibz_display.DisplayHTTPTests.test_http_helper_failure_is_sanitized_503) ... ok
+test_http_rejects_unknown_fields_and_action_without_dispatch (test_alibz_display.DisplayHTTPTests.test_http_rejects_unknown_fields_and_action_without_dispatch) ... ok
+test_active_uncertain_operations_and_awaiting_data_block_sleep (test_alibz_display.DisplayTests.test_active_uncertain_operations_and_awaiting_data_block_sleep) ... ok
+test_bad_requests_never_dispatch (test_alibz_display.DisplayTests.test_bad_requests_never_dispatch) ... ok
+test_disabled_status_never_dispatches_and_has_contract_shape (test_alibz_display.DisplayTests.test_disabled_status_never_dispatches_and_has_contract_shape) ... ok
+test_failed_command_is_sanitized_audited_and_cache_becomes_unknown (test_alibz_display.DisplayTests.test_failed_command_is_sanitized_audited_and_cache_becomes_unknown) ... ok
+test_malformed_helper_report_is_503_semantic_and_unknown_is_retained (test_alibz_display.DisplayTests.test_malformed_helper_report_is_503_semantic_and_unknown_is_retained) ... ok
+test_owner_expiry_and_safety_hold_allow_wake_but_forbid_sleep (test_alibz_display.DisplayTests.test_owner_expiry_and_safety_hold_allow_wake_but_forbid_sleep) ... ok
+test_sleep_and_wake_are_explicit_idempotent_actions_and_audited (test_alibz_display.DisplayTests.test_sleep_and_wake_are_explicit_idempotent_actions_and_audited) ... ok
+test_stale_report_is_unknown_and_action_verification_mismatch_is_uncertain (test_alibz_display.DisplayTests.test_stale_report_is_unknown_and_action_verification_mismatch_is_uncertain) ... ok
+test_status_is_cached_and_permissions_are_per_request_user (test_alibz_display.DisplayTests.test_status_is_cached_and_permissions_are_per_request_user) ... ok
+test_subprocess_output_is_bounded_and_stderr_is_not_published (test_alibz_display.DisplayTests.test_subprocess_output_is_bounded_and_stderr_is_not_published) ... ok
+test_subprocess_timeout_is_fixed_and_sanitized (test_alibz_display.DisplayTests.test_subprocess_timeout_is_fixed_and_sanitized) ... ok
+test_unknown_or_stale_state_never_dispatches_sleep_but_wake_is_recovery (test_alibz_display.DisplayTests.test_unknown_or_stale_state_never_dispatches_sleep_but_wake_is_recovery) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 1.864s
+
+OK

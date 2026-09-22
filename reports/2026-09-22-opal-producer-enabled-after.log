@@ -1,0 +1,16 @@
+........................................................... [ 15%]
+.........s....................................................... [ 32%]
+........................................................................ [ 51%]
+..................................... [ 61%]
+...........sss.......................................................... [ 80%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_peaky_pca.py::TestPeakyPCAExtract::test_extract_peak_windows_shape
+  /Users/mwhittaker/Projects/github/alibz/.venv/lib/python3.13/site-packages/joblib/externals/loky/backend/context.py:131: UserWarning: Could not find the number of physical cores for the following reason:
+  invalid literal for int() with base 10: ''
+  Returning the number of logical cores instead. You can silence this warning by setting LOKY_MAX_CPU_COUNT to the number of cores you want to use.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+375 passed, 4 skipped, 1 warning, 55 subtests passed in 280.26s (0:04:40)

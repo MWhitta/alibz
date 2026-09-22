@@ -1,0 +1,150 @@
+{
+  "first": {
+    "portal": {
+      "z300-display": {
+        "state": "live",
+        "sequence": 373,
+        "token": "3f1edde658f2e2d3",
+        "last_frame_at": "2026-09-22T16:44:56.014922+00:00",
+        "last_fetch_at": "2026-09-22T16:44:56.014922+00:00",
+        "watching": true,
+        "content_type": "image/png",
+        "bytes": 84738
+      },
+      "realsense-color": {
+        "state": "live",
+        "sequence": 917,
+        "token": "23ee695398fa3eaf",
+        "last_frame_at": "2026-09-22T16:44:56.074805+00:00",
+        "last_fetch_at": "2026-09-22T16:44:56.074805+00:00",
+        "watching": true,
+        "content_type": "image/jpeg",
+        "bytes": 56005
+      },
+      "realsense-depth": {
+        "state": "live",
+        "sequence": 727,
+        "token": "1b8ab9a748692bc7",
+        "last_frame_at": "2026-09-22T16:44:56.036559+00:00",
+        "last_fetch_at": "2026-09-22T16:44:56.036559+00:00",
+        "watching": true,
+        "content_type": "image/png",
+        "bytes": 241160
+      }
+    },
+    "publisher": {
+      "backend": "realsense",
+      "device_name": "RealSense D455",
+      "device_serial": "220422301696",
+      "pipeline": "running",
+      "detail": "ok",
+      "streams": {
+        "color": {
+          "sequence": 1097,
+          "token": "f0eed54c450ac420",
+          "last_frame_at": "2026-09-22T16:44:46.916483+00:00",
+          "fps_estimate": 6.35,
+          "width": 640,
+          "height": 480,
+          "intrinsics": {
+            "fx": 386.7785,
+            "fy": 386.2712,
+            "cx": 323.9239,
+            "cy": 238.6707,
+            "model": "distortion.inverse_brown_conrady",
+            "coeffs": [
+              -0.056477,
+              0.065561,
+              5.4e-05,
+              0.000637,
+              -0.021475
+            ]
+          }
+        },
+        "depth": {
+          "sequence": 1096,
+          "token": "d8b76213507214c7",
+          "last_frame_at": "2026-09-22T16:44:46.902413+00:00",
+          "fps_estimate": 6.72,
+          "width": 640,
+          "height": 480,
+          "depth_scale": 0.0010000000474974513
+        }
+      }
+    }
+  },
+  "second": {
+    "portal": {
+      "z300-display": {
+        "state": "live",
+        "sequence": 377,
+        "token": "4374dd7d9aacbdd2",
+        "last_frame_at": "2026-09-22T16:44:58.729643+00:00",
+        "last_fetch_at": "2026-09-22T16:44:58.729643+00:00",
+        "watching": true,
+        "content_type": "image/png",
+        "bytes": 84629
+      },
+      "realsense-color": {
+        "state": "live",
+        "sequence": 934,
+        "token": "1b95602b8cdd461e",
+        "last_frame_at": "2026-09-22T16:44:59.052269+00:00",
+        "last_fetch_at": "2026-09-22T16:44:59.228705+00:00",
+        "watching": true,
+        "content_type": "image/jpeg",
+        "bytes": 55992
+      },
+      "realsense-depth": {
+        "state": "live",
+        "sequence": 740,
+        "token": "9aa1a3bd389e82b2",
+        "last_frame_at": "2026-09-22T16:44:59.257184+00:00",
+        "last_fetch_at": "2026-09-22T16:44:59.257184+00:00",
+        "watching": true,
+        "content_type": "image/png",
+        "bytes": 242053
+      }
+    },
+    "publisher": {
+      "backend": "realsense",
+      "device_name": "RealSense D455",
+      "device_serial": "220422301696",
+      "pipeline": "running",
+      "detail": "ok",
+      "streams": {
+        "color": {
+          "sequence": 1117,
+          "token": "fcb0a0f9e8d93143",
+          "last_frame_at": "2026-09-22T16:44:49.957963+00:00",
+          "fps_estimate": 6.6,
+          "width": 640,
+          "height": 480,
+          "intrinsics": {
+            "fx": 386.7785,
+            "fy": 386.2712,
+            "cx": 323.9239,
+            "cy": 238.6707,
+            "model": "distortion.inverse_brown_conrady",
+            "coeffs": [
+              -0.056477,
+              0.065561,
+              5.4e-05,
+              0.000637,
+              -0.021475
+            ]
+          }
+        },
+        "depth": {
+          "sequence": 1116,
+          "token": "1b551664f2274136",
+          "last_frame_at": "2026-09-22T16:44:49.945682+00:00",
+          "fps_estimate": 6.27,
+          "width": 640,
+          "height": 480,
+          "depth_scale": 0.0010000000474974513
+        }
+      }
+    }
+  }
+}

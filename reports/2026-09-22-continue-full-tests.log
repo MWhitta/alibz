@@ -1,0 +1,116 @@
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=96518) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  self.pid = os.fork()
+Exception in thread Thread-454 (_run_live):
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1319, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              encode_chunked=req.has_header('Transfer-encoding'))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1338, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1384, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1333, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1093, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1037, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1003, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/socket.py", line 864, in create_connection
+    raise exceptions[0]
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/socket.py", line 849, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/mwhittaker/Projects/github/pantheum-I/pantheum/alibz/z300.py", line 93, in _open
+    with urllib.request.urlopen(request, timeout=self.timeout) as response:
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 189, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 489, in open
+    response = self._open(req, data)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 506, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 466, in _call_chain
+    result = func(*args)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1348, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1322, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 61] Connection refused>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/threading.py", line 1043, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/threading.py", line 994, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mwhittaker/Projects/github/pantheum-I/pantheum/alibz/acquire.py", line 647, in _run_live
+    tests, next_cursor = client.test_page(cursor)
+                         ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/Users/mwhittaker/Projects/github/pantheum-I/pantheum/alibz/z300.py", line 186, in test_page
+    result = self._json('GET', '/data/tests', params={'since': since})
+  File "/Users/mwhittaker/Projects/github/pantheum-I/pantheum/alibz/z300.py", line 129, in _json
+    status, raw, headers = self._open(method, path, params=params, body=body)
+                           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/mwhittaker/Projects/github/pantheum-I/pantheum/alibz/z300.py", line 114, in _open
+    raise Z300Error(f'Z300 unreachable: {reason}', code='unreachable') from exc
+pantheum.alibz.z300.Z300Error: Z300 unreachable: [Errno 61] Connection refused
+2026-09-22 11:31:23,224 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:23,231 INFO 127.0.0.1 - "GET /depth.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:23,741 INFO 127.0.0.1 - "GET /color.jpg?wait=1 HTTP/1.1" 200 -
+2026-09-22 11:31:23,748 INFO 127.0.0.1 - "GET /depth.jpg?wait=1 HTTP/1.1" 200 -
+2026-09-22 11:31:24,256 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:24,257 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:24,768 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:24,770 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:25,281 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:25,287 INFO 127.0.0.1 - "GET /depth.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:25,790 INFO 127.0.0.1 - "GET /status HTTP/1.1" 403 -
+2026-09-22 11:31:26,302 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 11:31:26,391 INFO 127.0.0.1 - "GET /color.jpg?after=44b53437c911c2cb&wait=2 HTTP/1.1" 200 -
+2026-09-22 11:31:26,810 INFO 127.0.0.1 - "GET /color.jpg?wait=2 HTTP/1.1" 200 -
+2026-09-22 11:31:26,811 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:26,812 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,019 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,227 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,435 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,641 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,850 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:27,852 INFO pipeline idle for 1.0s, stopping
+2026-09-22 11:31:28,055 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:28,564 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 11:31:29,074 INFO 127.0.0.1 - "GET /stream.mjpg?source=color HTTP/1.1" 200 -
+2026-09-22 11:31:29,581 INFO 127.0.0.1 - "GET /nope HTTP/1.1" 404 -
+2026-09-22 11:31:34,265 INFO stream client disconnected: 127.0.0.1
+ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmph7cxgfr3/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan-b/map.json: duplicate map id 72110e723a3badcdd934c343; keeping /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmph7cxgfr3/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan-a/map.json
+ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpn9zyn7wx/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan/map.json: id does not match sha256(project, graph_guid)
+ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpv8g3yiez/archive/data/hosts/mirabilite/LabData/Raman/maps/X/proj/scan/map.json: invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmp2978hrhy/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan/map.json: id is not 24 lowercase hex characters
+ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpw7gl50fh/archive/data/hosts/mirabilite/LabData/Raman/maps/Y/proj/scan/map.json: unreadable: [Errno 13] Permission denied: '/var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpw7gl50fh/archive/data/hosts/mirabilite/LabData/Raman/maps/Y/proj/scan/map.json'
+----------------------------------------------------------------------
+Ran 800 tests in 153.528s
+
+OK (skipped=26)
+exit=0

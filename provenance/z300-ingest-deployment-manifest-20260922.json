@@ -1,0 +1,59 @@
+{
+  "files": {
+    "pantheum/alibz/acquire.py": "4a23a6915c1bc88454c13dacdce5e1de9cbea6a358fb06c9276e324c7d6f147b",
+    "pantheum/alibz/retrieval.py": "fbd2cd965ca4858f63a553f58abe4564d216c835d652f4f681afdc2f14735b02",
+    "pantheum/alibz/optimization.py": "2c96f4a6b9dd3a1dd6f35bb468aff3ae7af4be81b409ab593da22665b1b1e5cd",
+    "pantheum/alibz/__main__.py": "ddf06310bee86f96b1a6a867d8338fdd94f29b8642dc966cd6debef51fbdc717",
+    "pantheum/alibz/optimization_metrics.py": "68d4d4859d349f7629fa6d6a451569632c89a85729247a0f298269735eee850a"
+  },
+  "before": {
+    "pantheum/alibz/acquire.py": "aa6a97501557b2589b1c3b9bb59f9c41bbf8683fb435f00423d2794525a9791a",
+    "pantheum/alibz/retrieval.py": null,
+    "pantheum/alibz/optimization.py": "be02da8dc57026463fc1db545947e39a48c62f2cb954aae5d6ccced688f2fe89",
+    "pantheum/alibz/__main__.py": "bf93c01333c9fcaac1e448c62b5e5f9028a46fd1e956492d5a374553dee2cf55",
+    "pantheum/alibz/optimization_metrics.py": "68d4d4859d349f7629fa6d6a451569632c89a85729247a0f298269735eee850a"
+  },
+  "config_sha256": "d183eb11aa2fa79884bcf4cd04d4b3099f0b1fb7f60e7fbe119857ee099fb798",
+  "acquire_patch": {
+    "retrieval": "opal_database",
+    "opal_retrieval": {
+      "command": [
+        "ssh",
+        "-T",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "-o",
+        "ServerAliveInterval=15",
+        "-o",
+        "ServerAliveCountMax=2",
+        "-p",
+        "52222",
+        "whittaker@192.168.50.112",
+        "C:\\InstrumentControl\\alibz\\.venv\\Scripts\\python.exe",
+        "-B",
+        "C:\\InstrumentControl\\alibz\\z300-ingest-20260922\\z300_opal_ingest.py",
+        "--run-id",
+        "{run_id}",
+        "--test-id",
+        "{test_id}",
+        "--expected-shots",
+        "{expected_shots}",
+        "--adb",
+        "C:\\InstrumentControl\\alibz\\z300-ingest-20260922\\platform-tools\\adb.exe",
+        "--serial",
+        "0123456789ABCDEF",
+        "--adb-port",
+        "5038",
+        "--archive-root",
+        "C:\\LabData\\LIBS\\pantheum-acquisitions"
+      ],
+      "timeout_seconds": 240,
+      "retry_seconds": 15,
+      "adopt_run_ids": []
+    }
+  }
+}

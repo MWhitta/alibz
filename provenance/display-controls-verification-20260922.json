@@ -1,0 +1,38 @@
+{
+  "verified_at": "2026-09-22T18:33:41.215403+00:00",
+  "runtime_files_matched": 6,
+  "served_assets_matched": 3,
+  "unrelated_config_preserved": true,
+  "services": {
+    "pantheum-alibz.service": "active",
+    "pantheum-alibz-worker.service": "active"
+  },
+  "get_display": {
+    "http_status": 200,
+    "state": "awake",
+    "checked_at": "2026-09-22T18:33:30.210391+00:00",
+    "sleep_allowed": false,
+    "wake_allowed": true,
+    "sleep_reason": "live acquisition run-ee6913a925c84e1f817f3142ab985cb6 is awaiting data retrieval"
+  },
+  "already_awake_post_wake": {
+    "http_status": 200,
+    "state": "awake",
+    "checked_at": "2026-09-22T18:33:41.215403+00:00",
+    "audit_state": "completed",
+    "sleep_allowed": true,
+    "wake_allowed": true
+  },
+  "physical_sleep_wake_cycle_tested": false,
+  "browser": {
+    "url": "https://pantheum.lbl.gov/alibz/#acquire",
+    "buttons_visible": [
+      "Sleep display",
+      "Wake display"
+    ],
+    "observed_state": "Awake",
+    "sleep_blocked_during_pending_retrieval": true,
+    "sleep_enabled_after_pending_retrieval_ended": true,
+    "camera_sources_live": 3
+  }
+}

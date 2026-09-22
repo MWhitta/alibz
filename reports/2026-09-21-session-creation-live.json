@@ -1,0 +1,45 @@
+{
+  "health": {
+    "status": "ok",
+    "service": "alibz"
+  },
+  "runtime_hashes_verified": 2,
+  "served_js_hash_verified": true,
+  "hardware_checkout": {
+    "state": "held",
+    "held_by_you": true,
+    "expires_at": "2026-09-21T21:35:02.085469+00:00"
+  },
+  "live_allowed": false,
+  "blocking_reasons": [
+    "analyzer not reachable"
+  ],
+  "live_rate_encoding_enabled": true,
+  "gantry": {
+    "connected": true,
+    "run_status": "Idle",
+    "observed_at": "2026-09-21T21:29:30.658281+00:00"
+  },
+  "enabled_actions": [
+    "z300.firetest"
+  ],
+  "current_params": {
+    "startLocation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "endLocation": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "intergrationDelay": 10,
+    "intergrationPeriod": 25
+  },
+  "counts": {
+    "optimization_sessions": 0,
+    "acquisitions": 0,
+    "hardware_operations": 0
+  }
+}

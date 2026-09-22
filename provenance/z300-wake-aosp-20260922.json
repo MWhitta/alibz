@@ -1,0 +1,14 @@
+[
+  {
+    "name": "IPowerManager.aidl",
+    "url": "https://android.googlesource.com/platform/frameworks/base/+/android-4.2.2_r1/core/java/android/os/IPowerManager.aidl",
+    "sha256": "cc7cc52aabb004475d0fc135f9b59b278c70f083bb55b25b4f43bdae85d2b4d0",
+    "local_copy": "/private/tmp/z300-power-IPowerManager.aidl"
+  },
+  {
+    "name": "service.cpp",
+    "url": "https://android.googlesource.com/platform/frameworks/base/+/android-4.2.2_r1/cmds/service/service.cpp",
+    "sha256": "16e7bf0cac7851de83d474fdf150efc062375f93e4a3cc2136c7870a8b416d04",
+    "local_copy": "/private/tmp/z300-power-service.cpp"
+  }
+]

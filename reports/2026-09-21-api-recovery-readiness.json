@@ -1,0 +1,212 @@
+{
+  "checked_at": "2026-09-21T23:28:54Z",
+  "hardware_checkout": {
+    "resource": "hardware",
+    "enabled": true,
+    "you": "mwhittaker@lbl.gov",
+    "ttl_seconds": 900.0,
+    "state": "held",
+    "held_by_you": true,
+    "holder": "mwhittaker@lbl.gov",
+    "holder_label": "mwhittaker@lbl.gov",
+    "acquired_at": "2026-09-21T23:26:54.491731+00:00",
+    "expires_at": "2026-09-21T23:41:54.491731+00:00",
+    "seconds_remaining": 779,
+    "note": "",
+    "can_reserve": true,
+    "can_override": false,
+    "can_release": true,
+    "can_reconcile": false,
+    "blocked_reasons": []
+  },
+  "motion": {
+    "enabled": true,
+    "state": "connected",
+    "detail": "ok",
+    "socket_connected": true,
+    "connected": true,
+    "connection_status": 2,
+    "connect_pending": false,
+    "active_port": "COM3",
+    "active_baud": 115200,
+    "available_ports": [
+      {
+        "path": "COM3",
+        "vendor_id": "0403",
+        "product_id": "6001",
+        "serial_number": "A10OF9X9",
+        "manufacturer": "FTDI",
+        "friendly_name": "USB Serial Port (COM3)"
+      }
+    ],
+    "firmware": {
+      "type": "grbl",
+      "platform": "grblHAL",
+      "version": "1.1f",
+      "date": "20230501"
+    },
+    "controller_target": {
+      "path": "COM3",
+      "vendor_id": "0403",
+      "product_id": "6001",
+      "serial_number": "A10OF9X9"
+    },
+    "run_status": "Idle",
+    "alarm": null,
+    "position": {
+      "x": 102.041,
+      "y": 10.004,
+      "z": -12.785
+    },
+    "observed_at": "2026-09-21T23:28:53.587434+00:00",
+    "live_allowed": true,
+    "reasons": [],
+    "allowed": {
+      "connect": true,
+      "jog": true,
+      "goto": true,
+      "set_zero": true,
+      "abort": true,
+      "clear_alarm": true
+    },
+    "limits": {
+      "x": [
+        0.0,
+        300.0
+      ],
+      "y": [
+        0.0,
+        300.0
+      ],
+      "z": [
+        -100.0,
+        0.0
+      ]
+    },
+    "max_step_mm": 100.0,
+    "enabled_actions": [
+      "gantry.abort",
+      "gantry.clear_alarm",
+      "gantry.connect",
+      "gantry.goto",
+      "gantry.jog",
+      "gantry.set_zero"
+    ]
+  },
+  "readiness": {
+    "enabled": true,
+    "analyzer_url": "http://192.168.50.112:19000",
+    "mode": 4,
+    "live_allowed": true,
+    "reasons": [],
+    "analyzer": {
+      "reachable": true,
+      "checked_at": "2026-09-21T23:28:53.668209+00:00",
+      "id": "Z300-0915",
+      "version": "v2.19.7-0-gca24454",
+      "triggerLocked": 0,
+      "laserCoolingOn": false,
+      "argonPSI": 12.34971,
+      "wlCalibrationNeededCode": 1,
+      "data_api_reachable": true,
+      "data_api_detail": "ok",
+      "detail": "ok"
+    },
+    "busy": false,
+    "active_run": null,
+    "runs": [
+      {
+        "id": "run-ca9c938cc88c42e98b07493803992d00",
+        "state": "uncertain",
+        "mode": 4,
+        "run_mode": "live",
+        "params": {
+          "intergrationDelay": 10,
+          "intergrationPeriod": 25,
+          "useGating": true,
+          "numShotsPerLocation": 10,
+          "numCleaningShotsPerLocation": 0,
+          "numlocations": 1,
+          "startLocation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "endLocation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "stepSize": 0.0,
+          "numShotsToAvg": 1,
+          "shotGroupType": "Linear",
+          "argonpreflush": 0,
+          "pulsePeriod": 10,
+          "cleaningPulsePeriod": 10,
+          "resetStage": false,
+          "useSpotlightDetection": false
+        },
+        "request_sha256": "b2b0e9b051e5348c8c5b0985560fd0f20e3daac0648b542d0ce83fcc77b529bf",
+        "test_id": null,
+        "created_at": "2026-09-21T21:57:46.936304+00:00",
+        "started_at": "2026-09-21T21:57:46.956211+00:00",
+        "finished_at": "2026-09-21T21:57:51.985560+00:00",
+        "detail": "Analyzer operation ended without proof that physical activity stopped; inspect before retrying.",
+        "dataset_ids": [],
+        "shots": 0,
+        "owner": "mwhittaker@lbl.gov",
+        "lease_generation": "e94c1e1cb5884e6984d2a9a944bef59b",
+        "dispatch_operation_id": "bcde444a741f4a6b8f1ca3c2f8bfee6e",
+        "hardware_resolved": 1,
+        "dispatch_started_at": "2026-09-21T21:57:46.972896+00:00"
+      }
+    ]
+  },
+  "optimization": {
+    "sessions": [
+      {
+        "id": "opt-78c196a5e31d4f8ea914c1344ded0c9a",
+        "sample": "Fe_Aesar_99.98%_18823",
+        "element": "Fe",
+        "run_mode": "live",
+        "state": "blocked",
+        "created_at": "2026-09-21T21:29:48.146672+00:00",
+        "proposal": null,
+        "best": null,
+        "detail": "Acquisition run-ca9c938cc88c42e98b07493803992d00 ended uncertain; optimization stopped. No hardware retry was attempted.",
+        "total_shots": 0,
+        "rate_hz": 100,
+        "timing_units": "vendor units (unverified)"
+      }
+    ],
+    "defaults": {
+      "sample": "Fe pure metal",
+      "element": "Fe",
+      "delays": [
+        5,
+        10,
+        20
+      ],
+      "periods": [
+        10,
+        25,
+        50
+      ],
+      "baseline": {
+        "delay": 10,
+        "period": 25
+      },
+      "shots": 10,
+      "locations": 1,
+      "cleaning_shots": 0,
+      "same_spot": true,
+      "mode": 4,
+      "rate_hz": 100,
+      "pulsePeriod": 10,
+      "timing_units": "vendor units (unverified)",
+      "rate_encoding": "pulsePeriod milliseconds; 1000/rate_hz",
+      "rate_encoding_verified": true,
+      "live_rate_encoding_enabled": true
+    }
+  }
+}

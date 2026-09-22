@@ -1,0 +1,439 @@
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_atomic_support.py _________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_atomic_support.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_atomic_support.py:6: in <module>
+    from alibz.peaky_maker import PeakyMaker
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+------------------------------- Captured stderr --------------------------------
+
+Fontconfig error: No writable cache directories
+	/opt/homebrew/var/cache/fontconfig
+	/Users/mwhittaker/.cache/fontconfig
+	/Users/mwhittaker/.fontconfig
+____________________ ERROR collecting tests/test_colors.py _____________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_colors.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_colors.py:6: in <module>
+    from alibz.utils.colors import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+___________________ ERROR collecting tests/test_detector.py ____________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_detector.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_detector.py:11: in <module>
+    from alibz.detector import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_external_io.py __________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_external_io.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_external_io.py:7: in <module>
+    from alibz.utils.dataloader import Data
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_inspection.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_inspection.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_inspection.py:9: in <module>
+    from scipy.special import voigt_profile
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_minor_lines.py __________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_minor_lines.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_minor_lines.py:5: in <module>
+    from scipy.special import voigt_profile
+E   ModuleNotFoundError: No module named 'scipy'
+______________ ERROR collecting tests/test_mw2_112_provenance.py _______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_mw2_112_provenance.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_mw2_112_provenance.py:6: in <module>
+    from scripts.mw2_112_provenance import (
+scripts/mw2_112_provenance.py:23: in <module>
+    from alibz.mw2_112 import hash_file, utc_now
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+________________ ERROR collecting tests/test_mw2_112_runner.py _________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_mw2_112_runner.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_mw2_112_runner.py:6: in <module>
+    from scripts.run_mw2_112 import (
+scripts/run_mw2_112.py:21: in <module>
+    from alibz.pipeline import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_native_grid.py __________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_native_grid.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_native_grid.py:20: in <module>
+    from alibz.utils.native_grid import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+________________ ERROR collecting tests/test_peak_window_pca.py ________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_peak_window_pca.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_peak_window_pca.py:10: in <module>
+    from alibz.peak_window_pca import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+_____________ ERROR collecting tests/test_peaky_finder_accuracy.py _____________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_peaky_finder_accuracy.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_peaky_finder_accuracy.py:13: in <module>
+    from scipy.special import voigt_profile
+E   ModuleNotFoundError: No module named 'scipy'
+_______________ ERROR collecting tests/test_peaky_finder_fast.py _______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_peaky_finder_fast.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_peaky_finder_fast.py:7: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+_________________ ERROR collecting tests/test_peaky_indexer.py _________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_peaky_indexer.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_peaky_indexer.py:5: in <module>
+    import alibz
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+___________________ ERROR collecting tests/test_peaky_pca.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_peaky_pca.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_peaky_pca.py:4: in <module>
+    from scipy.special import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+______________ ERROR collecting tests/test_physics_integration.py ______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_physics_integration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_physics_integration.py:4: in <module>
+    from scipy.signal import find_peaks
+E   ModuleNotFoundError: No module named 'scipy'
+___________________ ERROR collecting tests/test_pipeline.py ____________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_pipeline.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_pipeline.py:17: in <module>
+    from alibz.pipeline import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+___________________ ERROR collecting tests/test_profiles.py ____________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_profiles.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_profiles.py:6: in <module>
+    from scipy.special import voigt_profile
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_provenance.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_provenance.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_provenance.py:10: in <module>
+    from alibz.provenance import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_refinement.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_refinement.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_refinement.py:11: in <module>
+    from scipy.special import voigt_profile
+E   ModuleNotFoundError: No module named 'scipy'
+_______________ ERROR collecting tests/test_relative_profiles.py _______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_relative_profiles.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_relative_profiles.py:5: in <module>
+    from alibz.relative_profiles import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+______________ ERROR collecting tests/test_roundtrip_synthetic.py ______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_roundtrip_synthetic.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_roundtrip_synthetic.py:22: in <module>
+    from bench.synth_cases import CASES, render_case, score_recovery
+bench/synth_cases.py:25: in <module>
+    from alibz.synthetic import (PlasmaComponent, SyntheticScene,
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+_________________ ERROR collecting tests/test_sahaboltzmann.py _________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_sahaboltzmann.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_sahaboltzmann.py:5: in <module>
+    from alibz.peaky_indexer_v3 import LineTable
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_scattering.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_scattering.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_scattering.py:3: in <module>
+    from alibz.scattering import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+________________ ERROR collecting tests/test_self_absorption.py ________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_self_absorption.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_self_absorption.py:14: in <module>
+    from alibz import PeakyIndexer
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+______________ ERROR collecting tests/test_session_calibration.py ______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_session_calibration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_session_calibration.py:3: in <module>
+    from alibz.session_calibration import build_shared_calibration
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+___________________ ERROR collecting tests/test_stark_ne.py ____________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_stark_ne.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_stark_ne.py:13: in <module>
+    from alibz import PeakyIndexer
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+______________ ERROR collecting tests/test_synthetic_generator.py ______________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_synthetic_generator.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_synthetic_generator.py:10: in <module>
+    from alibz.synthetic import (
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_wavelength.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_wavelength.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_wavelength.py:11: in <module>
+    from alibz.utils.database import Database
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+________________ ERROR collecting tests/test_weighted_solve.py _________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_weighted_solve.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_weighted_solve.py:7: in <module>
+    from alibz.peaky_indexer_v3 import (PROCEDURE_NOISE_FRACTION, PeakyIndexerV3)
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+__________________ ERROR collecting tests/test_whole_rock.py ___________________
+ImportError while importing test module '/Users/mwhittaker/Projects/github/alibz/tests/test_whole_rock.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_whole_rock.py:8: in <module>
+    from alibz.elements import ATOMIC_NUMBER
+alibz/__init__.py:43: in <module>
+    from alibz.peaky_finder import PeakyFinder
+alibz/peaky_finder.py:7: in <module>
+    from scipy.special     import voigt_profile as voigt
+E   ModuleNotFoundError: No module named 'scipy'
+=========================== short test summary info ============================
+ERROR tests/test_atomic_support.py
+ERROR tests/test_colors.py
+ERROR tests/test_detector.py
+ERROR tests/test_external_io.py
+ERROR tests/test_inspection.py
+ERROR tests/test_minor_lines.py
+ERROR tests/test_mw2_112_provenance.py
+ERROR tests/test_mw2_112_runner.py
+ERROR tests/test_native_grid.py
+ERROR tests/test_peak_window_pca.py
+ERROR tests/test_peaky_finder_accuracy.py
+ERROR tests/test_peaky_finder_fast.py
+ERROR tests/test_peaky_indexer.py
+ERROR tests/test_peaky_pca.py
+ERROR tests/test_physics_integration.py
+ERROR tests/test_pipeline.py
+ERROR tests/test_profiles.py
+ERROR tests/test_provenance.py
+ERROR tests/test_refinement.py
+ERROR tests/test_relative_profiles.py
+ERROR tests/test_roundtrip_synthetic.py
+ERROR tests/test_sahaboltzmann.py
+ERROR tests/test_scattering.py
+ERROR tests/test_self_absorption.py
+ERROR tests/test_session_calibration.py
+ERROR tests/test_stark_ne.py
+ERROR tests/test_synthetic_generator.py
+ERROR tests/test_wavelength.py
+ERROR tests/test_weighted_solve.py
+ERROR tests/test_whole_rock.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 30 errors during collection !!!!!!!!!!!!!!!!!!!
+30 errors in 11.51s

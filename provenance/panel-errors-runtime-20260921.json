@@ -1,0 +1,20 @@
+{
+  "before": {
+    "web/alibz/app.js": "5ed2a61203d7bbc95ba1d3c0f99359245e53b481d081cc8cd069910bbebdc06a",
+    "web/alibz/index.html": "d3399370d840dbd9f154a54870fff02228447dbc531b009cc87274d24db4da10",
+    "web/alibz/styles.css": "6e92823ef31da2ba111a253264cbb4b1f670bf0fd1b724f3ea86705cc4a3b706"
+  },
+  "after": {
+    "web/alibz/app.js": "a8afa00467e26ea6f93bcb0e07c460a2372d8e396db8514d87e881ae6cbdbe0b",
+    "web/alibz/index.html": "69f3a647ed96fbc2e79c2be7ded7a5499e7721d2b43da4a047ff67c77ed93b2e",
+    "web/alibz/styles.css": "ebc4ccaea2ca987aa95ab0a062a4f3fb9cdb951da6c44c4183aa1e8e270092a1"
+  },
+  "backup": "/home/mwhittaker/pantheum-panel-errors-backup-20260921T165734",
+  "deployed_at": "2026-09-21T16:57:34-07:00",
+  "configuration_sha256": "c4e64e1a31b3c2699aafdcbbe4c85261948e859b087fb0365a1db74f852d4fa3",
+  "configuration_changed": false,
+  "services_restarted": false,
+  "served_assets_match": true,
+  "ui_tests_passed": 36,
+  "physical_actions_issued": false
+}

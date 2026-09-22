@@ -1,0 +1,19 @@
+{
+  "captured_at": "2026-09-22T16:50:01.123272+00:00",
+  "host": "opal",
+  "original": {
+    "adb_state": "device",
+    "battery_level": 100,
+    "effective_screen_off_timeout_ms": 600000,
+    "plug_type": 0,
+    "powered": false,
+    "screen_off_timeout_ms": 600000,
+    "screen_on": true,
+    "serial": "0123456789ABCDEF",
+    "stay_on_while_plugged_in": 3,
+    "usb_config": "mtp,adb",
+    "wakefulness": "Awake"
+  },
+  "schema": 1,
+  "setting": "system.screen_off_timeout"
+}

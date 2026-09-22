@@ -1,0 +1,107 @@
+CORRECTION 2026-09-21: getTestsSince generic return type is List<String>, not List<LIBZTest>. Java Date logging alone does not prove query units. Live epoch-millisecond since overflow crashes the API; since=0 returns string IDs and an integer next cursor. See api-service-recovery and tests-since-semantics reports.
+
+Profile Builder 2.19.1a pinned bytecode evidence
+Date inspected: 2026-09-21
+Read-only artifact: /private/tmp/pantheum-acquisition-ProfileBuilder.jar
+SHA-256: c8164f159eb610b0c7b154df7876010e9699332da5d9cf0704138c59c5814dd7
+Tool: jawa loaded from /private/tmp/pantheum-jawa
+
+Class com/sciaps/common/webserver/LIBZHttpClient
+
+Constructor <init>(String):
+  38 aload_2
+  39 sipush 5000
+  42 invokestatic HttpConnectionParams.setConnectionTimeout(HttpParams,int)
+  45 aload_2
+  46 ldc #12                    # Integer 90000
+  48 invokestatic HttpConnectionParams.setSoTimeout(HttpParams,int)
+
+takeTest(RasterParams) -> String:
+  10 ldc #91                    # "%s/data/firetest"
+  23 invokestatic String.format
+  27 new #92                    # HttpPost
+  32 invokespecial HttpPost.<init>(String)
+  36 getfield mGson
+  40 aload_1                    # RasterParams
+  41 invokevirtual Gson.toJson(Object)
+  46 new #79                    # StringEntity
+  52 ldc #80                    # "UTF-8"
+  54 invokespecial StringEntity.<init>(String,String)
+  59 aload entity
+  61 ldc #82                    # "application/json"
+  63 invokevirtual StringEntity.setContentType(String)
+  66 aload HttpPost
+  69 invokevirtual HttpPost.setEntity(HttpEntity)
+  72 getfield mClient
+  76 aload HttpPost
+  81 invokeinterface HttpClient.execute(HttpUriRequest,HttpContext)
+  88 response.getStatusLine().getStatusCode()
+  100 sipush 520
+  106 new LaserNotArmedException("Laser is not armed.")
+  116 response.getStatusLine().getStatusCode()
+  128 sipush 521
+  134 new TriggerLockedException("Trigger is locked.")
+  144 response.getEntity()
+  153 new JsonReader(new InputStreamReader(entity.getContent()))
+  176 getfield mGson
+  182 ldc #102                   # java/lang/String
+  184 invokevirtual Gson.fromJson(JsonReader,Type)
+  190 astore testId
+  192 entity.consumeContent()
+  199 aload testId
+  201 areturn
+
+getTestsSince(long) -> List:
+  18 ldc #159                   # "%s/data/tests?since=%d"
+  26 getfield mBaseUrl
+  33 lload_1
+  34 invokestatic Long.valueOf(long)
+  38 invokestatic String.format
+  42 new HttpGet
+  52 getfield mClient
+  62 invokeinterface HttpClient.execute(HttpUriRequest,HttpContext)
+  95 new JsonReader(new InputStreamReader(response.getEntity().getContent()))
+  118 getfield mGson
+  124 ldc #161                   # JsonElement
+  126 invokevirtual Gson.fromJson
+  147 aload JsonElement
+  149 invokevirtual JsonElement.getAsJsonObject()
+  154 getfield mGson
+  158 aload JsonObject
+  160 ldc #166                   # "data"
+  162 invokevirtual JsonObject.get(String)
+  165 aload Type<List<LIBZTest>>
+  167 invokevirtual Gson.fromJson(JsonElement,Type)
+  182 areturn
+
+Class com/sciaps/view/acquisitions/AcquisitionAndResultsPanel
+
+onInstrumentStatusEvent(InstrumentStatusEvent), tableswitch at bytecode 79:
+  wlCalibrationNeededCode -1 -> 140: mWLCalibrationNeeded=false; label YELLOW
+  wlCalibrationNeededCode  0 -> 104: mWLCalibrationNeeded=true;  label RED
+  wlCalibrationNeededCode  1 -> 122: mWLCalibrationNeeded=false; label GREEN
+  wlCalibrationNeededCode -100 is tested at 62 and bypasses the visible-status block.
+
+doScan():
+  20 getfield mWLCalibrationNeeded
+  24 ifeq continue
+  27 getstatic MainFrame.mWLCalibrationRemindMeLater
+  30 invokevirtual RemindMeLater.getConfirmation()
+  33 ifne continue
+  36 return
+
+Class com/sciaps/view/acquisitions/RasterSettingPanel
+
+doSave() validation evidence:
+  bytecode 2-103: data shots>=1, locations>=1, preflush/delay/period/step>=0,
+                   averaging>=1, cleaning shots>=0, start x/y/z>=0, end x/y>=0
+  bytecode 114-151: end x>=start x and end y>=start y
+  bytecode 152-174: numlocations * data-shots <= 600
+  No upper coordinate bound or calibration-dependent coordinate validation occurs.
+
+Extraction commands used (read-only):
+  PYTHONPATH=/private/tmp/pantheum-jawa python3 -c '<ClassFile/JAR disassembly>'
+  shasum -a 256 /private/tmp/pantheum-acquisition-ProfileBuilder.jar
+
+This evidence confirms client-side protocol construction. It does not prove current
+firmware execution state or authorize an instrument request.

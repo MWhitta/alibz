@@ -1,0 +1,930 @@
+test_dry_run_lists_without_removing_and_rejects_vague_prefix (test_alibz.ForgetTests.test_dry_run_lists_without_removing_and_rejects_vague_prefix) ... ok
+test_execute_removes_rows_jobs_artifacts_and_archive_copy_only_for_matches (test_alibz.ForgetTests.test_execute_removes_rows_jobs_artifacts_and_archive_copy_only_for_matches) ... ok
+test_analyze_enqueues_job (test_alibz.HTTPTests.test_analyze_enqueues_job) ... ok
+test_composition_csv (test_alibz.HTTPTests.test_composition_csv) ... ok
+test_cross_origin_and_non_json_rejected (test_alibz.HTTPTests.test_cross_origin_and_non_json_rejected) ... ok
+test_csp_header_present (test_alibz.HTTPTests.test_csp_header_present) ... ok
+test_example_is_explicit_and_never_an_instrument (test_alibz.HTTPTests.test_example_is_explicit_and_never_an_instrument) ... ok
+test_fit_full_endpoint_and_dataset_view_excludes_it (test_alibz.HTTPTests.test_fit_full_endpoint_and_dataset_view_excludes_it) ... ok
+test_fit_full_missing_job_404 (test_alibz.HTTPTests.test_fit_full_missing_job_404) ... ok
+test_health_and_status (test_alibz.HTTPTests.test_health_and_status) ... ok
+test_oversize_post_rejected (test_alibz.HTTPTests.test_oversize_post_rejected) ... ok
+test_peaks_csv (test_alibz.HTTPTests.test_peaks_csv) ... ok
+test_peaks_csv_missing_result_404 (test_alibz.HTTPTests.test_peaks_csv_missing_result_404) ... ok
+test_public_bind_requires_boundary (test_alibz.HTTPTests.test_public_bind_requires_boundary) ... ok
+test_symlinked_asset_refused (test_alibz.HTTPTests.test_symlinked_asset_refused) ... ok
+test_unknown_host_rejected (test_alibz.HTTPTests.test_unknown_host_rejected) ... ok
+test_unknown_route_404 (test_alibz.HTTPTests.test_unknown_route_404) ... ok
+test_upload_run_and_export (test_alibz.HTTPTests.test_upload_run_and_export) ... ok
+test_peak_locations_on_synthetic_three_line_spectrum (test_alibz.PreviewTests.test_peak_locations_on_synthetic_three_line_spectrum) ... ok
+test_alibz_engine_disabled_rejected (test_alibz.ServiceTests.test_alibz_engine_disabled_rejected) ... ok
+test_concurrent_enqueue_is_idempotent (test_alibz.ServiceTests.test_concurrent_enqueue_is_idempotent) ... ok
+test_drive_import_falls_back_to_a_copy_when_the_origin_is_gone (test_alibz.ServiceTests.test_drive_import_falls_back_to_a_copy_when_the_origin_is_gone)
+origin_path is a hint, not a promise: a vanished file must not lose the data. ... ok
+test_drive_import_reuses_the_archive_copy_instead_of_duplicating_it (test_alibz.ServiceTests.test_drive_import_reuses_the_archive_copy_instead_of_duplicating_it)
+A drive-sourced import must not write the same bytes a second time. ... ok
+test_immutable_revisions_and_dedup (test_alibz.ServiceTests.test_immutable_revisions_and_dedup) ... ok
+test_instrument_defaults_and_validation (test_alibz.ServiceTests.test_instrument_defaults_and_validation) ... ok
+test_metadata_validation (test_alibz.ServiceTests.test_metadata_validation) ... ok
+test_restart_revision_import_idempotence (test_alibz.ServiceTests.test_restart_revision_import_idempotence) ... ok
+test_run_one_preview_path (test_alibz.ServiceTests.test_run_one_preview_path) ... ok
+test_running_jobs_interrupted_on_restart (test_alibz.ServiceTests.test_running_jobs_interrupted_on_restart) ... ok
+test_status_engine_readiness_disabled_misconfigured_ready (test_alibz.ServiceTests.test_status_engine_readiness_disabled_misconfigured_ready) ... ok
+test_sync_observation_expires (test_alibz.ServiceTests.test_sync_observation_expires) ... ok
+test_unknown_engine_rejected (test_alibz.ServiceTests.test_unknown_engine_rejected) ... ok
+test_unsupported_binary_archived_without_analysis (test_alibz.ServiceTests.test_unsupported_binary_archived_without_analysis) ... ok
+test_upload_traversal_rejected (test_alibz.ServiceTests.test_upload_traversal_rejected) ... ok
+test_worker_exclusion (test_alibz.ServiceTests.test_worker_exclusion) ... ok
+test_wrong_suffix_becomes_needs_export (test_alibz.ServiceTests.test_wrong_suffix_becomes_needs_export) ... ok
+test_descending_input_is_sorted_ascending (test_alibz.SpectraParserTests.test_descending_input_is_sorted_ascending) ... ok
+test_duplicate_wavelength_after_sort_rejected (test_alibz.SpectraParserTests.test_duplicate_wavelength_after_sort_rejected) ... ok
+test_nan_rejected (test_alibz.SpectraParserTests.test_nan_rejected) ... ok
+test_non_numeric_row_rejected (test_alibz.SpectraParserTests.test_non_numeric_row_rejected) ... ok
+test_optional_header_is_skipped (test_alibz.SpectraParserTests.test_optional_header_is_skipped) ... ok
+test_out_of_range_nm_rejected (test_alibz.SpectraParserTests.test_out_of_range_nm_rejected) ... ok
+test_oversize_and_too_many_points_rejected (test_alibz.SpectraParserTests.test_oversize_and_too_many_points_rejected) ... ok
+test_separators_all_agree (test_alibz.SpectraParserTests.test_separators_all_agree) ... ok
+test_too_few_points_rejected (test_alibz.SpectraParserTests.test_too_few_points_rejected) ... ok
+test_wrong_suffix_rejected (test_alibz.SpectraParserTests.test_wrong_suffix_rejected) ... ok
+test_bind_mode_and_health_over_unix_socket (test_alibz.UnixSocketTests.test_bind_mode_and_health_over_unix_socket) ... ok
+test_stale_socket_is_replaced (test_alibz.UnixSocketTests.test_stale_socket_is_replaced) ... ok
+test_cancel_route_for_simulated_run (test_alibz_acquire.AcquireHTTPTests.test_cancel_route_for_simulated_run) ... ok
+test_conflicting_payload_is_409 (test_alibz_acquire.AcquireHTTPTests.test_conflicting_payload_is_409) ... ok
+test_idempotent_repeat_over_http_is_200 (test_alibz_acquire.AcquireHTTPTests.test_idempotent_repeat_over_http_is_200) ... ok
+test_live_run_forbidden_with_reasons (test_alibz_acquire.AcquireHTTPTests.test_live_run_forbidden_with_reasons) ... ok
+test_runs_list_route (test_alibz_acquire.AcquireHTTPTests.test_runs_list_route) ... ok
+test_service_status_includes_acquire_summary (test_alibz_acquire.AcquireHTTPTests.test_service_status_includes_acquire_summary) ... ok
+test_settings_round_trip (test_alibz_acquire.AcquireHTTPTests.test_settings_round_trip) ... ok
+test_simulate_run_then_export_zip (test_alibz_acquire.AcquireHTTPTests.test_simulate_run_then_export_zip) ... ok
+test_status_route (test_alibz_acquire.AcquireHTTPTests.test_status_route) ... ok
+test_unknown_run_404 (test_alibz_acquire.AcquireHTTPTests.test_unknown_run_404) ... ok
+test_default_is_preset (test_alibz_acquire.AcquisitionSettingsTests.test_default_is_preset) ... ok
+test_local_save_then_push (test_alibz_acquire.AcquisitionSettingsTests.test_local_save_then_push) ... ok
+test_push_without_enabled_action_refused (test_alibz_acquire.AcquisitionSettingsTests.test_push_without_enabled_action_refused) ... ok
+test_save_settings_validates_params (test_alibz_acquire.AcquisitionSettingsTests.test_save_settings_validates_params) ... ok
+test_data_api_mode_still_probes_and_gates (test_alibz_acquire.DeferredRetrievalTests.test_data_api_mode_still_probes_and_gates) ... ok
+test_deferred_run_fires_and_ends_awaiting_data_without_reading_data_api (test_alibz_acquire.DeferredRetrievalTests.test_deferred_run_fires_and_ends_awaiting_data_without_reading_data_api) ... ok
+test_deferred_status_neither_probes_nor_requires_the_data_api (test_alibz_acquire.DeferredRetrievalTests.test_deferred_status_neither_probes_nor_requires_the_data_api) ... ok
+test_unknown_retrieval_mode_fails_closed_at_startup (test_alibz_acquire.DeferredRetrievalTests.test_unknown_retrieval_mode_fails_closed_at_startup) ... ok
+test_broken_recent_test_list_fails_status_and_start_without_ledger_or_fire (test_alibz_acquire.LiveRunTests.test_broken_recent_test_list_fails_status_and_start_without_ledger_or_fire) ... ok
+test_delayed_fire_ack_uses_vendor_read_window_once_and_keeps_exclusion (test_alibz_acquire.LiveRunTests.test_delayed_fire_ack_uses_vendor_read_window_once_and_keeps_exclusion) ... ok
+test_historical_id_never_matches_acknowledged_test (test_alibz_acquire.LiveRunTests.test_historical_id_never_matches_acknowledged_test) ... ok
+test_live_refused_when_analyzer_unreachable (test_alibz_acquire.LiveRunTests.test_live_refused_when_analyzer_unreachable) ... ok
+test_live_refused_when_not_enabled (test_alibz_acquire.LiveRunTests.test_live_refused_when_not_enabled) ... ok
+test_live_refused_when_trigger_locked (test_alibz_acquire.LiveRunTests.test_live_refused_when_trigger_locked) ... ok
+test_live_refused_without_confirm (test_alibz_acquire.LiveRunTests.test_live_refused_without_confirm) ... ok
+test_live_run_fires_polls_and_imports (test_alibz_acquire.LiveRunTests.test_live_run_fires_polls_and_imports) ... ok
+test_nonadvancing_test_cursor_is_uncertain_after_one_fire (test_alibz_acquire.LiveRunTests.test_nonadvancing_test_cursor_is_uncertain_after_one_fire) ... ok
+test_post_ack_data_failure_retains_test_id_diagnostic_and_hardware_hold (test_alibz_acquire.LiveRunTests.test_post_ack_data_failure_retains_test_id_diagnostic_and_hardware_hold) ... ok
+test_smaller_configured_run_timeout_is_honored (test_alibz_acquire.LiveRunTests.test_smaller_configured_run_timeout_is_honored) ... ok
+test_status_reports_live_allowed_and_analyzer (test_alibz_acquire.LiveRunTests.test_status_reports_live_allowed_and_analyzer) ... ok
+test_test_pagination_safety_cap_is_uncertain (test_alibz_acquire.LiveRunTests.test_test_pagination_safety_cap_is_uncertain) ... ok
+test_unexpected_post_dispatch_exception_reports_only_class_and_holds_hardware (test_alibz_acquire.LiveRunTests.test_unexpected_post_dispatch_exception_reports_only_class_and_holds_hardware) ... ok
+test_both_presets_are_valid (test_alibz_acquire.RasterParamsValidationTests.test_both_presets_are_valid) ... ok
+test_missing_field_rejected (test_alibz_acquire.RasterParamsValidationTests.test_missing_field_rejected) ... ok
+test_out_of_range_and_wrong_type_rejected (test_alibz_acquire.RasterParamsValidationTests.test_out_of_range_and_wrong_type_rejected) ... ok
+test_shot_ceiling_enforced (test_alibz_acquire.RasterParamsValidationTests.test_shot_ceiling_enforced) ... ok
+test_shot_csv_keeps_the_native_detector_grid (test_alibz_acquire.RasterParamsValidationTests.test_shot_csv_keeps_the_native_detector_grid) ... ok
+test_unknown_field_rejected (test_alibz_acquire.RasterParamsValidationTests.test_unknown_field_rejected) ... ok
+test_valid_preset_round_trips (test_alibz_acquire.RasterParamsValidationTests.test_valid_preset_round_trips) ... ok
+test_zero_step_rejected_because_the_analyzer_divides_by_it (test_alibz_acquire.RasterParamsValidationTests.test_zero_step_rejected_because_the_analyzer_divides_by_it) ... ok
+test_ambiguous_settings_push_persists_hardware_blocker (test_alibz_acquire.SimulateRunTests.test_ambiguous_settings_push_persists_hardware_blocker) ... ok
+test_busy_lock_refuses_second_run (test_alibz_acquire.SimulateRunTests.test_busy_lock_refuses_second_run) ... ok
+test_cancel_of_simulated_run_is_immediate (test_alibz_acquire.SimulateRunTests.test_cancel_of_simulated_run_is_immediate) ... ok
+test_cancel_unknown_run_raises_keyerror (test_alibz_acquire.SimulateRunTests.test_cancel_unknown_run_raises_keyerror) ... ok
+test_conflicting_payload_for_same_id_is_409 (test_alibz_acquire.SimulateRunTests.test_conflicting_payload_for_same_id_is_409) ... ok
+test_failed_cancel_cannot_be_overwritten_by_late_live_results (test_alibz_acquire.SimulateRunTests.test_failed_cancel_cannot_be_overwritten_by_late_live_results) ... ok
+test_idempotent_repeat_returns_existing_record (test_alibz_acquire.SimulateRunTests.test_idempotent_repeat_returns_existing_record) ... ok
+test_invalid_run_id_rejected (test_alibz_acquire.SimulateRunTests.test_invalid_run_id_rejected) ... ok
+test_never_contacts_network_when_simulating (test_alibz_acquire.SimulateRunTests.test_never_contacts_network_when_simulating) ... ok
+test_queued_live_cancel_proves_no_dispatch_and_clears_prepared_intent (test_alibz_acquire.SimulateRunTests.test_queued_live_cancel_proves_no_dispatch_and_clears_prepared_intent) ... ok
+test_recover_marks_stale_running_uncertain (test_alibz_acquire.SimulateRunTests.test_recover_marks_stale_running_uncertain) ... ok
+test_running_live_cancel_stays_cancelling_until_observed_resolution (test_alibz_acquire.SimulateRunTests.test_running_live_cancel_stays_cancelling_until_observed_resolution) ... ok
+test_simulate_end_to_end_imports_dataset_and_exports_zip (test_alibz_acquire.SimulateRunTests.test_simulate_end_to_end_imports_dataset_and_exports_zip) ... ok
+test_unknown_run_id_lookup_raises (test_alibz_acquire.SimulateRunTests.test_unknown_run_id_lookup_raises) ... ok
+test_cancel_reaches_fake_server (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_cancel_reaches_fake_server) ... ok
+test_fire_test_list_and_gzip_shot (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_fire_test_list_and_gzip_shot) ... ok
+test_http_error_mapping (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_http_error_mapping) ... ok
+test_instrument_id_and_argon (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_instrument_id_and_argon) ... ok
+test_interlock_mapping_not_armed (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_interlock_mapping_not_armed) ... ok
+test_interlock_mapping_trigger_locked (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_interlock_mapping_trigger_locked) ... ok
+test_invalid_server_cursor_is_rejected_before_followup_request (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_invalid_server_cursor_is_rejected_before_followup_request) ... ok
+test_save_and_read_default_params (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_save_and_read_default_params) ... ok
+test_test_list_accepts_vendor_envelope_and_legacy_list (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_test_list_accepts_vendor_envelope_and_legacy_list) ... ok
+test_test_list_rejects_invalid_shapes (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_test_list_rejects_invalid_shapes) ... ok
+test_test_list_rejects_unsafe_since_values_before_network (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_test_list_rejects_unsafe_since_values_before_network) ... ok
+test_unreachable_mapping (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_unreachable_mapping) ... ok
+test_vendor_interlock_http_statuses_keep_diagnostics (test_alibz_acquire.Z300ClientAgainstFakeServerTests.test_vendor_interlock_http_statuses_keep_diagnostics) ... ok
+test_bad_element_symbol_rejected (test_alibz_bridge.FakeBridgeTests.test_bad_element_symbol_rejected) ... ok
+test_exit_code_3_reports_code (test_alibz_bridge.FakeBridgeTests.test_exit_code_3_reports_code) ... ok
+test_fit_full_accepted_independently_of_fit (test_alibz_bridge.FakeBridgeTests.test_fit_full_accepted_independently_of_fit) ... ok
+test_fit_full_mismatched_lengths_rejected (test_alibz_bridge.FakeBridgeTests.test_fit_full_mismatched_lengths_rejected) ... ok
+test_fit_full_oversize_rejected (test_alibz_bridge.FakeBridgeTests.test_fit_full_oversize_rejected) ... ok
+test_fit_without_optional_keys_is_still_accepted (test_alibz_bridge.FakeBridgeTests.test_fit_without_optional_keys_is_still_accepted) ... ok
+test_lines_accepted (test_alibz_bridge.FakeBridgeTests.test_lines_accepted) ... ok
+test_lines_bad_element_symbol_rejected (test_alibz_bridge.FakeBridgeTests.test_lines_bad_element_symbol_rejected) ... ok
+test_lines_oversize_rejected (test_alibz_bridge.FakeBridgeTests.test_lines_oversize_rejected) ... ok
+test_mismatched_background_length_rejected (test_alibz_bridge.FakeBridgeTests.test_mismatched_background_length_rejected) ... ok
+test_mismatched_fit_lengths_rejected (test_alibz_bridge.FakeBridgeTests.test_mismatched_fit_lengths_rejected) ... ok
+test_nan_in_result_rejected (test_alibz_bridge.FakeBridgeTests.test_nan_in_result_rejected) ... ok
+test_nulls_inside_background_accepted (test_alibz_bridge.FakeBridgeTests.test_nulls_inside_background_accepted) ... ok
+test_oversize_result_rejected (test_alibz_bridge.FakeBridgeTests.test_oversize_result_rejected) ... ok
+test_peak_candidates_accepted (test_alibz_bridge.FakeBridgeTests.test_peak_candidates_accepted) ... ok
+test_peak_candidates_bad_element_symbol_rejected (test_alibz_bridge.FakeBridgeTests.test_peak_candidates_bad_element_symbol_rejected) ... ok
+test_peak_candidates_oversize_rejected (test_alibz_bridge.FakeBridgeTests.test_peak_candidates_oversize_rejected) ... ok
+test_result_without_new_keys_stays_backward_compatible (test_alibz_bridge.FakeBridgeTests.test_result_without_new_keys_stays_backward_compatible) ... ok
+test_sleep_past_timeout_raises_and_leaves_no_zombie (test_alibz_bridge.FakeBridgeTests.test_sleep_past_timeout_raises_and_leaves_no_zombie) ... ok
+test_valid_result_round_trips_through_the_real_subprocess_path (test_alibz_bridge.FakeBridgeTests.test_valid_result_round_trips_through_the_real_subprocess_path) ... ok
+test_valid_with_non_boolean_item_rejected (test_alibz_bridge.FakeBridgeTests.test_valid_with_non_boolean_item_rejected) ... ok
+test_valid_wrong_length_rejected (test_alibz_bridge.FakeBridgeTests.test_valid_wrong_length_rejected) ... ok
+test_real_bridge_end_to_end (test_alibz_bridge.RealBridgeTests.test_real_bridge_end_to_end) ... ok
+test_edit_picked_up_without_restart (test_alibz_camera.CalibrationRouteTests.test_edit_picked_up_without_restart) ... ok
+test_good_file_available_true (test_alibz_camera.CalibrationRouteTests.test_good_file_available_true) ... ok
+test_json_array_available_false (test_alibz_camera.CalibrationRouteTests.test_json_array_available_false) ... ok
+test_malformed_json_available_false (test_alibz_camera.CalibrationRouteTests.test_malformed_json_available_false) ... ok
+test_missing_file_available_false (test_alibz_camera.CalibrationRouteTests.test_missing_file_available_false) ... ok
+test_route_http_never_500s (test_alibz_camera.CalibrationRouteTests.test_route_http_never_500s) ... ok
+test_route_http_unset_path_is_200_unavailable (test_alibz_camera.CalibrationRouteTests.test_route_http_unset_path_is_200_unavailable) ... ok
+test_unset_path_available_false (test_alibz_camera.CalibrationRouteTests.test_unset_path_available_false) ... ok
+test_frame_route_200_then_204 (test_alibz_camera.CameraHTTPTests.test_frame_route_200_then_204) ... ok
+test_invalid_wait_is_400 (test_alibz_camera.CameraHTTPTests.test_invalid_wait_is_400) ... ok
+test_service_status_includes_camera (test_alibz_camera.CameraHTTPTests.test_service_status_includes_camera) ... ok
+test_source_unavailable_is_503 (test_alibz_camera.CameraHTTPTests.test_source_unavailable_is_503) ... ok
+test_status_route (test_alibz_camera.CameraHTTPTests.test_status_route) ... ok
+test_stream_route_yields_multiple_parts (test_alibz_camera.CameraHTTPTests.test_stream_route_yields_multiple_parts) ... ok
+test_unknown_source_404 (test_alibz_camera.CameraHTTPTests.test_unknown_source_404) ... ok
+test_close_stops_threads_promptly (test_alibz_camera.CameraHubTests.test_close_stops_threads_promptly) ... ok
+test_frame_after_token_returns_new_frame_on_change (test_alibz_camera.CameraHubTests.test_frame_after_token_returns_new_frame_on_change) ... ok
+test_frame_after_token_times_out_when_unchanged (test_alibz_camera.CameraHubTests.test_frame_after_token_times_out_when_unchanged) ... ok
+test_idle_then_live_on_touch (test_alibz_camera.CameraHubTests.test_idle_then_live_on_touch) ... ok
+test_non_image_upstream_marks_error (test_alibz_camera.CameraHubTests.test_non_image_upstream_marks_error) ... ok
+test_poller_stops_after_idle (test_alibz_camera.CameraHubTests.test_poller_stops_after_idle) ... ok
+test_sequence_increments_only_on_changed_bytes (test_alibz_camera.CameraHubTests.test_sequence_increments_only_on_changed_bytes) ... ok
+test_source_unavailable_when_upstream_fails_before_any_frame (test_alibz_camera.CameraHubTests.test_source_unavailable_when_upstream_fails_before_any_frame) ... ok
+test_status_shape (test_alibz_camera.CameraHubTests.test_status_shape) ... ok
+test_unknown_source_raises_keyerror (test_alibz_camera.CameraHubTests.test_unknown_source_raises_keyerror) ... ok
+test_malformed_meta_frame_still_served_without_meta (test_alibz_camera.CameraMetaForwardingTests.test_malformed_meta_frame_still_served_without_meta) ... ok
+test_meta_refreshes_on_status_when_bytes_unchanged (test_alibz_camera.CameraMetaForwardingTests.test_meta_refreshes_on_status_when_bytes_unchanged) ... ok
+test_no_meta_header_behaves_as_before (test_alibz_camera.CameraMetaForwardingTests.test_no_meta_header_behaves_as_before) ... ok
+test_valid_meta_reported_by_frame_and_status (test_alibz_camera.CameraMetaForwardingTests.test_valid_meta_reported_by_frame_and_status) ... ok
+test_frame_route_malformed_meta_serves_frame_without_header (test_alibz_camera.CameraMetaHTTPTests.test_frame_route_malformed_meta_serves_frame_without_header) ... ok
+test_frame_route_no_meta_header_when_absent (test_alibz_camera.CameraMetaHTTPTests.test_frame_route_no_meta_header_when_absent) ... ok
+test_frame_route_sets_hub_serialized_meta_header (test_alibz_camera.CameraMetaHTTPTests.test_frame_route_sets_hub_serialized_meta_header) ... ok
+test_33_keys_only_first_32_survive (test_alibz_camera.CameraMetaValidatorTests.test_33_keys_only_first_32_survive) ... ok
+test_bad_key_names_dropped_individually (test_alibz_camera.CameraMetaValidatorTests.test_bad_key_names_dropped_individually) ... ok
+test_fully_valid_document_survives_unchanged (test_alibz_camera.CameraMetaValidatorTests.test_fully_valid_document_survives_unchanged) ... ok
+test_json_array_drops_whole_document (test_alibz_camera.CameraMetaValidatorTests.test_json_array_drops_whole_document) ... ok
+test_json_scalar_drops_whole_document (test_alibz_camera.CameraMetaValidatorTests.test_json_scalar_drops_whole_document) ... ok
+test_list_with_non_number_drops_that_key (test_alibz_camera.CameraMetaValidatorTests.test_list_with_non_number_drops_that_key) ... ok
+test_nine_element_list_drops_that_key (test_alibz_camera.CameraMetaValidatorTests.test_nine_element_list_drops_that_key) ... ok
+test_non_finite_float_drops_that_key (test_alibz_camera.CameraMetaValidatorTests.test_non_finite_float_drops_that_key) ... ok
+test_non_json_drops_whole_document (test_alibz_camera.CameraMetaValidatorTests.test_non_json_drops_whole_document) ... ok
+test_oversize_header_drops_whole_document (test_alibz_camera.CameraMetaValidatorTests.test_oversize_header_drops_whole_document) ... ok
+test_oversize_string_value_drops_that_key (test_alibz_camera.CameraMetaValidatorTests.test_oversize_string_value_drops_that_key) ... ok
+test_absent_block_disabled (test_alibz_camera.ConfigValidationTests.test_absent_block_disabled) ... ok
+test_bad_source_name_rejected (test_alibz_camera.ConfigValidationTests.test_bad_source_name_rejected) ... ok
+test_bad_url_scheme_rejected (test_alibz_camera.ConfigValidationTests.test_bad_url_scheme_rejected) ... ok
+test_enabled_without_sources_rejected (test_alibz_camera.ConfigValidationTests.test_enabled_without_sources_rejected) ... ok
+test_explicit_disabled (test_alibz_camera.ConfigValidationTests.test_explicit_disabled) ... ok
+test_interval_below_minimum_rejected (test_alibz_camera.ConfigValidationTests.test_interval_below_minimum_rejected) ... ok
+test_missing_label_rejected (test_alibz_camera.ConfigValidationTests.test_missing_label_rejected) ... ok
+test_non_string_calibration_path_rejected (test_alibz_camera.ConfigValidationTests.test_non_string_calibration_path_rejected) ... ok
+test_timeout_above_maximum_rejected (test_alibz_camera.ConfigValidationTests.test_timeout_above_maximum_rejected) ... ok
+test_url_with_userinfo_rejected (test_alibz_camera.ConfigValidationTests.test_url_with_userinfo_rejected) ... ok
+test_url_without_host_rejected (test_alibz_camera.ConfigValidationTests.test_url_without_host_rejected) ... ok
+test_valid_config_defaults (test_alibz_camera.ConfigValidationTests.test_valid_config_defaults) ... ok
+test_frame_and_stream_routes_404_when_disabled (test_alibz_camera.DisabledHubHTTPTests.test_frame_and_stream_routes_404_when_disabled) ... ok
+test_status_route_reports_disabled (test_alibz_camera.DisabledHubHTTPTests.test_status_route_reports_disabled) ... ok
+test_service_without_camera_block (test_alibz_camera.NoCameraServiceTests.test_service_without_camera_block) ... ok
+test_reconcile_is_owner_only_at_http_boundary (test_alibz_checkouts.CheckoutHTTPTests.test_reconcile_is_owner_only_at_http_boundary) ... ok
+test_split_cross_user_http_authorization (test_alibz_checkouts.CheckoutHTTPTests.test_split_cross_user_http_authorization) ... ok
+test_expiry_release_and_override_are_pinned_by_active_or_uncertain_work (test_alibz_checkouts.LeaseSafetyTests.test_expiry_release_and_override_are_pinned_by_active_or_uncertain_work) ... ok
+test_guard_serializes_release_across_service_instances (test_alibz_checkouts.LeaseSafetyTests.test_guard_serializes_release_across_service_instances) ... ok
+test_hardware_enabled_false_never_bypasses_while_analysis_can_be_disabled (test_alibz_checkouts.LeaseSafetyTests.test_hardware_enabled_false_never_bypasses_while_analysis_can_be_disabled) ... ok
+test_legacy_migration_is_hardware_only_and_malformed_state_fails_closed (test_alibz_checkouts.LeaseSafetyTests.test_legacy_migration_is_hardware_only_and_malformed_state_fails_closed) ... ok
+test_pending_and_uncertain_operations_pin_hardware_but_not_analysis (test_alibz_checkouts.LeaseSafetyTests.test_pending_and_uncertain_operations_pin_hardware_but_not_analysis) ... ok
+test_two_processes_have_exactly_one_hardware_lease_winner (test_alibz_checkouts.LeaseSafetyTests.test_two_processes_have_exactly_one_hardware_lease_winner) ... /opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/popen_fork.py:67: DeprecationWarning: This process (pid=77219) is multi-threaded, use of fork() may lead to deadlocks in the child.
+  self.pid = os.fork()
+ok
+test_cancel_before_dispatch_sends_no_fire_and_finishes_cancelled (test_alibz_checkouts.PhysicalOperationTests.test_cancel_before_dispatch_sends_no_fire_and_finishes_cancelled) ... ok
+test_cancel_during_fire_submission_is_ordered_after_fire (test_alibz_checkouts.PhysicalOperationTests.test_cancel_during_fire_submission_is_ordered_after_fire) ... Exception in thread Thread-462 (_run_live):
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1319, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              encode_chunked=req.has_header('Transfer-encoding'))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1338, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1384, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1333, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1093, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1037, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/http/client.py", line 1003, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/socket.py", line 864, in create_connection
+    raise exceptions[0]
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/socket.py", line 849, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/private/tmp/pantheum-z300-ingest-20260922/pantheum/alibz/z300.py", line 93, in _open
+    with urllib.request.urlopen(request, timeout=self.timeout) as response:
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 189, in urlopen
+    return opener.open(url, data, timeout)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 489, in open
+    response = self._open(req, data)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 506, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+                              '_open', req)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 466, in _call_chain
+    result = func(*args)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1348, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py", line 1322, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 61] Connection refused>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/threading.py", line 1043, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/threading.py", line 994, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/pantheum-z300-ingest-20260922/pantheum/alibz/acquire.py", line 647, in _run_live
+    tests, next_cursor = client.test_page(cursor)
+                         ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/private/tmp/pantheum-z300-ingest-20260922/pantheum/alibz/z300.py", line 186, in test_page
+    result = self._json('GET', '/data/tests', params={'since': since})
+  File "/private/tmp/pantheum-z300-ingest-20260922/pantheum/alibz/z300.py", line 129, in _json
+    status, raw, headers = self._open(method, path, params=params, body=body)
+                           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/pantheum-z300-ingest-20260922/pantheum/alibz/z300.py", line 114, in _open
+    raise Z300Error(f'Z300 unreachable: {reason}', code='unreachable') from exc
+pantheum.alibz.z300.Z300Error: Z300 unreachable: [Errno 61] Connection refused
+ok
+test_failed_cancel_is_not_overwritten_by_late_acquisition_success (test_alibz_checkouts.PhysicalOperationTests.test_failed_cancel_is_not_overwritten_by_late_acquisition_success) ... ok
+test_live_start_and_settings_push_refuse_pending_motion_operation (test_alibz_checkouts.PhysicalOperationTests.test_live_start_and_settings_push_refuse_pending_motion_operation) ... ok
+test_motion_refuses_active_and_uncertain_live_acquisition (test_alibz_checkouts.PhysicalOperationTests.test_motion_refuses_active_and_uncertain_live_acquisition) ... ok
+test_queued_cancel_finishes_without_vendor_network_or_replay (test_alibz_checkouts.PhysicalOperationTests.test_queued_cancel_finishes_without_vendor_network_or_replay) ... ok
+test_reconciliation_preserves_scientific_uncertainty_and_clears_hardware_blocker (test_alibz_checkouts.PhysicalOperationTests.test_reconciliation_preserves_scientific_uncertainty_and_clears_hardware_blocker) ... ok
+test_reconciliation_refuses_without_fresh_idle_or_with_active_live_run (test_alibz_checkouts.PhysicalOperationTests.test_reconciliation_refuses_without_fresh_idle_or_with_active_live_run) ... ok
+test_serve_lock_excludes_a_second_serving_process (test_alibz_checkouts.ProcessLifecycleTests.test_serve_lock_excludes_a_second_serving_process) ... ok
+test_worker_lifecycle_does_not_recover_acquisitions (test_alibz_checkouts.ProcessLifecycleTests.test_worker_lifecycle_does_not_recover_acquisitions) ... ok
+test_dry_run_and_apply_preserve_hardware_gates (test_alibz_module_install.ModuleInstallTests.test_dry_run_and_apply_preserve_hardware_gates) ... ok
+test_abort_and_clear_alarm_exempt_from_idle_check (test_alibz_motion.MotionHubGatingTest.test_abort_and_clear_alarm_exempt_from_idle_check) ... ok
+test_action_not_enabled_each_action (test_alibz_motion.MotionHubGatingTest.test_action_not_enabled_each_action) ... ok
+test_bad_axis_raises_value_error (test_alibz_motion.MotionHubGatingTest.test_bad_axis_raises_value_error) ... ok
+test_clear_alarm_payload_shape_and_clears_cached_alarm (test_alibz_motion.MotionHubGatingTest.test_clear_alarm_payload_shape_and_clears_cached_alarm) ... ok
+test_concurrent_command_raises_conflict (test_alibz_motion.MotionHubGatingTest.test_concurrent_command_raises_conflict) ... ok
+test_connect_emits_exact_configured_payload (test_alibz_motion.MotionHubGatingTest.test_connect_emits_exact_configured_payload) ... ok
+test_connect_is_idempotent_for_verified_configured_controller (test_alibz_motion.MotionHubGatingTest.test_connect_is_idempotent_for_verified_configured_controller) ... ok
+test_connect_refuses_ambiguous_identity_and_identity_mismatch (test_alibz_motion.MotionHubGatingTest.test_connect_refuses_ambiguous_identity_and_identity_mismatch) ... ok
+test_connect_refuses_when_different_controller_is_active (test_alibz_motion.MotionHubGatingTest.test_connect_refuses_when_different_controller_is_active) ... ok
+test_connect_requires_fresh_status_and_known_target (test_alibz_motion.MotionHubGatingTest.test_connect_requires_fresh_status_and_known_target) ... ok
+test_default_config_refuses_every_command (test_alibz_motion.MotionHubGatingTest.test_default_config_refuses_every_command) ... ok
+test_goto_target_outside_limit (test_alibz_motion.MotionHubGatingTest.test_goto_target_outside_limit) ... ok
+test_goto_within_limit_is_allowed (test_alibz_motion.MotionHubGatingTest.test_goto_within_limit_is_allowed) ... ok
+test_incomplete_fresh_status_cannot_refresh_stale_ready_fields (test_alibz_motion.MotionHubGatingTest.test_incomplete_fresh_status_cannot_refresh_stale_ready_fields) ... ok
+test_jog_emits_exact_frame_for_fractional_step (test_alibz_motion.MotionHubGatingTest.test_jog_emits_exact_frame_for_fractional_step) ... ok
+test_jog_full_reason_list_when_nothing_is_ready (test_alibz_motion.MotionHubGatingTest.test_jog_full_reason_list_when_nothing_is_ready) ... ok
+test_jog_negative_step (test_alibz_motion.MotionHubGatingTest.test_jog_negative_step) ... ok
+test_jog_position_not_observed (test_alibz_motion.MotionHubGatingTest.test_jog_position_not_observed) ... ok
+test_jog_requires_numeric_value (test_alibz_motion.MotionHubGatingTest.test_jog_requires_numeric_value) ... ok
+test_jog_step_at_max_step_mm_boundary_is_allowed (test_alibz_motion.MotionHubGatingTest.test_jog_step_at_max_step_mm_boundary_is_allowed) ... ok
+test_jog_step_exceeds_max_step_mm (test_alibz_motion.MotionHubGatingTest.test_jog_step_exceeds_max_step_mm) ... ok
+test_jog_target_outside_limit (test_alibz_motion.MotionHubGatingTest.test_jog_target_outside_limit) ... ok
+test_movement_requires_serial_ready_state_two (test_alibz_motion.MotionHubGatingTest.test_movement_requires_serial_ready_state_two) ... ok
+test_not_connected (test_alibz_motion.MotionHubGatingTest.test_not_connected) ... ok
+test_not_idle_blocks_jog_and_goto_only (test_alibz_motion.MotionHubGatingTest.test_not_idle_blocks_jog_and_goto_only) ... ok
+test_set_zero_payload_shape (test_alibz_motion.MotionHubGatingTest.test_set_zero_payload_shape) ... ok
+test_status_reasons_for_default_config (test_alibz_motion.MotionHubGatingTest.test_status_reasons_for_default_config) ... ok
+test_status_zero_clears_stale_position_and_readiness (test_alibz_motion.MotionHubGatingTest.test_status_zero_clears_stale_position_and_readiness) ... ok
+test_unknown_action_raises_value_error (test_alibz_motion.MotionHubGatingTest.test_unknown_action_raises_value_error) ... ok
+test_poller_thread_stops_when_unwatched (test_alibz_motion.MotionHubSimulateModeTest.test_poller_thread_stops_when_unwatched) ... ok
+test_simulate_connects_and_reports_idle (test_alibz_motion.MotionHubSimulateModeTest.test_simulate_connects_and_reports_idle) ... ok
+test_simulate_jog_emits_exact_frame_and_updates_cached_position (test_alibz_motion.MotionHubSimulateModeTest.test_simulate_jog_emits_exact_frame_and_updates_cached_position) ... ok
+test_simulate_set_zero_and_abort_frames (test_alibz_motion.MotionHubSimulateModeTest.test_simulate_set_zero_and_abort_frames) ... ok
+test_hub_reports_unavailable_and_refuses_commands (test_alibz_motion.SocketIOMissingPackageTest.test_hub_reports_unavailable_and_refuses_commands) ... ok
+test_import_and_construct_and_status_work_without_the_package (test_alibz_motion.SocketIOMissingPackageTest.test_import_and_construct_and_status_work_without_the_package) ... ok
+test_transport_connect_raises_module_not_found_with_bodyfree_detail (test_alibz_motion.SocketIOMissingPackageTest.test_transport_connect_raises_module_not_found_with_bodyfree_detail) ... ok
+test_connect_and_receive_status_event (test_alibz_motion.SocketIOTransportRealServerTest.test_connect_and_receive_status_event) ... skipped 'python-socketio is not installed in this interpreter'
+test_emit_matches_gantryblock_payload_shapes (test_alibz_motion.SocketIOTransportRealServerTest.test_emit_matches_gantryblock_payload_shapes) ... skipped 'python-socketio is not installed in this interpreter'
+test_motionhub_end_to_end_against_real_server (test_alibz_motion.SocketIOTransportRealServerTest.test_motionhub_end_to_end_against_real_server) ... skipped 'python-socketio is not installed in this interpreter'
+test_routes_enforce_reservation_and_return_bounded_listing (test_alibz_optimization.OptimizationHTTPTests.test_routes_enforce_reservation_and_return_bounded_listing) ... ok
+test_ambiguous_dispatch_is_persisted_and_never_replayed (test_alibz_optimization.OptimizationTests.test_ambiguous_dispatch_is_persisted_and_never_replayed) ... ok
+test_close_refuses_active_and_is_idempotent_when_idle (test_alibz_optimization.OptimizationTests.test_close_refuses_active_and_is_idempotent_when_idle) ... ok
+test_concurrent_posts_from_distinct_services_create_one_batch (test_alibz_optimization.OptimizationTests.test_concurrent_posts_from_distinct_services_create_one_batch) ... ok
+test_create_forces_safe_fixed_spot_batch_and_never_fires (test_alibz_optimization.OptimizationTests.test_create_forces_safe_fixed_spot_batch_and_never_fires) ... ok
+test_cumulative_shots_location_and_crater_confounder_are_recorded (test_alibz_optimization.OptimizationTests.test_cumulative_shots_location_and_crater_confounder_are_recorded) ... ok
+test_duplicate_post_after_completion_is_idempotent (test_alibz_optimization.OptimizationTests.test_duplicate_post_after_completion_is_idempotent) ... ok
+test_export_has_provenance_metrics_and_http_links_without_paths (test_alibz_optimization.OptimizationTests.test_export_has_provenance_metrics_and_http_links_without_paths) ... ok
+test_generic_simulated_spectrum_is_not_fabricated_into_eligible_fe_data (test_alibz_optimization.OptimizationTests.test_generic_simulated_spectrum_is_not_fabricated_into_eligible_fe_data) ... ok
+test_ineligible_or_nonfinite_metrics_block_without_proposal (test_alibz_optimization.OptimizationTests.test_ineligible_or_nonfinite_metrics_block_without_proposal) ... ok
+test_invalid_grid_gating_geometry_and_metadata_fail_closed (test_alibz_optimization.OptimizationTests.test_invalid_grid_gating_geometry_and_metadata_fail_closed) ... ok
+test_live_100hz_session_creation_is_inert_but_dispatch_requires_rate_enablement (test_alibz_optimization.OptimizationTests.test_live_100hz_session_creation_is_inert_but_dispatch_requires_rate_enablement) ... ok
+test_live_default_10hz_session_is_not_rate_gated (test_alibz_optimization.OptimizationTests.test_live_default_10hz_session_is_not_rate_gated) ... ok
+test_measured_best_recenters_neighbor_search (test_alibz_optimization.OptimizationTests.test_measured_best_recenters_neighbor_search) ... ok
+test_no_next_batch_until_active_batch_completes_and_is_analyzed (test_alibz_optimization.OptimizationTests.test_no_next_batch_until_active_batch_completes_and_is_analyzed) ... ok
+test_restart_recovery_marks_predispatch_intent_uncertain (test_alibz_optimization.OptimizationTests.test_restart_recovery_marks_predispatch_intent_uncertain) ... ok
+test_session_and_batches_survive_service_reconstruction (test_alibz_optimization.OptimizationTests.test_session_and_batches_survive_service_reconstruction) ... ok
+test_unrelated_acquisition_id_is_not_adopted (test_alibz_optimization.OptimizationTests.test_unrelated_acquisition_id_is_not_adopted) ... ok
+test_invalid_plans_fail_closed (test_alibz_optimization.ShotPlanStudyTests.test_invalid_plans_fail_closed) ... ok
+test_plan_drives_params_and_is_not_restricted_to_fe (test_alibz_optimization.ShotPlanStudyTests.test_plan_drives_params_and_is_not_restricted_to_fe) ... ok
+test_repeats_step_one_at_a_time_then_complete (test_alibz_optimization.ShotPlanStudyTests.test_repeats_step_one_at_a_time_then_complete) ... ok
+test_invalid_adc_rejected (test_alibz_optimization_metrics.MetricsTests.test_invalid_adc_rejected) ... ok
+test_missing_shot_nonfinite_and_grid_mismatch_fail_closed (test_alibz_optimization_metrics.MetricsTests.test_missing_shot_nonfinite_and_grid_mismatch_fail_closed) ... ok
+test_native_coarse_grid_is_measured_with_minimum_pixel_windows (test_alibz_optimization_metrics.MetricsTests.test_native_coarse_grid_is_measured_with_minimum_pixel_windows) ... ok
+test_quality_and_population_independent_relative_response (test_alibz_optimization_metrics.MetricsTests.test_quality_and_population_independent_relative_response) ... ok
+test_repeatability_affects_score (test_alibz_optimization_metrics.MetricsTests.test_repeatability_affects_score) ... ok
+test_saturation_and_no_lines_not_eligible (test_alibz_optimization_metrics.MetricsTests.test_saturation_and_no_lines_not_eligible) ... ok
+test_unknown_adc_and_blends_do_not_define_response (test_alibz_optimization_metrics.MetricsTests.test_unknown_adc_and_blends_do_not_define_response) ... ok
+test_bad_action_rejected_with_400 (test_alibz_reservation.ReservationHTTPTests.test_bad_action_rejected_with_400) ... ok
+test_gated_post_refused_then_permitted_after_reserving_via_http (test_alibz_reservation.ReservationHTTPTests.test_gated_post_refused_then_permitted_after_reserving_via_http) ... ok
+test_gated_run_route_and_reservation_release_reopens_it (test_alibz_reservation.ReservationHTTPTests.test_gated_run_route_and_reservation_release_reopens_it) ... ok
+test_reservation_get_route_reports_free (test_alibz_reservation.ReservationHTTPTests.test_reservation_get_route_reports_free) ... ok
+test_second_portal_user_gets_409_naming_holder (test_alibz_reservation.ReservationHTTPTests.test_second_portal_user_gets_409_naming_holder) ... ok
+test_analysis_override_records_overridden_from (test_alibz_reservation.ReservationUnitTests.test_analysis_override_records_overridden_from) ... ok
+test_corrupt_legacy_state_fails_closed_for_hardware_only (test_alibz_reservation.ReservationUnitTests.test_corrupt_legacy_state_fails_closed_for_hardware_only) ... ok
+test_expiry_frees_workspace_without_anyone_releasing (test_alibz_reservation.ReservationUnitTests.test_expiry_frees_workspace_without_anyone_releasing) ... ok
+test_legacy_disabled_switch_only_disables_analysis (test_alibz_reservation.ReservationUnitTests.test_legacy_disabled_switch_only_disables_analysis) ... ok
+test_missing_reservation_config_defaults_to_enabled (test_alibz_reservation.ReservationUnitTests.test_missing_reservation_config_defaults_to_enabled) ... ok
+test_no_secret_token_in_status_payload (test_alibz_reservation.ReservationUnitTests.test_no_secret_token_in_status_payload) ... ok
+test_note_too_long_rejected (test_alibz_reservation.ReservationUnitTests.test_note_too_long_rejected) ... ok
+test_override_refused_for_non_admin_while_live_then_permitted_once_expired (test_alibz_reservation.ReservationUnitTests.test_override_refused_for_non_admin_while_live_then_permitted_once_expired) ... ok
+test_release_refused_for_non_holder_while_live (test_alibz_reservation.ReservationUnitTests.test_release_refused_for_non_holder_while_live) ... ok
+test_release_when_already_free_is_a_noop (test_alibz_reservation.ReservationUnitTests.test_release_when_already_free_is_a_noop) ... ok
+test_renew_capped_by_max_ttl_seconds (test_alibz_reservation.ReservationUnitTests.test_renew_capped_by_max_ttl_seconds) ... ok
+test_renew_refused_once_expired (test_alibz_reservation.ReservationUnitTests.test_renew_refused_once_expired) ... ok
+test_renew_refused_when_caller_is_not_the_holder (test_alibz_reservation.ReservationUnitTests.test_renew_refused_when_caller_is_not_the_holder) ... ok
+test_require_reasons_free_then_held_by_other (test_alibz_reservation.ReservationUnitTests.test_require_reasons_free_then_held_by_other) ... ok
+test_reserve_by_same_holder_is_not_a_conflict (test_alibz_reservation.ReservationUnitTests.test_reserve_by_same_holder_is_not_a_conflict) ... ok
+test_reserve_renew_release_round_trip (test_alibz_reservation.ReservationUnitTests.test_reserve_renew_release_round_trip) ... ok
+test_second_user_refused_with_conflict_naming_holder (test_alibz_reservation.ReservationUnitTests.test_second_user_refused_with_conflict_naming_holder) ... ok
+test_state_survives_reconstructing_reservation_from_same_root (test_alibz_reservation.ReservationUnitTests.test_state_survives_reconstructing_reservation_from_same_root) ... ok
+test_concurrent_first_initialization_serializes_schema_upgrade (test_alibz_reservation.SplitReservationSafetyTests.test_concurrent_first_initialization_serializes_schema_upgrade) ... ok
+test_concurrent_processes_have_exactly_one_hardware_winner (test_alibz_reservation.SplitReservationSafetyTests.test_concurrent_processes_have_exactly_one_hardware_winner) ... ok
+test_expired_hardware_is_pinned_during_live_acquisition (test_alibz_reservation.SplitReservationSafetyTests.test_expired_hardware_is_pinned_during_live_acquisition) ... ok
+test_guard_keeps_release_out_until_mutation_finishes (test_alibz_reservation.SplitReservationSafetyTests.test_guard_keeps_release_out_until_mutation_finishes) ... ok
+test_hardware_and_analysis_can_have_different_holders (test_alibz_reservation.SplitReservationSafetyTests.test_hardware_and_analysis_can_have_different_holders) ... ok
+test_legacy_migrates_to_hardware_only (test_alibz_reservation.SplitReservationSafetyTests.test_legacy_migrates_to_hardware_only) ... ok
+test_malformed_persisted_timestamp_fails_closed (test_alibz_reservation.SplitReservationSafetyTests.test_malformed_persisted_timestamp_fails_closed) ... ok
+test_adopt_explicit_pending_ids_only (test_alibz_retrieval.RetrievalTests.test_adopt_explicit_pending_ids_only) ... ok
+test_command_timeout_output_limit_and_invalid_config_are_sanitized (test_alibz_retrieval.RetrievalTests.test_command_timeout_output_limit_and_invalid_config_are_sanitized) ... ok
+test_disabled_mode_preserves_pending_even_with_command_configured (test_alibz_retrieval.RetrievalTests.test_disabled_mode_preserves_pending_even_with_command_configured) ... ok
+test_exact_native_success_preserves_bytes_provenance_and_is_idempotent (test_alibz_retrieval.RetrievalTests.test_exact_native_success_preserves_bytes_provenance_and_is_idempotent) ... ok
+test_fire_once_then_no_data_api_even_when_run_reentered (test_alibz_retrieval.RetrievalTests.test_fire_once_then_no_data_api_even_when_run_reentered) ... ok
+test_optimizer_and_shot_plan_block_then_reconcile_without_automatic_dispatch (test_alibz_retrieval.RetrievalTests.test_optimizer_and_shot_plan_block_then_reconcile_without_automatic_dispatch) ... ok
+test_rejects_wrong_identity_incomplete_shots_hash_and_bad_native_data (test_alibz_retrieval.RetrievalTests.test_rejects_wrong_identity_incomplete_shots_hash_and_bad_native_data) ... ok
+test_rejects_zip_traversal_symlink_and_extra_shots (test_alibz_retrieval.RetrievalTests.test_rejects_zip_traversal_symlink_and_extra_shots) ... ok
+test_retry_restart_keeps_pending_without_hardware_or_reservation_mutation (test_alibz_retrieval.RetrievalTests.test_retry_restart_keeps_pending_without_hardware_or_reservation_mutation) ... ok
+test_simultaneous_instances_do_not_share_claim_and_stale_state_is_not_overwritten (test_alibz_retrieval.RetrievalTests.test_simultaneous_instances_do_not_share_claim_and_stale_state_is_not_overwritten) ... ok
+test_transaction_rolls_back_dataset_job_and_success_when_file_write_fails (test_alibz_retrieval.RetrievalTests.test_transaction_rolls_back_dataset_job_and_success_when_file_write_fails) ... ok
+test_worker_data_reconcile_does_not_recover_active_dispatch (test_alibz_retrieval.RetrievalTests.test_worker_data_reconcile_does_not_recover_active_dispatch) ... ok
+test_worker_retrieves_and_reconciles_before_processing_jobs (test_alibz_retrieval.RetrievalTests.test_worker_retrieves_and_reconciles_before_processing_jobs) ... ok
+test_acceptance_gate_rejects_degraded_but_writes_output (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_acceptance_gate_rejects_degraded_but_writes_output) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_atomic_write_failure_leaves_destination_untouched (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_atomic_write_failure_leaves_destination_untouched) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_atomic_write_uses_rename_and_leaves_no_partial_file (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_atomic_write_uses_rename_and_leaves_no_partial_file) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_dry_run_writes_nothing (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_dry_run_writes_nothing) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_missing_intrinsics_fails_loudly (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_missing_intrinsics_fails_loudly) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_output_matches_contract_schema (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_output_matches_contract_schema) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_output_records_source_frame_provenance (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_output_records_source_frame_provenance)
+A calibration must say which pixels produced it. `source_frames` ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_round_trip_recovers_pose_and_scale (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_round_trip_recovers_pose_and_scale) ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_status_shaped_intrinsics_are_labelled_by_provenance_not_by_path (test_alibz_rgb_calibration.RGBCalibrationSyntheticTests.test_status_shaped_intrinsics_are_labelled_by_provenance_not_by_path)
+`intrinsics.source` must describe WHERE THE NUMBERS CAME FROM, not ... skipped 'cv2/numpy not installed; calibration tool tests skipped'
+test_collection_produces_accepted_snapshot_and_atomic_output (test_dashboard.CollectorTests.test_collection_produces_accepted_snapshot_and_atomic_output) ... ok
+test_cpu_deltas_exclude_guest_and_account_for_iowait (test_dashboard.CollectorTests.test_cpu_deltas_exclude_guest_and_account_for_iowait) ... ok
+test_memory_uses_available_not_free (test_dashboard.CollectorTests.test_memory_uses_available_not_free) ... ok
+test_user_count_deduplicates_sessions (test_dashboard.CollectorTests.test_user_count_deduplicates_sessions) ... ok
+test_default_api_and_explicit_demo (test_dashboard.HTTPTests.test_default_api_and_explicit_demo) ... ok
+test_demo_flag_can_be_overridden_without_changing_server_default (test_dashboard.HTTPTests.test_demo_flag_can_be_overridden_without_changing_server_default) ... ok
+test_duplicate_demo_query_does_not_enable_preview (test_dashboard.HTTPTests.test_duplicate_demo_query_does_not_enable_preview) ... ok
+test_logo_allowlist_and_symlink_boundary (test_dashboard.HTTPTests.test_logo_allowlist_and_symlink_boundary) ... ok
+test_read_only_methods (test_dashboard.HTTPTests.test_read_only_methods) ... ok
+test_static_allowlist_traversal_and_symlink (test_dashboard.HTTPTests.test_static_allowlist_traversal_and_symlink) ... ok
+test_supplied_logo_routes (test_dashboard.HTTPTests.test_supplied_logo_routes) ... ok
+test_bad_snapshot_fails_closed_without_path_or_old_data (test_dashboard.StatusTests.test_bad_snapshot_fails_closed_without_path_or_old_data) ... ok
+test_default_has_no_measurements_or_demo (test_dashboard.StatusTests.test_default_has_no_measurements_or_demo) ... ok
+test_demo_explicit_and_nonmutating (test_dashboard.StatusTests.test_demo_explicit_and_nonmutating) ... ok
+test_duplicate_asset_and_wrong_schema_rejected (test_dashboard.StatusTests.test_duplicate_asset_and_wrong_schema_rejected) ... ok
+test_invalid_activity_and_collector_rejected (test_dashboard.StatusTests.test_invalid_activity_and_collector_rejected) ... ok
+test_invalid_metrics_types_ids_states_and_timestamps (test_dashboard.StatusTests.test_invalid_metrics_types_ids_states_and_timestamps) ... ok
+test_invalid_utf8_and_huge_number_fail_closed (test_dashboard.StatusTests.test_invalid_utf8_and_huge_number_fail_closed) ... ok
+test_observation_timestamps_normalize_to_browser_readable_utc (test_dashboard.StatusTests.test_observation_timestamps_normalize_to_browser_readable_utc) ... ok
+test_snapshot_missing_or_oversized_fails_closed (test_dashboard.StatusTests.test_snapshot_missing_or_oversized_fails_closed) ... ok
+test_stale_readings_clear_metrics_and_activity (test_dashboard.StatusTests.test_stale_readings_clear_metrics_and_activity) ... ok
+test_staleness_is_per_source_not_file_generation_time (test_dashboard.StatusTests.test_staleness_is_per_source_not_file_generation_time) ... ok
+test_transfer_running_count_absence_preserves_legacy_feed_contract (test_dashboard.StatusTests.test_transfer_running_count_absence_preserves_legacy_feed_contract) ... ok
+test_transfer_running_count_cleared_when_stale_or_unavailable (test_dashboard.StatusTests.test_transfer_running_count_cleared_when_stale_or_unavailable) ... ok
+test_transfer_running_count_invalid_values_rejected (test_dashboard.StatusTests.test_transfer_running_count_invalid_values_rejected) ... ok
+test_transfer_running_count_preserves_unknown_zero_and_explicit_counts (test_dashboard.StatusTests.test_transfer_running_count_preserves_unknown_zero_and_explicit_counts) ... ok
+test_unknown_cannot_report_metrics_even_when_old (test_dashboard.StatusTests.test_unknown_cannot_report_metrics_even_when_old) ... ok
+test_valid_partial_snapshot_does_not_invent_absent_readings (test_dashboard.StatusTests.test_valid_partial_snapshot_does_not_invent_absent_readings) ... ok
+test_archive_cap_also_bounds_the_budget (test_drivesync.BudgetTests.test_archive_cap_also_bounds_the_budget) ... ok
+test_directory_bytes_counts_a_tree (test_drivesync.BudgetTests.test_directory_bytes_counts_a_tree) ... ok
+test_no_headroom_means_no_budget (test_drivesync.BudgetTests.test_no_headroom_means_no_budget) ... ok
+test_room_is_reserved_for_derived_output (test_drivesync.BudgetTests.test_room_is_reserved_for_derived_output)
+22 G of archive became 54 G on disk: originals/ + spectra/ + jobs/. ... ok
+test_budget_is_handed_to_rclone (test_drivesync.CommandTests.test_budget_is_handed_to_rclone) ... ok
+test_copy_is_rooted_at_the_source_path_not_the_drive_root (test_drivesync.CommandTests.test_copy_is_rooted_at_the_source_path_not_the_drive_root)
+The whole-drive listing (`lmd:` + `+ /path/**`) cost ~25 min a pass. ... ok
+test_rolling_window_is_passed_when_configured (test_drivesync.CommandTests.test_rolling_window_is_passed_when_configured) ... ok
+test_zero_budget_is_never_turned_into_a_command (test_drivesync.CommandTests.test_zero_budget_is_never_turned_into_a_command) ... ok
+test_absurd_floor_rejected (test_drivesync.ConfigTests.test_absurd_floor_rejected) ... ok
+test_bad_window_and_multiple_rejected (test_drivesync.ConfigTests.test_bad_window_and_multiple_rejected) ... ok
+test_defaults_are_bounded (test_drivesync.ConfigTests.test_defaults_are_bounded) ... ok
+test_archive_cap_blocks_with_its_own_reason (test_drivesync.PassTests.test_archive_cap_blocks_with_its_own_reason)
+A roomy disk is not a licence to mirror the whole Drive. ... ok
+test_budget_exhaustion_is_partial_not_failure (test_drivesync.PassTests.test_budget_exhaustion_is_partial_not_failure)
+rclone exit 8 is the budget working, and must not look like a fault. ... ok
+test_full_disk_downloads_nothing_at_all (test_drivesync.PassTests.test_full_disk_downloads_nothing_at_all)
+The whole point: at the floor, rclone is never even started. ... ok
+test_import_stops_when_the_copy_used_the_last_of_the_disk (test_drivesync.PassTests.test_import_stops_when_the_copy_used_the_last_of_the_disk)
+The copy fits; the spectra/ JSON it produces is what runs you out. ... ok
+test_one_invocation_per_source_path (test_drivesync.PassTests.test_one_invocation_per_source_path) ... ok
+test_real_rclone_failure_still_raises (test_drivesync.PassTests.test_real_rclone_failure_still_raises) ... ok
+test_what_landed_is_still_imported_after_a_truncated_pass (test_drivesync.PassTests.test_what_landed_is_still_imported_after_a_truncated_pass) ... ok
+test_new_identity_gets_vendor_default_baud_without_guessing_port (test_enable_gantry.EnableGantryBuildTest.test_new_identity_gets_vendor_default_baud_without_guessing_port) ... ok
+test_no_selector_arguments_preserve_existing_controller_and_tuning (test_enable_gantry.EnableGantryBuildTest.test_no_selector_arguments_preserve_existing_controller_and_tuning) ... ok
+test_partial_identity_update_preserves_other_operator_fields (test_enable_gantry.EnableGantryBuildTest.test_partial_identity_update_preserves_other_operator_fields) ... ok
+test_dry_run_no_network_or_key_logging (test_enrollment.EnrollmentTests.test_dry_run_no_network_or_key_logging) ... ok
+test_enrollment_uses_existing_alias_without_deployment_identity (test_enrollment.EnrollmentTests.test_enrollment_uses_existing_alias_without_deployment_identity) ... ok
+test_existing_unrestricted_same_key_is_refused (test_enrollment.EnrollmentTests.test_existing_unrestricted_same_key_is_refused) ... ok
+test_linux_preserves_existing_keys_backups_and_idempotence (test_enrollment.EnrollmentTests.test_linux_preserves_existing_keys_backups_and_idempotence) ... ok
+test_public_key_validated_without_comment (test_enrollment.EnrollmentTests.test_public_key_validated_without_comment) ... ok
+test_quartz_limits_and_regular_host_restrictions (test_enrollment.EnrollmentTests.test_quartz_limits_and_regular_host_restrictions) ... ok
+test_symlink_key_file_refused (test_enrollment.EnrollmentTests.test_symlink_key_file_refused) ... ok
+test_windows_encoded_payload_preserves_literal_key_and_fits_command_limit (test_enrollment.EnrollmentTests.test_windows_encoded_payload_preserves_literal_key_and_fits_command_limit) ... ok
+test_auth_failure_never_publishes_error_identity_or_offline (test_hosts.HostObservationTests.test_auth_failure_never_publishes_error_identity_or_offline) ... ok
+test_dedicated_known_hosts_path_preserves_spaces (test_hosts.HostObservationTests.test_dedicated_known_hosts_path_preserves_spaces) ... ok
+test_explicit_identity_is_passed_without_shell_and_limits_identities (test_hosts.HostObservationTests.test_explicit_identity_is_passed_without_shell_and_limits_identities) ... ok
+test_forced_linux_command_is_single_line_and_exact_script (test_hosts.HostObservationTests.test_forced_linux_command_is_single_line_and_exact_script) ... ok
+test_invalid_output_is_sanitized (test_hosts.HostObservationTests.test_invalid_output_is_sanitized) ... ok
+test_linux_command_embeds_fixed_probe_not_stdin (test_hosts.HostObservationTests.test_linux_command_embeds_fixed_probe_not_stdin) ... ok
+test_linux_probe_cpu_delta_and_distinct_users (test_hosts.HostObservationTests.test_linux_probe_cpu_delta_and_distinct_users) ... ok
+test_local_reuses_collector_and_requires_linux (test_hosts.HostObservationTests.test_local_reuses_collector_and_requires_linux) ... ok
+test_network_and_host_key_failures_classified (test_hosts.HostObservationTests.test_network_and_host_key_failures_classified) ... ok
+test_parse_rejects_invalid_values_and_oversized_payload (test_hosts.HostObservationTests.test_parse_rejects_invalid_values_and_oversized_payload) ... ok
+test_partial_metrics_are_unknown_not_zero (test_hosts.HostObservationTests.test_partial_metrics_are_unknown_not_zero) ... ok
+test_rejects_injected_config_before_invoking_ssh (test_hosts.HostObservationTests.test_rejects_injected_config_before_invoking_ssh) ... ok
+test_success_only_aggregate_metrics_and_explicit_semantics (test_hosts.HostObservationTests.test_success_only_aggregate_metrics_and_explicit_semantics) ... ok
+test_timeout_and_missing_ssh_do_not_abort (test_hosts.HostObservationTests.test_timeout_and_missing_ssh_do_not_abort) ... ok
+test_windows_command_is_fixed_and_no_forwarding (test_hosts.HostObservationTests.test_windows_command_is_fixed_and_no_forwarding) ... ok
+test_default_paths_and_header (test_onyx.ApiKeyClientTests.test_default_paths_and_header) ... ok
+test_overridden_paths_are_used (test_onyx.ApiKeyClientTests.test_overridden_paths_are_used) ... ok
+test_snapshot_accepts_jpeg (test_onyx.ApiKeyClientTests.test_snapshot_accepts_jpeg) ... ok
+test_snapshot_rejects_non_jpeg (test_onyx.ApiKeyClientTests.test_snapshot_rejects_non_jpeg) ... ok
+test_snapshot_rejects_oversize (test_onyx.ApiKeyClientTests.test_snapshot_rejects_oversize) ... ok
+test_transport_oserror_is_unreachable (test_onyx.ApiKeyClientTests.test_transport_oserror_is_unreachable) ... ok
+test_unauthorized (test_onyx.ApiKeyClientTests.test_unauthorized) ... ok
+test_bad_ids_dropped (test_onyx.CameraNormalizationTests.test_bad_ids_dropped) ... ok
+test_camera_id_regex (test_onyx.CameraNormalizationTests.test_camera_id_regex) ... ok
+test_model_from_modelkey_or_type_else_none (test_onyx.CameraNormalizationTests.test_model_from_modelkey_or_type_else_none) ... ok
+test_name_defaults_when_missing_or_blank (test_onyx.CameraNormalizationTests.test_name_defaults_when_missing_or_blank) ... ok
+test_name_truncated_and_control_chars_stripped (test_onyx.CameraNormalizationTests.test_name_truncated_and_control_chars_stripped) ... ok
+test_online_from_state_or_isconnected (test_onyx.CameraNormalizationTests.test_online_from_state_or_isconnected) ... ok
+test_sorted_by_name (test_onyx.CameraNormalizationTests.test_sorted_by_name) ... ok
+test_unknown_fields_dropped_and_not_a_list_is_empty (test_onyx.CameraNormalizationTests.test_unknown_fields_dropped_and_not_a_list_is_empty) ... ok
+test_health (test_onyx.HandlerOverUnixSocketTests.test_health) ... ok
+test_missing_ui_assets_serve_503 (test_onyx.HandlerOverUnixSocketTests.test_missing_ui_assets_serve_503) ... ok
+test_snapshot_204_on_unchanged_long_poll (test_onyx.HandlerOverUnixSocketTests.test_snapshot_204_on_unchanged_long_poll) ... ok
+test_snapshot_404_for_invalid_id (test_onyx.HandlerOverUnixSocketTests.test_snapshot_404_for_invalid_id) ... ok
+test_snapshot_404_for_unknown_id (test_onyx.HandlerOverUnixSocketTests.test_snapshot_404_for_unknown_id) ... ok
+test_snapshot_503_when_no_frame_yet (test_onyx.HandlerOverUnixSocketTests.test_snapshot_503_when_no_frame_yet) ... ok
+test_snapshot_headers_on_200 (test_onyx.HandlerOverUnixSocketTests.test_snapshot_headers_on_200) ... ok
+test_status_shape (test_onyx.HandlerOverUnixSocketTests.test_status_shape) ... ok
+test_wrong_host_rejected (test_onyx.HandlerOverUnixSocketTests.test_wrong_host_rejected) ... ok
+test_first_status_waits_for_the_first_check (test_onyx.HubFirstCheckTests.test_first_status_waits_for_the_first_check) ... ok
+test_slow_first_check_reports_checking_not_unconfigured (test_onyx.HubFirstCheckTests.test_slow_first_check_reports_checking_not_unconfigured) ... ok
+test_calls_happen_while_watched (test_onyx.HubPollingTests.test_calls_happen_while_watched) ... ok
+test_frame_token_and_captured_at (test_onyx.HubPollingTests.test_frame_token_and_captured_at) ... ok
+test_idle_stops_threads (test_onyx.HubPollingTests.test_idle_stops_threads) ... ok
+test_long_poll_timeout_returns_none_then_change_returns_frame (test_onyx.HubPollingTests.test_long_poll_timeout_returns_none_then_change_returns_frame) ... ok
+test_no_frame_yet_raises_when_camera_always_fails (test_onyx.HubPollingTests.test_no_frame_yet_raises_when_camera_always_fails) ... ok
+test_no_upstream_call_without_touch (test_onyx.HubPollingTests.test_no_upstream_call_without_touch) ... ok
+test_setup_flag_never_blocks_a_working_api (test_onyx.HubPollingTests.test_setup_flag_never_blocks_a_working_api) ... ok
+test_setup_state (test_onyx.HubPollingTests.test_setup_state) ... ok
+test_unconfigured_detail_carries_the_setup_hint (test_onyx.HubPollingTests.test_unconfigured_detail_carries_the_setup_hint) ... ok
+test_unconfigured_state_from_client (test_onyx.HubPollingTests.test_unconfigured_state_from_client) ... ok
+test_unknown_camera_raises (test_onyx.HubPollingTests.test_unknown_camera_raises) ... ok
+test_login_then_bootstrap (test_onyx.LocalUserClientTests.test_login_then_bootstrap) ... ok
+test_reports_unauthorized_after_second_401 (test_onyx.LocalUserClientTests.test_reports_unauthorized_after_second_401) ... ok
+test_retry_once_on_401_then_succeeds (test_onyx.LocalUserClientTests.test_retry_once_on_401_then_succeeds) ... ok
+test_unconfigured_when_password_file_missing (test_onyx.LocalUserClientTests.test_unconfigured_when_password_file_missing) ... ok
+test_api_key_never_in_errors_or_status (test_onyx.SecretLeakTests.test_api_key_never_in_errors_or_status) ... ok
+test_password_never_in_errors (test_onyx.SecretLeakTests.test_password_never_in_errors) ... ok
+test_get_system_ready_when_state_ready_or_absent (test_onyx.SetupAndUnconfiguredTests.test_get_system_ready_when_state_ready_or_absent) ... ok
+test_get_system_setup_state (test_onyx.SetupAndUnconfiguredTests.test_get_system_setup_state) ... ok
+test_invalid_auth_mode_is_a_startup_error (test_onyx.SetupAndUnconfiguredTests.test_invalid_auth_mode_is_a_startup_error) ... ok
+test_invalid_tls_mode_is_a_startup_error (test_onyx.SetupAndUnconfiguredTests.test_invalid_tls_mode_is_a_startup_error) ... ok
+test_unconfigured_when_key_file_missing (test_onyx.SetupAndUnconfiguredTests.test_unconfigured_when_key_file_missing) ... ok
+test_unconfigured_with_no_auth_block (test_onyx.SetupAndUnconfiguredTests.test_unconfigured_with_no_auth_block) ... ok
+test_auto_range_ema_does_not_jump_on_single_outlier (test_opal_camera_publisher.DepthAveragerTests.test_auto_range_ema_does_not_jump_on_single_outlier) ... ok
+test_averaging_reduces_noise_below_single_frame (test_opal_camera_publisher.DepthAveragerTests.test_averaging_reduces_noise_below_single_frame) ... ok
+test_confidence_blend_neutral_grey_at_high_sigma (test_opal_camera_publisher.DepthAveragerTests.test_confidence_blend_neutral_grey_at_high_sigma) ... ok
+test_default_sigma_max_actually_de_saturates_real_sensor_noise (test_opal_camera_publisher.DepthAveragerTests.test_default_sigma_max_actually_de_saturates_real_sensor_noise)
+The confidence blend must be visible at the noise a real D455 shows. ... ok
+test_mean_and_sigma_of_known_stack (test_opal_camera_publisher.DepthAveragerTests.test_mean_and_sigma_of_known_stack) ... ok
+test_no_data_pixels_get_exact_color_and_are_excluded_from_stats (test_opal_camera_publisher.DepthAveragerTests.test_no_data_pixels_get_exact_color_and_are_excluded_from_stats) ... ok
+test_lut_clamps_outside_0_1 (test_opal_camera_publisher.DepthLutTests.test_lut_clamps_outside_0_1) ... ok
+test_lut_endpoints_match_contract (test_opal_camera_publisher.DepthLutTests.test_lut_endpoints_match_contract) ... ok
+test_lut_has_256_entries (test_opal_camera_publisher.DepthLutTests.test_lut_has_256_entries) ... ok
+test_lut_interior_anchors_match_contract (test_opal_camera_publisher.DepthLutTests.test_lut_interior_anchors_match_contract) ... ok
+test_color_and_depth_carry_meta_header_under_2048_bytes (test_opal_camera_publisher.OpalCameraMetadataTests.test_color_and_depth_carry_meta_header_under_2048_bytes) ... 2026-09-22 10:00:06,835 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 10:00:06,841 INFO 127.0.0.1 - "GET /depth.jpg?wait=5 HTTP/1.1" 200 -
+ok
+test_color_and_depth_from_same_grab_share_grab_id (test_opal_camera_publisher.OpalCameraMetadataTests.test_color_and_depth_from_same_grab_share_grab_id) ... 2026-09-22 10:00:07,350 INFO 127.0.0.1 - "GET /color.jpg?wait=1 HTTP/1.1" 200 -
+2026-09-22 10:00:07,357 INFO 127.0.0.1 - "GET /depth.jpg?wait=1 HTTP/1.1" 200 -
+ok
+test_status_reports_intrinsics_and_depth_scale (test_opal_camera_publisher.OpalCameraMetadataTests.test_status_reports_intrinsics_and_depth_scale) ... 2026-09-22 10:00:07,864 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 10:00:07,866 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+ok
+test_color_jpg_is_png_and_pipeline_becomes_running (test_opal_camera_publisher.OpalCameraPublisherTests.test_color_jpg_is_png_and_pipeline_becomes_running) ... 2026-09-22 10:00:08,378 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 10:00:08,379 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+ok
+test_depth_jpg_differs_from_color (test_opal_camera_publisher.OpalCameraPublisherTests.test_depth_jpg_differs_from_color) ... 2026-09-22 10:00:08,892 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 10:00:08,899 INFO 127.0.0.1 - "GET /depth.jpg?wait=5 HTTP/1.1" 200 -
+ok
+test_forbidden_remote_returns_403 (test_opal_camera_publisher.OpalCameraPublisherTests.test_forbidden_remote_returns_403) ... 2026-09-22 10:00:09,401 INFO 127.0.0.1 - "GET /status HTTP/1.1" 403 -
+ok
+test_long_poll_returns_new_token_within_wait (test_opal_camera_publisher.OpalCameraPublisherTests.test_long_poll_returns_new_token_within_wait) ... 2026-09-22 10:00:09,914 INFO 127.0.0.1 - "GET /color.jpg?wait=5 HTTP/1.1" 200 -
+2026-09-22 10:00:10,003 INFO 127.0.0.1 - "GET /color.jpg?after=44b53437c911c2cb&wait=2 HTTP/1.1" 200 -
+ok
+test_pipeline_stops_after_idle_seconds (test_opal_camera_publisher.OpalCameraPublisherTests.test_pipeline_stops_after_idle_seconds) ... 2026-09-22 10:00:10,429 INFO 127.0.0.1 - "GET /color.jpg?wait=2 HTTP/1.1" 200 -
+2026-09-22 10:00:10,430 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:10,431 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:10,638 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:10,844 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:11,050 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:11,257 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:11,463 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+2026-09-22 10:00:11,482 INFO pipeline idle for 1.1s, stopping
+2026-09-22 10:00:11,669 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+ok
+test_status_shape_and_idle_before_any_frame (test_opal_camera_publisher.OpalCameraPublisherTests.test_status_shape_and_idle_before_any_frame) ... 2026-09-22 10:00:12,178 INFO 127.0.0.1 - "GET /status HTTP/1.1" 200 -
+ok
+test_stream_mjpg_yields_at_least_two_parts (test_opal_camera_publisher.OpalCameraPublisherTests.test_stream_mjpg_yields_at_least_two_parts) ... 2026-09-22 10:00:12,701 INFO 127.0.0.1 - "GET /stream.mjpg?source=color HTTP/1.1" 200 -
+ok
+test_unknown_path_404 (test_opal_camera_publisher.OpalCameraPublisherTests.test_unknown_path_404) ... 2026-09-22 10:00:13,204 INFO 127.0.0.1 - "GET /nope HTTP/1.1" 404 -
+ok
+test_bash_syntax (test_opal_camera_publisher.OpalCameraSyntaxTests.test_bash_syntax) ... ok
+test_powershell_syntax (test_opal_camera_publisher.OpalCameraSyntaxTests.test_powershell_syntax) ... skipped 'pwsh not installed locally; install-opal-camera.ps1 was not syntax-checked'
+test_py_compile (test_opal_camera_publisher.OpalCameraSyntaxTests.test_py_compile) ... ok
+test_cancel_active_workflow_stop_does_not_claim_hardware_stopped (test_orchestration_adapters.AdapterTests.test_cancel_active_workflow_stop_does_not_claim_hardware_stopped) ... ok
+test_cancel_before_dispatch_has_no_http_effect (test_orchestration_adapters.AdapterTests.test_cancel_before_dispatch_has_no_http_effect) ... ok
+test_cancel_verified_planned_run_is_confirmed_no_start (test_orchestration_adapters.AdapterTests.test_cancel_verified_planned_run_is_confirmed_no_start) ... ok
+test_create_planned_then_start_once_and_poll_sanitized_result (test_orchestration_adapters.AdapterTests.test_create_planned_then_start_once_and_poll_sanitized_result) ... ok
+test_definite_start_rejection_leaves_planned_run (test_orchestration_adapters.AdapterTests.test_definite_start_rejection_leaves_planned_run) ... ok
+test_failed_workflow_and_lost_poll_preserve_uncertainty (test_orchestration_adapters.AdapterTests.test_failed_workflow_and_lost_poll_preserve_uncertainty) ... ok
+test_health_and_status_do_not_publish_raw_source_errors (test_orchestration_adapters.AdapterTests.test_health_and_status_do_not_publish_raw_source_errors) ... ok
+test_lost_write_responses_are_uncertain_without_replay (test_orchestration_adapters.AdapterTests.test_lost_write_responses_are_uncertain_without_replay) ... ok
+test_redirect_is_not_followed (test_orchestration_adapters.AdapterTests.test_redirect_is_not_followed) ... ok
+test_unallowlisted_definition_or_parameters_never_dispatches (test_orchestration_adapters.AdapterTests.test_unallowlisted_definition_or_parameters_never_dispatches) ... ok
+test_unknown_connection_and_credentials_fail_before_network (test_orchestration_adapters.AdapterTests.test_unknown_connection_and_credentials_fail_before_network) ... ok
+test_workflow_deadline_requests_stop_but_retains_uncertainty (test_orchestration_adapters.AdapterTests.test_workflow_deadline_requests_stop_but_retains_uncertainty) ... ok
+test_writes_disabled_without_explicit_runtime_enablement (test_orchestration_adapters.AdapterTests.test_writes_disabled_without_explicit_runtime_enablement) ... ok
+test_catalog_covers_all_inventory_assets_and_fourteen_computers (test_orchestration_adapters.CatalogCoverageTests.test_catalog_covers_all_inventory_assets_and_fourteen_computers) ... ok
+test_registry_construction_never_opens_connections (test_orchestration_adapters.CatalogCoverageTests.test_registry_construction_never_opens_connections) ... ok
+test_request_cannot_override_local_probe (test_orchestration_adapters.WindowsLocalObservationTests.test_request_cannot_override_local_probe) ... ok
+test_windows_binding_on_wrong_platform_never_runs_command (test_orchestration_adapters.WindowsLocalObservationTests.test_windows_binding_on_wrong_platform_never_runs_command) ... ok
+test_windows_local_fixed_probe_preserves_partial_unknown_values (test_orchestration_adapters.WindowsLocalObservationTests.test_windows_local_fixed_probe_preserves_partial_unknown_values) ... ok
+test_windows_probe_large_output_is_rejected (test_orchestration_adapters.WindowsLocalObservationTests.test_windows_probe_large_output_is_rejected) ... ok
+test_windows_probe_timeout_reports_no_command_or_secret (test_orchestration_adapters.WindowsLocalObservationTests.test_windows_probe_timeout_reports_no_command_or_secret) ... ok
+test_all_fourteen_profiles_have_correct_private_paths_and_no_write_enablement (test_orchestration_cli.CLIProfileTests.test_all_fourteen_profiles_have_correct_private_paths_and_no_write_enablement) ... ok
+test_config_and_route_token_paths_resolve_from_their_own_files (test_orchestration_cli.CLIProfileTests.test_config_and_route_token_paths_resolve_from_their_own_files) ... ok
+test_config_generation_preserves_existing_secret_and_refuses_configuration_overwrite (test_orchestration_cli.CLIProfileTests.test_config_generation_preserves_existing_secret_and_refuses_configuration_overwrite) ... ok
+test_include_inventory_hosts_every_module_and_runs_central_simulation_without_adapters (test_orchestration_cli.CLIProfileTests.test_include_inventory_hosts_every_module_and_runs_central_simulation_without_adapters) ... ok
+test_invalid_existing_secret_is_preserved_without_creating_profile (test_orchestration_cli.CLIProfileTests.test_invalid_existing_secret_is_preserved_without_creating_profile) ... ok
+test_quartz_observation_live_executes_only_read_actions_and_get_health (test_orchestration_cli.CLIProfileTests.test_quartz_observation_live_executes_only_read_actions_and_get_health) ... ok
+test_refused_existing_configuration_does_not_create_a_new_credential (test_orchestration_cli.CLIProfileTests.test_refused_existing_configuration_does_not_create_a_new_credential) ... ok
+test_repeat_run_id_refuses_replay_and_preserves_original_checkpoint (test_orchestration_cli.CLIProfileTests.test_repeat_run_id_refuses_replay_and_preserves_original_checkpoint) ... ok
+test_root_paths_and_both_protocols_validate_without_connecting (test_orchestration_cli.CLIProfileTests.test_root_paths_and_both_protocols_validate_without_connecting) ... ok
+test_ros_transport_is_lazy_and_rejects_socket_credentials (test_orchestration_cli.CLIProfileTests.test_ros_transport_is_lazy_and_rejects_socket_credentials) ... ok
+test_serve_releases_ledger_on_clean_return_without_opening_network (test_orchestration_cli.CLIProfileTests.test_serve_releases_ledger_on_clean_return_without_opening_network) ... ok
+test_uncertain_protocol_drains_sibling_cancellation_before_closing (test_orchestration_cli.CLIProfileTests.test_uncertain_protocol_drains_sibling_cancellation_before_closing) ... ok
+test_bounded_repeat_uses_new_identities (test_orchestration_core.BehaviorTests.test_bounded_repeat_uses_new_identities) ... ok
+test_catalog_rejects_malformed_schema_before_any_tree_execution (test_orchestration_core.BehaviorTests.test_catalog_rejects_malformed_schema_before_any_tree_execution) ... ok
+test_complete_tree_is_validated_before_execution (test_orchestration_core.BehaviorTests.test_complete_tree_is_validated_before_execution) ... ok
+test_nested_repeat_has_total_execution_budget (test_orchestration_core.BehaviorTests.test_nested_repeat_has_total_execution_budget) ... ok
+test_parallel_and_failure_settle_cancellation (test_orchestration_core.BehaviorTests.test_parallel_and_failure_settle_cancellation) ... ok
+test_parallel_siblings_cannot_depend_on_unsynchronized_results (test_orchestration_core.BehaviorTests.test_parallel_siblings_cannot_depend_on_unsynchronized_results) ... ok
+test_reference_does_not_bypass_other_parameter_types_or_required_fields (test_orchestration_core.BehaviorTests.test_reference_does_not_bypass_other_parameter_types_or_required_fields) ... ok
+test_reference_inputs_are_typechecked_and_future_dependencies_rejected (test_orchestration_core.BehaviorTests.test_reference_inputs_are_typechecked_and_future_dependencies_rejected) ... ok
+test_routing_idempotency_cannot_switch_controller_after_unknown_ack (test_orchestration_core.BehaviorTests.test_routing_idempotency_cannot_switch_controller_after_unknown_ack) ... ok
+test_selector_cannot_start_alternative_while_failed_branch_still_running (test_orchestration_core.BehaviorTests.test_selector_cannot_start_alternative_while_failed_branch_still_running) ... ok
+test_sequence_waits_for_success_and_exposes_blackboard (test_orchestration_core.BehaviorTests.test_sequence_waits_for_success_and_exposes_blackboard) ... ok
+test_uncertain_branch_never_activates_fallback (test_orchestration_core.BehaviorTests.test_uncertain_branch_never_activates_fallback) ... ok
+test_uncertain_tree_continues_best_effort_sibling_cancellation (test_orchestration_core.BehaviorTests.test_uncertain_tree_continues_best_effort_sibling_cancellation) ... ok
+test_unknown_ack_halts_without_retry_and_checkpoints_before_send (test_orchestration_core.BehaviorTests.test_unknown_ack_halts_without_retry_and_checkpoints_before_send) ... ok
+test_valid_result_reference_resolves_after_predecessor_success (test_orchestration_core.BehaviorTests.test_valid_result_reference_resolves_after_predecessor_success) ... ok
+test_cancel_queued_never_dispatches_after_resource_release (test_orchestration_core.CoreTests.test_cancel_queued_never_dispatches_after_resource_release) ... ok
+test_cancel_running_is_request_until_adapter_confirms (test_orchestration_core.CoreTests.test_cancel_running_is_request_until_adapter_confirms) ... ok
+test_changed_resource_declaration_invalidates_queued_action (test_orchestration_core.CoreTests.test_changed_resource_declaration_invalidates_queued_action) ... ok
+test_completed_history_cannot_hide_an_old_queued_action (test_orchestration_core.CoreTests.test_completed_history_cannot_hide_an_old_queued_action) ... ok
+test_event_cursor_preserves_order (test_orchestration_core.CoreTests.test_event_cursor_preserves_order) ... ok
+test_idempotency_and_conflicting_reuse (test_orchestration_core.CoreTests.test_idempotency_and_conflicting_reuse) ... ok
+test_idempotent_receipt_survives_revoked_deployment_permission (test_orchestration_core.CoreTests.test_idempotent_receipt_survives_revoked_deployment_permission) ... ok
+test_physical_action_requires_deployment_enable (test_orchestration_core.CoreTests.test_physical_action_requires_deployment_enable) ... ok
+test_queued_write_rechecks_revoked_enablement_before_dispatch (test_orchestration_core.CoreTests.test_queued_write_rechecks_revoked_enablement_before_dispatch) ... ok
+test_restart_does_not_replay_and_preserves_physical_reservation (test_orchestration_core.CoreTests.test_restart_does_not_replay_and_preserves_physical_reservation) ... ok
+test_same_ledger_cannot_be_owned_through_a_symlink_alias (test_orchestration_core.CoreTests.test_same_ledger_cannot_be_owned_through_a_symlink_alias) ... ok
+test_second_process_owner_rejected (test_orchestration_core.CoreTests.test_second_process_owner_rejected) ... ok
+test_shared_resources_serialize_different_devices (test_orchestration_core.CoreTests.test_shared_resources_serialize_different_devices) ... ok
+test_simulation_never_calls_real_adapter (test_orchestration_core.CoreTests.test_simulation_never_calls_real_adapter) ... ok
+test_uncertain_record_cannot_be_reconciled_while_worker_is_still_active (test_orchestration_core.CoreTests.test_uncertain_record_cannot_be_reconciled_while_worker_is_still_active) ... ok
+test_uncertainty_keeps_reservation_until_inspected (test_orchestration_core.CoreTests.test_uncertainty_keeps_reservation_until_inspected) ... ok
+test_unexpected_write_failure_is_uncertain_read_failure_is_failed (test_orchestration_core.CoreTests.test_unexpected_write_failure_is_uncertain_read_failure_is_failed) ... ok
+test_validation_rejects_wrong_owner_and_invalid_parameters (test_orchestration_core.CoreTests.test_validation_rejects_wrong_owner_and_invalid_parameters) ... ok
+test_windows_failed_lock_closes_its_handle (test_orchestration_core.CoreTests.test_windows_failed_lock_closes_its_handle) ... ok
+test_worker_baseexception_is_durably_uncertain_for_physical_write (test_orchestration_core.CoreTests.test_worker_baseexception_is_durably_uncertain_for_physical_write) ... ok
+test_worker_start_failure_releases_resources_without_dispatch (test_orchestration_core.CoreTests.test_worker_start_failure_releases_resources_without_dispatch) ... ok
+test_arbitrary_parameters_and_scripts_are_rejected (test_orchestration_robots.RobotAdapterTests.test_arbitrary_parameters_and_scripts_are_rejected) ... ok
+test_cancel_arriving_during_qualification_prevents_mode_probe (test_orchestration_robots.RobotAdapterTests.test_cancel_arriving_during_qualification_prevents_mode_probe) ... ok
+test_cancellation_interrupts_own_producer_and_confirms_stop (test_orchestration_robots.RobotAdapterTests.test_cancellation_interrupts_own_producer_and_confirms_stop) ... ok
+test_changed_positions_and_unpinned_override_refuse_before_driver (test_orchestration_robots.RobotAdapterTests.test_changed_positions_and_unpinned_override_refuse_before_driver) ... ok
+test_guard_refusal_cannot_issue_motion_or_remote_probe (test_orchestration_robots.RobotAdapterTests.test_guard_refusal_cannot_issue_motion_or_remote_probe) ... ok
+test_invalid_state_and_missing_optional_driver_fail_without_writes (test_orchestration_robots.RobotAdapterTests.test_invalid_state_and_missing_optional_driver_fail_without_writes) ... ok
+test_preexecution_cancel_sends_nothing (test_orchestration_robots.RobotAdapterTests.test_preexecution_cancel_sends_nothing) ... ok
+test_recipe_cannot_change_station_or_interrupt_running_program (test_orchestration_robots.RobotAdapterTests.test_recipe_cannot_change_station_or_interrupt_running_program) ... ok
+test_reviewed_recipe_uses_existing_guards_and_clearance_runner (test_orchestration_robots.RobotAdapterTests.test_reviewed_recipe_uses_existing_guards_and_clearance_runner) ... ok
+test_stale_or_still_running_telemetry_cannot_confirm_stop (test_orchestration_robots.RobotAdapterTests.test_stale_or_still_running_telemetry_cannot_confirm_stop) ... ok
+test_status_rejects_stale_controller_frames (test_orchestration_robots.RobotAdapterTests.test_status_rejects_stale_controller_frames) ... ok
+test_status_uses_rtde_only_and_scopes_duplicate_ips_by_node (test_orchestration_robots.RobotAdapterTests.test_status_uses_rtde_only_and_scopes_duplicate_ips_by_node) ... ok
+test_stop_confirms_fresh_stationary_samples_and_runtime_stopped (test_orchestration_robots.RobotAdapterTests.test_stop_confirms_fresh_stationary_samples_and_runtime_stopped) ... ok
+test_transport_failure_after_motion_requires_stop_readback (test_orchestration_robots.RobotAdapterTests.test_transport_failure_after_motion_requires_stop_readback) ... ok
+test_unconfirmed_cancellation_retains_uncertainty (test_orchestration_robots.RobotAdapterTests.test_unconfirmed_cancellation_retains_uncertainty) ... ok
+test_writes_require_both_commissioned_binding_and_explicit_enablement (test_orchestration_robots.RobotAdapterTests.test_writes_require_both_commissioned_binding_and_explicit_enablement) ... ok
+test_wrong_scope_and_unresolved_roster_make_no_connections (test_orchestration_robots.RobotAdapterTests.test_wrong_scope_and_unresolved_roster_make_no_connections) ... ok
+test_agent_uncertainty_aborts_ros_and_never_becomes_cancelled (test_orchestration_ros.BridgePolicyTests.test_agent_uncertainty_aborts_ros_and_never_becomes_cancelled) ... ok
+test_cancellation_ack_waits_for_confirmed_agent_terminal_state (test_orchestration_ros.BridgePolicyTests.test_cancellation_ack_waits_for_confirmed_agent_terminal_state) ... ok
+test_cancellation_before_submission_has_no_device_effect (test_orchestration_ros.BridgePolicyTests.test_cancellation_before_submission_has_no_device_effect) ... ok
+test_goal_defaults_to_simulation_and_live_requires_explicit_bridge_enablement (test_orchestration_ros.BridgePolicyTests.test_goal_defaults_to_simulation_and_live_requires_explicit_bridge_enablement) ... ok
+test_goal_identity_parameters_and_size_are_checked_before_submission (test_orchestration_ros.BridgePolicyTests.test_goal_identity_parameters_and_size_are_checked_before_submission) ... ok
+test_invalid_record_cannot_report_success_for_a_different_action (test_orchestration_ros.BridgePolicyTests.test_invalid_record_cannot_report_success_for_a_different_action) ... ok
+test_live_cancellation_is_rejected_without_commissioned_action_policy (test_orchestration_ros.BridgePolicyTests.test_live_cancellation_is_rejected_without_commissioned_action_policy) ... ok
+test_lost_observation_connection_does_not_cancel_or_release_device (test_orchestration_ros.BridgePolicyTests.test_lost_observation_connection_does_not_cancel_or_release_device) ... ok
+test_lost_submission_ack_never_resubmits_or_claims_failure (test_orchestration_ros.BridgePolicyTests.test_lost_submission_ack_never_resubmits_or_claims_failure) ... ok
+test_ros_device_encoding_is_valid_and_collision_free (test_orchestration_ros.BridgePolicyTests.test_ros_device_encoding_is_valid_and_collision_free) ... ok
+test_terminal_completion_is_reported_even_if_cancel_was_requested_late (test_orchestration_ros.BridgePolicyTests.test_terminal_completion_is_reported_even_if_cancel_was_requested_late) ... ok
+test_unconfirmed_cancellation_deadline_is_uncertain (test_orchestration_ros.BridgePolicyTests.test_unconfirmed_cancellation_deadline_is_uncertain) ... ok
+test_bt_submit_uses_ros_action_and_get_observes_without_reissuing_goal (test_orchestration_ros.ROSClientContractTests.test_bt_submit_uses_ros_action_and_get_observes_without_reissuing_goal) ... ok
+test_goal_rejection_is_known_failure (test_orchestration_ros.ROSClientContractTests.test_goal_rejection_is_known_failure) ... ok
+test_idempotency_key_with_changed_parameters_is_rejected (test_orchestration_ros.ROSClientContractTests.test_idempotency_key_with_changed_parameters_is_rejected) ... ok
+test_lost_goal_ack_is_not_retried_with_same_or_new_goal (test_orchestration_ros.ROSClientContractTests.test_lost_goal_ack_is_not_retried_with_same_or_new_goal) ... ok
+test_rejected_ros_cancel_does_not_claim_cancelled (test_orchestration_ros.ROSClientContractTests.test_rejected_ros_cancel_does_not_claim_cancelled) ... ok
+test_ros_cancel_ack_is_cancelling_until_confirmed_terminal_result (test_orchestration_ros.ROSClientContractTests.test_ros_cancel_ack_is_cancelling_until_confirmed_terminal_result) ... ok
+test_shutdown_does_not_issue_physical_cancellation (test_orchestration_ros.ROSClientContractTests.test_shutdown_does_not_issue_physical_cancellation) ... ok
+test_unavailable_ros_server_never_receives_goal (test_orchestration_ros.ROSClientContractTests.test_unavailable_ros_server_never_receives_goal) ... ok
+test_uncertain_ros_result_remains_uncertain_and_not_success (test_orchestration_ros.ROSClientContractTests.test_uncertain_ros_result_remains_uncertain_and_not_success) ... ok
+test_execution_returns_generated_result_and_safe_terminal_transition (test_orchestration_ros.ROSNodeContractTests.test_execution_returns_generated_result_and_safe_terminal_transition) ... ok
+test_generated_action_package_contract_and_build_metadata (test_orchestration_ros.ROSNodeContractTests.test_generated_action_package_contract_and_build_metadata) ... ok
+test_goal_limit_leaves_executor_capacity_for_cancel_callbacks (test_orchestration_ros.ROSNodeContractTests.test_goal_limit_leaves_executor_capacity_for_cancel_callbacks) ... ok
+test_one_action_server_per_device_and_simulation_default (test_orchestration_ros.ROSNodeContractTests.test_one_action_server_per_device_and_simulation_default) ... ok
+test_client_rejects_credential_urls_and_query_tokens (test_orchestration_transport.TransportClientPolicyTests.test_client_rejects_credential_urls_and_query_tokens) ... ok
+test_empty_or_invalid_server_token_rejected_before_optional_imports (test_orchestration_transport.TransportClientPolicyTests.test_empty_or_invalid_server_token_rejected_before_optional_imports) ... ok
+test_failed_read_is_not_a_new_submission (test_orchestration_transport.TransportClientPolicyTests.test_failed_read_is_not_a_new_submission) ... ok
+test_lost_submission_ack_is_uncertain_and_never_retried (test_orchestration_transport.TransportClientPolicyTests.test_lost_submission_ack_is_uncertain_and_never_retried) ... ok
+test_mutation_rejections_never_trust_server_messages (test_orchestration_transport.TransportClientPolicyTests.test_mutation_rejections_never_trust_server_messages) ... ok
+test_uncertain_and_malformed_ack_remain_uncertain (test_orchestration_transport.TransportClientPolicyTests.test_uncertain_and_malformed_ack_remain_uncertain) ... ok
+test_console_static_allowlist_is_public_with_strict_browser_policy (test_orchestration_transport.TransportIntegrationTests.test_console_static_allowlist_is_public_with_strict_browser_policy) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_errors_do_not_reflect_exception_credentials (test_orchestration_transport.TransportIntegrationTests.test_errors_do_not_reflect_exception_credentials) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_http_authentication_and_same_origin_policy (test_orchestration_transport.TransportIntegrationTests.test_http_authentication_and_same_origin_policy) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_http_cancel_and_reconcile_delegate_only_authenticated_explicit_operations (test_orchestration_transport.TransportIntegrationTests.test_http_cancel_and_reconcile_delegate_only_authenticated_explicit_operations) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_http_limits_and_malformed_json_do_not_reach_engine (test_orchestration_transport.TransportIntegrationTests.test_http_limits_and_malformed_json_do_not_reach_engine) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_id_reuse_with_changed_payload_and_invalid_requests_are_rejected (test_orchestration_transport.TransportIntegrationTests.test_id_reuse_with_changed_payload_and_invalid_requests_are_rejected) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_invalid_mutation_ack_is_uncertain_after_engine_call (test_orchestration_transport.TransportIntegrationTests.test_invalid_mutation_ack_is_uncertain_after_engine_call) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_live_write_is_rejected_until_engine_is_explicitly_enabled (test_orchestration_transport.TransportIntegrationTests.test_live_write_is_rejected_until_engine_is_explicitly_enabled) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_only_health_exposes_anonymous_application_response (test_orchestration_transport.TransportIntegrationTests.test_only_health_exposes_anonymous_application_response) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_socket_and_http_share_idempotent_simulated_execution (test_orchestration_transport.TransportIntegrationTests.test_socket_and_http_share_idempotent_simulated_execution) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_socket_namespace_rejects_missing_or_wrong_token (test_orchestration_transport.TransportIntegrationTests.test_socket_namespace_rejects_missing_or_wrong_token) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_synchronous_client_round_trip_uses_same_engine (test_orchestration_transport.TransportIntegrationTests.test_synchronous_client_round_trip_uses_same_engine) ... skipped 'Install requirements-orchestration.txt for transport integration tests'
+test_disabled_quartz_and_empty_hosts_do_not_invoke_collectors (test_poll.PollTests.test_disabled_quartz_and_empty_hosts_do_not_invoke_collectors) ... ok
+test_duplicate_and_unknown_hosts_rejected_before_collection (test_poll.PollTests.test_duplicate_and_unknown_hosts_rejected_before_collection) ... ok
+test_expected_host_failure_metadata_survives (test_poll.PollTests.test_expected_host_failure_metadata_survives) ... ok
+test_host_exception_keeps_good_host_and_quartz (test_poll.PollTests.test_host_exception_keeps_good_host_and_quartz) ... ok
+test_invalid_host_partial_is_isolated_before_publication (test_poll.PollTests.test_invalid_host_partial_is_isolated_before_publication) ... ok
+test_invalid_quartz_partial_is_isolated_before_publication (test_poll.PollTests.test_invalid_quartz_partial_is_isolated_before_publication) ... ok
+test_mismatched_host_asset_identity_is_isolated (test_poll.PollTests.test_mismatched_host_asset_identity_is_isolated) ... ok
+test_mismatched_host_collector_identity_is_isolated (test_poll.PollTests.test_mismatched_host_collector_identity_is_isolated) ... ok
+test_mismatched_quartz_collector_identity_is_isolated (test_poll.PollTests.test_mismatched_quartz_collector_identity_is_isolated) ... ok
+test_quartz_endpoint_error_preserves_host_and_other_endpoint (test_poll.PollTests.test_quartz_endpoint_error_preserves_host_and_other_endpoint) ... ok
+test_quartz_exception_does_not_clear_host_metrics (test_poll.PollTests.test_quartz_exception_does_not_clear_host_metrics) ... ok
+test_source_configuration_schema_and_host_limit (test_poll.PollTests.test_source_configuration_schema_and_host_limit) ... ok
+test_duplicate_source_ids_rejected (test_poll.SourceMetadataTests.test_duplicate_source_ids_rejected) ... ok
+test_local_snapshot_id_cannot_be_supplied_by_source (test_poll.SourceMetadataTests.test_local_snapshot_id_cannot_be_supplied_by_source) ... ok
+test_source_error_and_not_configured_are_preserved (test_poll.SourceMetadataTests.test_source_error_and_not_configured_are_preserved) ... ok
+test_source_metadata_is_retained_and_ingestion_is_separate (test_poll.SourceMetadataTests.test_source_metadata_is_retained_and_ingestion_is_separate) ... ok
+test_source_timestamp_normalized_and_future_rejected (test_poll.SourceMetadataTests.test_source_timestamp_normalized_and_future_rejected) ... ok
+test_stale_source_metadata_becomes_error_without_refreshing_timestamp (test_poll.SourceMetadataTests.test_stale_source_metadata_becomes_error_without_refreshing_timestamp) ... ok
+test_built_extension_jar_contains_only_the_color_image (test_portal_branding.PortalBrandingTests.test_built_extension_jar_contains_only_the_color_image) ... ok
+test_every_portal_page_shows_a_logo (test_portal_branding.PortalBrandingTests.test_every_portal_page_shows_a_logo)
+A page that silently lost its mark would also pass the test above. ... ok
+test_gateway_image_is_staged_with_exactly_the_logos_it_copies (test_portal_branding.PortalBrandingTests.test_gateway_image_is_staged_with_exactly_the_logos_it_copies)
+The Dockerfile COPYs each logo by name; the staging script installs ... ok
+test_gateway_serves_the_color_mark_and_no_monochrome_asset (test_portal_branding.PortalBrandingTests.test_gateway_serves_the_color_mark_and_no_monochrome_asset) ... ok
+test_intralayer_extension_packages_only_the_color_mark (test_portal_branding.PortalBrandingTests.test_intralayer_extension_packages_only_the_color_mark) ... ok
+test_no_portal_surface_references_the_monochrome_mark (test_portal_branding.PortalBrandingTests.test_no_portal_surface_references_the_monochrome_mark) ... ok
+test_portal_styles_never_invert_a_brand_image (test_portal_branding.PortalBrandingTests.test_portal_styles_never_invert_a_brand_image) ... ok
+test_staging_mirrors_the_whole_portal_directory (test_portal_branding.PortalBrandingTests.test_staging_mirrors_the_whole_portal_directory)
+The Dockerfile COPYs all of web/portal. The staging script used to ... ok
+test_alibz_proxy_gets_x_portal_user_and_spoofed_header_is_ignored (test_portal_gateway.GatewayHTTPTests.test_alibz_proxy_gets_x_portal_user_and_spoofed_header_is_ignored) ... ok
+test_all_alibz_data_and_assets_are_gated (test_portal_gateway.GatewayHTTPTests.test_all_alibz_data_and_assets_are_gated) ... ok
+test_all_onyx_data_and_assets_are_gated (test_portal_gateway.GatewayHTTPTests.test_all_onyx_data_and_assets_are_gated) ... ok
+test_all_pegmatite_status_and_assets_are_gated (test_portal_gateway.GatewayHTTPTests.test_all_pegmatite_status_and_assets_are_gated) ... ok
+test_all_ramanlab_data_and_assets_are_gated (test_portal_gateway.GatewayHTTPTests.test_all_ramanlab_data_and_assets_are_gated) ... 2026-09-22 10:00:17,896 INFO stream client disconnected: 127.0.0.1
+ok
+test_all_xbillder_data_and_assets_are_gated (test_portal_gateway.GatewayHTTPTests.test_all_xbillder_data_and_assets_are_gated) ... ok
+test_authenticated_alibz_proxy_uses_its_own_socket_and_strips_prefix (test_portal_gateway.GatewayHTTPTests.test_authenticated_alibz_proxy_uses_its_own_socket_and_strips_prefix) ... ok
+test_authenticated_onyx_proxy_uses_its_own_socket_strips_prefix_and_keeps_frame_headers (test_portal_gateway.GatewayHTTPTests.test_authenticated_onyx_proxy_uses_its_own_socket_strips_prefix_and_keeps_frame_headers) ... ok
+test_authenticated_pegmatite_page_api_redaction_and_traversal (test_portal_gateway.GatewayHTTPTests.test_authenticated_pegmatite_page_api_redaction_and_traversal) ... ok
+test_authenticated_prefix_proxy_strips_credentials_and_preserves_origin (test_portal_gateway.GatewayHTTPTests.test_authenticated_prefix_proxy_strips_credentials_and_preserves_origin) ... ok
+test_authenticated_ramanlab_proxy_uses_its_own_socket_and_strips_prefix (test_portal_gateway.GatewayHTTPTests.test_authenticated_ramanlab_proxy_uses_its_own_socket_and_strips_prefix) ... ok
+test_collector_and_queue_failures_are_not_reported_as_zero (test_portal_gateway.GatewayHTTPTests.test_collector_and_queue_failures_are_not_reported_as_zero) ... ok
+test_invalid_and_unavailable_auth_never_reaches_backend (test_portal_gateway.GatewayHTTPTests.test_invalid_and_unavailable_auth_never_reaches_backend) ... ok
+test_landing_assets_and_login_redirect_are_resolvable (test_portal_gateway.GatewayHTTPTests.test_landing_assets_and_login_redirect_are_resolvable) ... ok
+test_logout_and_public_landing_contain_no_dataset_data (test_portal_gateway.GatewayHTTPTests.test_logout_and_public_landing_contain_no_dataset_data) ... ok
+test_proxy_forwards_allowlisted_frame_headers_to_the_browser (test_portal_gateway.GatewayHTTPTests.test_proxy_forwards_allowlisted_frame_headers_to_the_browser)
+The alibz live view reads `X-Camera-Meta` off every frame for the ... ok
+test_proxy_response_header_allowlist_is_exact_and_injection_safe (test_portal_gateway.GatewayHTTPTests.test_proxy_response_header_allowlist_is_exact_and_injection_safe)
+An upstream must not be able to set arbitrary response headers, and ... ok
+test_rejects_cross_origin_missing_origin_bad_host_and_spoofed_cookie (test_portal_gateway.GatewayHTTPTests.test_rejects_cross_origin_missing_origin_bad_host_and_spoofed_cookie) ... ok
+test_stale_or_missing_snapshot_fails_closed (test_portal_gateway.GatewayHTTPTests.test_stale_or_missing_snapshot_fails_closed) ... ok
+test_unknown_observations_remain_null (test_portal_gateway.GatewayHTTPTests.test_unknown_observations_remain_null) ... ok
+test_xbillder_proxy_does_not_get_x_portal_user (test_portal_gateway.GatewayHTTPTests.test_xbillder_proxy_does_not_get_x_portal_user) ... ok
+test_fixed_expiry_is_not_extended_by_exchange_or_activity (test_portal_gateway.GatewayTests.test_fixed_expiry_is_not_extended_by_exchange_or_activity) ... ok
+test_guacamole_reads_current_directory_after_cached_self (test_portal_gateway.GatewayTests.test_guacamole_reads_current_directory_after_cached_self) ... ok
+test_logout_retries_upstream_revocation_after_transient_failure (test_portal_gateway.GatewayTests.test_logout_retries_upstream_revocation_after_transient_failure) ... ok
+test_logout_revokes_upstream_and_local_session (test_portal_gateway.GatewayTests.test_logout_revokes_upstream_and_local_session) ... ok
+test_rejects_non_lbl_identity_malformed_token_and_redirects (test_portal_gateway.GatewayTests.test_rejects_non_lbl_identity_malformed_token_and_redirects) ... ok
+test_revalidates_each_request_and_removal_revokes_existing_cookie (test_portal_gateway.GatewayTests.test_revalidates_each_request_and_removal_revokes_existing_cookie) ... ok
+test_accepts_trusted_exact_san_and_matching_private_key (test_portal_tls.PortalTLSCertificateTests.test_accepts_trusted_exact_san_and_matching_private_key) ... ok
+test_rejects_certificate_inside_renewal_window (test_portal_tls.PortalTLSCertificateTests.test_rejects_certificate_inside_renewal_window) ... ok
+test_rejects_hostname_without_exact_san (test_portal_tls.PortalTLSCertificateTests.test_rejects_hostname_without_exact_san) ... ok
+test_rejects_mismatched_private_key (test_portal_tls.PortalTLSCertificateTests.test_rejects_mismatched_private_key) ... ok
+test_rejects_missing_intermediate_chain (test_portal_tls.PortalTLSCertificateTests.test_rejects_missing_intermediate_chain) ... ok
+test_rejects_private_key_with_broad_permissions (test_portal_tls.PortalTLSCertificateTests.test_rejects_private_key_with_broad_permissions) ... ok
+test_generation_switch_and_rollback_replace_directory_symlink (test_portal_tls.PortalTLSDeploymentFilesTests.test_generation_switch_and_rollback_replace_directory_symlink) ... skipped 'installer targets GNU mv on Moissanite Linux'
+test_portal_caddyfile_delegates_tls_to_durable_host_state (test_portal_tls.PortalTLSDeploymentFilesTests.test_portal_caddyfile_delegates_tls_to_durable_host_state) ... ok
+test_shell_scripts_parse (test_portal_tls.PortalTLSDeploymentFilesTests.test_shell_scripts_parse) ... ok
+test_timer_is_persistent_and_service_is_hardened (test_portal_tls.PortalTLSDeploymentFilesTests.test_timer_is_persistent_and_service_is_hardened) ... ok
+test_authentication_uses_header_and_stays_private (test_quartz.QuartzTests.test_authentication_uses_header_and_stays_private) ... ok
+test_disabled_sync_is_explicit (test_quartz.QuartzTests.test_disabled_sync_is_explicit) ... ok
+test_duplicate_runs_rejected_before_publication (test_quartz.QuartzTests.test_duplicate_runs_rejected_before_publication) ... ok
+test_empty_sources_are_known_zero_only_within_quartz (test_quartz.QuartzTests.test_empty_sources_are_known_zero_only_within_quartz) ... ok
+test_endpoint_failure_does_not_clear_other_sources (test_quartz.QuartzTests.test_endpoint_failure_does_not_clear_other_sources) ... ok
+test_invalid_json_and_schema_are_isolated (test_quartz.QuartzTests.test_invalid_json_and_schema_are_isolated) ... ok
+test_invalid_timeouts_make_no_requests (test_quartz.QuartzTests.test_invalid_timeouts_make_no_requests) ... ok
+test_invalid_token_file_makes_no_requests (test_quartz.QuartzTests.test_invalid_token_file_makes_no_requests) ... ok
+test_malformed_health_does_not_invent_reachability (test_quartz.QuartzTests.test_malformed_health_does_not_invent_reachability) ... ok
+test_non_loopback_or_ambiguous_urls_make_no_requests (test_quartz.QuartzTests.test_non_loopback_or_ambiguous_urls_make_no_requests) ... ok
+test_oversized_response_is_bounded (test_quartz.QuartzTests.test_oversized_response_is_bounded) ... ok
+test_redirect_never_follows_or_leaks_credentials (test_quartz.QuartzTests.test_redirect_never_follows_or_leaks_credentials) ... ok
+test_runs_preserve_ids_and_map_only_reported_states (test_quartz.QuartzTests.test_runs_preserve_ids_and_map_only_reported_states) ... ok
+test_sync_error_never_reports_zero_in_flight (test_quartz.QuartzTests.test_sync_error_never_reports_zero_in_flight) ... ok
+test_sync_history_has_no_invented_progress_or_running_state (test_quartz.QuartzTests.test_sync_history_has_no_invented_progress_or_running_state) ... ok
+test_timeout_is_sanitized_and_preserves_other_sources (test_quartz.QuartzTests.test_timeout_is_sanitized_and_preserves_other_sources) ... ok
+test_unbounded_sync_numbers_are_rejected (test_quartz.QuartzTests.test_unbounded_sync_numbers_are_rejected) ... ok
+test_chain_of_near_duplicates_keeps_single_best (test_ramanlab.BridgeDuplicateCollapseTests.test_chain_of_near_duplicates_keeps_single_best) ... ok
+test_empty_input (test_ramanlab.BridgeDuplicateCollapseTests.test_empty_input) ... ok
+test_missing_centres_pass_through (test_ramanlab.BridgeDuplicateCollapseTests.test_missing_centres_pass_through) ... ok
+test_real_olivine_doublet_is_not_collapsed (test_ramanlab.BridgeDuplicateCollapseTests.test_real_olivine_doublet_is_not_collapsed) ... ok
+test_true_duplicate_is_collapsed_keeping_better_fit (test_ramanlab.BridgeDuplicateCollapseTests.test_true_duplicate_is_collapsed_keeping_better_fit) ... ok
+test_chemical_system_empty_is_no_filter (test_ramanlab.ChemistryFilterTests.test_chemical_system_empty_is_no_filter) ... ok
+test_chemical_system_parsed_and_order_insensitive (test_ramanlab.ChemistryFilterTests.test_chemical_system_parsed_and_order_insensitive) ... ok
+test_chemical_system_rejects_dara_invalid_forms (test_ramanlab.ChemistryFilterTests.test_chemical_system_rejects_dara_invalid_forms) ... ok
+test_formula_key_handles_hydrate_dot (test_ramanlab.ChemistryFilterTests.test_formula_key_handles_hydrate_dot) ... ok
+test_formula_key_is_punctuation_and_case_insensitive (test_ramanlab.ChemistryFilterTests.test_formula_key_is_punctuation_and_case_insensitive) ... ok
+test_formula_validation (test_ramanlab.ChemistryFilterTests.test_formula_validation) ... ok
+test_chemical_system_is_sorted_and_deduped (test_ramanlab.ChemistryMetadataTests.test_chemical_system_is_sorted_and_deduped) ... ok
+test_chemistry_coexists_with_other_metadata (test_ramanlab.ChemistryMetadataTests.test_chemistry_coexists_with_other_metadata) ... ok
+test_formula_stored_verbatim (test_ramanlab.ChemistryMetadataTests.test_formula_stored_verbatim) ... ok
+test_invalid_chemistry_rejected (test_ramanlab.ChemistryMetadataTests.test_invalid_chemistry_rejected) ... ok
+test_disabled_by_default (test_ramanlab.EngineStatusTests.test_disabled_by_default) ... ok
+test_missing_checkout_is_misconfigured (test_ramanlab.EngineStatusTests.test_missing_checkout_is_misconfigured) ... ok
+test_dry_run_lists_without_removing_and_rejects_vague_prefix (test_ramanlab.ForgetTests.test_dry_run_lists_without_removing_and_rejects_vague_prefix) ... ok
+test_execute_removes_rows_jobs_and_artifacts (test_ramanlab.ForgetTests.test_execute_removes_rows_jobs_and_artifacts) ... ok
+test_cross_origin_and_non_json_rejected (test_ramanlab.HTTPTests.test_cross_origin_and_non_json_rejected) ... ok
+test_csp_header_present (test_ramanlab.HTTPTests.test_csp_header_present) ... ok
+test_health_and_status (test_ramanlab.HTTPTests.test_health_and_status) ... ok
+test_metadata_and_analyze_endpoints (test_ramanlab.HTTPTests.test_metadata_and_analyze_endpoints) ... ok
+test_public_bind_requires_boundary (test_ramanlab.HTTPTests.test_public_bind_requires_boundary) ... ok
+test_symlinked_asset_refused (test_ramanlab.HTTPTests.test_symlinked_asset_refused) ... ok
+test_unknown_host_rejected (test_ramanlab.HTTPTests.test_unknown_host_rejected) ... ok
+test_unknown_route_404 (test_ramanlab.HTTPTests.test_unknown_route_404) ... ok
+test_upload_run_and_export (test_ramanlab.HTTPTests.test_upload_run_and_export) ... ok
+test_depth_beyond_bound_is_not_descended (test_ramanlab.MapCatalogTests.test_depth_beyond_bound_is_not_descended) ... ok
+test_duplicate_id_across_directories_keeps_one (test_ramanlab.MapCatalogTests.test_duplicate_id_across_directories_keeps_one) ... ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpy027c5f0/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan-b/map.json: duplicate map id 72110e723a3badcdd934c343; keeping /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpy027c5f0/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan-a/map.json
+ok
+test_get_returns_none_for_unknown_id (test_ramanlab.MapCatalogTests.test_get_returns_none_for_unknown_id) ... ok
+test_id_not_matching_project_and_graph_guid_is_rejected (test_ramanlab.MapCatalogTests.test_id_not_matching_project_and_graph_guid_is_rejected) ... ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpktyt0j0c/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan/map.json: id does not match sha256(project, graph_guid)
+ok
+test_image_name_validation_and_traversal_refusal (test_ramanlab.MapCatalogTests.test_image_name_validation_and_traversal_refusal) ... ok
+test_invalid_json_is_skipped_not_raised (test_ramanlab.MapCatalogTests.test_invalid_json_is_skipped_not_raised) ... ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpwsioxf6b/archive/data/hosts/mirabilite/LabData/Raman/maps/X/proj/scan/map.json: invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+ok
+test_invalidate_picks_up_new_files (test_ramanlab.MapCatalogTests.test_invalidate_picks_up_new_files) ... ok
+test_malformed_id_format_is_rejected (test_ramanlab.MapCatalogTests.test_malformed_id_format_is_rejected) ... ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpskmacd9h/archive/data/hosts/mirabilite/LabData/Raman/maps/R/proj/scan/map.json: id is not 24 lowercase hex characters
+ok
+test_missing_directory_is_an_empty_catalog (test_ramanlab.MapCatalogTests.test_missing_directory_is_an_empty_catalog) ... ok
+test_sorted_by_acquired_end_utc_descending (test_ramanlab.MapCatalogTests.test_sorted_by_acquired_end_utc_descending) ... ok
+test_symlinked_subdirectory_is_not_followed (test_ramanlab.MapCatalogTests.test_symlinked_subdirectory_is_not_followed) ... ok
+test_unreadable_map_json_is_skipped (test_ramanlab.MapCatalogTests.test_unreadable_map_json_is_skipped) ... ramanlab maps catalog: /var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpfdohj2h3/archive/data/hosts/mirabilite/LabData/Raman/maps/Y/proj/scan/map.json: unreadable: [Errno 13] Permission denied: '/var/folders/yj/sjr_202x2fvfp9wq2lrrdf0h0000gn/T/tmpfdohj2h3/archive/data/hosts/mirabilite/LabData/Raman/maps/Y/proj/scan/map.json'
+ok
+test_valid_map_is_listed_without_params_and_tracks_analysis (test_ramanlab.MapCatalogTests.test_valid_map_is_listed_without_params_and_tracks_analysis) ... ok
+test_import_file_routes_maps_prefix_without_creating_dataset (test_ramanlab.MapsHTTPTests.test_import_file_routes_maps_prefix_without_creating_dataset) ... ok
+test_maps_detail_404_for_unknown_id (test_ramanlab.MapsHTTPTests.test_maps_detail_404_for_unknown_id) ... ok
+test_maps_detail_and_image_route (test_ramanlab.MapsHTTPTests.test_maps_detail_and_image_route) ... ok
+test_maps_image_400_for_bad_name (test_ramanlab.MapsHTTPTests.test_maps_image_400_for_bad_name) ... ok
+test_maps_image_404_for_missing_file (test_ramanlab.MapsHTTPTests.test_maps_image_404_for_missing_file) ... ok
+test_maps_list_shape (test_ramanlab.MapsHTTPTests.test_maps_list_shape) ... ok
+test_status_counts (test_ramanlab.MapsHTTPTests.test_status_counts) ... ok
+test_peak_locations_on_synthetic_three_peak_spectrum (test_ramanlab.PreviewTests.test_peak_locations_on_synthetic_three_peak_spectrum) ... ok
+test_rayleigh_line_is_excluded_from_peaks (test_ramanlab.PreviewTests.test_rayleigh_line_is_excluded_from_peaks) ... ok
+test_excitation_absent_is_none (test_ramanlab.ReferenceMatchMetadataTests.test_excitation_absent_is_none) ... ok
+test_excitation_parsed_from_rruff_name (test_ramanlab.ReferenceMatchMetadataTests.test_excitation_parsed_from_rruff_name) ... ok
+test_concurrent_enqueue_is_idempotent (test_ramanlab.ServiceTests.test_concurrent_enqueue_is_idempotent) ... ok
+test_immutable_revisions_and_dedup (test_ramanlab.ServiceTests.test_immutable_revisions_and_dedup) ... ok
+test_instrument_defaults_and_validation (test_ramanlab.ServiceTests.test_instrument_defaults_and_validation) ... ok
+test_metadata_validation (test_ramanlab.ServiceTests.test_metadata_validation) ... ok
+test_opaque_spc_archived_without_analysis (test_ramanlab.ServiceTests.test_opaque_spc_archived_without_analysis) ... ok
+test_ramanlab_engine_disabled_rejected (test_ramanlab.ServiceTests.test_ramanlab_engine_disabled_rejected) ... ok
+test_restart_revision_import_idempotence (test_ramanlab.ServiceTests.test_restart_revision_import_idempotence) ... ok
+test_run_one_preview_path (test_ramanlab.ServiceTests.test_run_one_preview_path) ... ok
+test_running_jobs_interrupted_on_restart (test_ramanlab.ServiceTests.test_running_jobs_interrupted_on_restart) ... ok
+test_spectrum_metadata_units_surfaced (test_ramanlab.ServiceTests.test_spectrum_metadata_units_surfaced) ... ok
+test_status_engine_misconfigured_without_checkout (test_ramanlab.ServiceTests.test_status_engine_misconfigured_without_checkout) ... ok
+test_status_engine_readiness_disabled (test_ramanlab.ServiceTests.test_status_engine_readiness_disabled) ... ok
+test_sync_observation_expires (test_ramanlab.ServiceTests.test_sync_observation_expires) ... ok
+test_unknown_engine_rejected (test_ramanlab.ServiceTests.test_unknown_engine_rejected) ... ok
+test_upload_traversal_rejected (test_ramanlab.ServiceTests.test_upload_traversal_rejected) ... ok
+test_worker_exclusion (test_ramanlab.ServiceTests.test_worker_exclusion) ... ok
+test_wrong_suffix_becomes_needs_export (test_ramanlab.ServiceTests.test_wrong_suffix_becomes_needs_export) ... ok
+test_descending_input_is_sorted_ascending (test_ramanlab.SpectraParserTests.test_descending_input_is_sorted_ascending) ... ok
+test_duplicate_shift_after_sort_rejected (test_ramanlab.SpectraParserTests.test_duplicate_shift_after_sort_rejected) ... ok
+test_malformed_row_after_data_started_rejected (test_ramanlab.SpectraParserTests.test_malformed_row_after_data_started_rejected) ... ok
+test_micron_and_angstrom_axes_also_rejected (test_ramanlab.SpectraParserTests.test_micron_and_angstrom_axes_also_rejected) ... ok
+test_multiple_leading_header_lines_skipped (test_ramanlab.SpectraParserTests.test_multiple_leading_header_lines_skipped) ... ok
+test_nan_rejected (test_ramanlab.SpectraParserTests.test_nan_rejected) ... ok
+test_no_units_when_header_absent (test_ramanlab.SpectraParserTests.test_no_units_when_header_absent) ... ok
+test_optional_header_is_skipped (test_ramanlab.SpectraParserTests.test_optional_header_is_skipped) ... ok
+test_out_of_range_cm1_rejected (test_ramanlab.SpectraParserTests.test_out_of_range_cm1_rejected) ... ok
+test_oversize_and_too_many_points_rejected (test_ramanlab.SpectraParserTests.test_oversize_and_too_many_points_rejected) ... ok
+test_raman_shift_unit_still_accepted (test_ramanlab.SpectraParserTests.test_raman_shift_unit_still_accepted) ... ok
+test_real_witec_negative_shift_examples_accepted (test_ramanlab.SpectraParserTests.test_real_witec_negative_shift_examples_accepted) ... ok
+test_real_witec_wide_anti_stokes_axis_accepted (test_ramanlab.SpectraParserTests.test_real_witec_wide_anti_stokes_axis_accepted) ... ok
+test_separators_all_agree (test_ramanlab.SpectraParserTests.test_separators_all_agree) ... ok
+test_spc_is_opaque_not_parsed (test_ramanlab.SpectraParserTests.test_spc_is_opaque_not_parsed) ... ok
+test_too_few_points_rejected (test_ramanlab.SpectraParserTests.test_too_few_points_rejected) ... ok
+test_wavelength_axis_rejected_not_silently_accepted (test_ramanlab.SpectraParserTests.test_wavelength_axis_rejected_not_silently_accepted) ... ok
+test_witec_csv_header_and_literal_values_parsed (test_ramanlab.SpectraParserTests.test_witec_csv_header_and_literal_values_parsed) ... ok
+test_wrong_column_count_after_data_started_rejected (test_ramanlab.SpectraParserTests.test_wrong_column_count_after_data_started_rejected) ... ok
+test_wrong_suffix_rejected (test_ramanlab.SpectraParserTests.test_wrong_suffix_rejected) ... ok
+test_bad_folder_id_rejected (test_ramanlab.SyncConfigTests.test_bad_folder_id_rejected) ... ok
+test_bad_remote_kind_rejected (test_ramanlab.SyncConfigTests.test_bad_remote_kind_rejected) ... ok
+test_command_argv_shape (test_ramanlab.SyncConfigTests.test_command_argv_shape) ... ok
+test_missing_remote_rejected (test_ramanlab.SyncConfigTests.test_missing_remote_rejected) ... ok
+test_traversal_source_path_rejected (test_ramanlab.SyncConfigTests.test_traversal_source_path_rejected) ... ok
+test_valid_mapping_builds_config (test_ramanlab.SyncConfigTests.test_valid_mapping_builds_config) ... ok
+test_bind_mode_and_health_over_unix_socket (test_ramanlab.UnixSocketTests.test_bind_mode_and_health_over_unix_socket) ... ok
+test_stale_socket_is_replaced (test_ramanlab.UnixSocketTests.test_stale_socket_is_replaced) ... ok
+test_loads_gzip_json (test_z300_calibration.LoadSpectrumJsonTest.test_loads_gzip_json) ... ok
+test_loads_plain_json (test_z300_calibration.LoadSpectrumJsonTest.test_loads_plain_json) ... ok
+test_loads_zip_of_gzip_json_preferring_entry_minus_1 (test_z300_calibration.LoadSpectrumJsonTest.test_loads_zip_of_gzip_json_preferring_entry_minus_1) ... ok
+test_accepts_real_wlcalibrations_dict_shape (test_z300_calibration.PixelsToWavelengthTest.test_accepts_real_wlcalibrations_dict_shape) ... ok
+test_accepts_zcalibration_dict_shape (test_z300_calibration.PixelsToWavelengthTest.test_accepts_zcalibration_dict_shape) ... ok
+test_cubic_polynomial_matches_hand_calculation (test_z300_calibration.PixelsToWavelengthTest.test_cubic_polynomial_matches_hand_calculation) ... ok
+test_empty_after_trim_returns_empty_lists (test_z300_calibration.PixelsToWavelengthTest.test_empty_after_trim_returns_empty_lists) ... ok
+test_linear_two_segment_no_trim (test_z300_calibration.PixelsToWavelengthTest.test_linear_two_segment_no_trim) ... ok
+test_rejects_segment_count_mismatch (test_z300_calibration.PixelsToWavelengthTest.test_rejects_segment_count_mismatch) ... ok
+test_trimming_drops_out_of_knot_range_pixels (test_z300_calibration.PixelsToWavelengthTest.test_trimming_drops_out_of_knot_range_pixels) ... ok
+test_module_status_string (test_z300_calibration.RealFixtureTest.test_module_status_string) ... ok
+test_real_calibration_produces_monotonic_wavelength (test_z300_calibration.RealFixtureTest.test_real_calibration_produces_monotonic_wavelength) ... ok
+test_real_shape (test_z300_calibration.RealFixtureTest.test_real_shape) ... ok
+test_resample_linear_midpoint (test_z300_calibration.ResampleUniformTest.test_resample_linear_midpoint) ... ok
+
+----------------------------------------------------------------------
+Ran 798 tests in 153.526s
+
+OK (skipped=26)

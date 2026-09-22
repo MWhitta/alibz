@@ -1,0 +1,40 @@
+{
+  "files": {
+    "pantheum/alibz/__main__.py": "9e7134b24de7410ba47c4e4f0d57aab068631ac84476a46f20f34df6ee6c7960",
+    "pantheum/alibz/service.py": "6c9be7742bda47ad653a9d75a711d57503404b1522a5a528dd614cd17819cb0e",
+    "pantheum/alibz/display.py": "4719207c956560f56903bcf9de485ce9f6702cb7cc86aab73513423e3f577f0a",
+    "web/alibz/app.js": "063949526ab1b595e3b04e90648b05a8c30c6812cbfa13ae89cd5527a970b711",
+    "web/alibz/index.html": "26585c26bc078b754ae766002e05aaaf840ba40938359acbf36bad398f8c208b",
+    "web/alibz/styles.css": "499c0ff6bd9504a60415a29b6bf16920da078d38731cf6ee48731950640ea7cf"
+  },
+  "display_patch": {
+    "enabled": true,
+    "command": [
+      "ssh",
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=yes",
+      "-o",
+      "ConnectTimeout=8",
+      "-p",
+      "52222",
+      "whittaker@192.168.50.112",
+      "C:/InstrumentControl/alibz/.venv/Scripts/python.exe",
+      "-B",
+      "C:/InstrumentControl/opal/z300-display.py",
+      "{action}"
+    ],
+    "timeout_seconds": 45,
+    "status_ttl_seconds": 10
+  },
+  "before": {
+    "pantheum/alibz/__main__.py": "ddf06310bee86f96b1a6a867d8338fdd94f29b8642dc966cd6debef51fbdc717",
+    "pantheum/alibz/service.py": "af52ac00c74dd0f9b3b27b2483477a1039e5d412e39e2f2353c04a2cee171a18",
+    "pantheum/alibz/display.py": null,
+    "web/alibz/app.js": "d04d9b5bddc42d3d51a35e74c4920d9458e75edcbb6f526b85e16d83041ab4a8",
+    "web/alibz/index.html": "69f3a647ed96fbc2e79c2be7ded7a5499e7721d2b43da4a047ff67c77ed93b2e",
+    "web/alibz/styles.css": "58cb625c99cd846b48e8c85ebfd7e515babe39a726c97aed2359ea95f935d8e8"
+  },
+  "config_sha256": "4daf2c1297ec5b1f555661bb60ebf6f3949bb18f6936ebf73d4200e8a7b5f9a9"
+}

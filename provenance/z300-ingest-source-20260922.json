@@ -1,0 +1,24 @@
+{
+  "changed": [
+    "pantheum/alibz/acquire.py",
+    "pantheum/alibz/retrieval.py",
+    "pantheum/alibz/__main__.py",
+    "pantheum/alibz/optimization.py",
+    "tests/test_alibz_retrieval.py",
+    "docs/acquisition-optimization.md",
+    "DECISIONS.md"
+  ],
+  "installed_hashes": {
+    "pantheum/alibz/acquire.py": "4a23a6915c1bc88454c13dacdce5e1de9cbea6a358fb06c9276e324c7d6f147b",
+    "pantheum/alibz/retrieval.py": "fbd2cd965ca4858f63a553f58abe4564d216c835d652f4f681afdc2f14735b02",
+    "pantheum/alibz/__main__.py": "ddf06310bee86f96b1a6a867d8338fdd94f29b8642dc966cd6debef51fbdc717",
+    "pantheum/alibz/optimization.py": "2c96f4a6b9dd3a1dd6f35bb468aff3ae7af4be81b409ab593da22665b1b1e5cd",
+    "pantheum/alibz/optimization_metrics.py": "68d4d4859d349f7629fa6d6a451569632c89a85729247a0f298269735eee850a",
+    "tests/test_alibz_acquire.py": "e4ef0227ca0a91fbf4b35e8a422113f20eed4448f42933e303e009ac995165be",
+    "tests/test_alibz_optimization_metrics.py": "ace889f1aeab481a66565c11756bd7cb0a8362b343c097b6c253f14d17983ffa",
+    "tests/test_alibz_retrieval.py": "00a5a7def4373aeef28202c2ee7e694d95995bdba2647b32f79e5e8898afb72c",
+    "docs/acquisition-optimization.md": "e3516944666c3370ee1c0865b0c455f4ca5a28cd3428d5b65da034046b007042",
+    "DECISIONS.md": "19123fdec5eb1bf0ccc34497410095881f53410b5dc19d62eb53a143b2111492"
+  },
+  "backup": "/Users/mwhittaker/Projects/github/alibz/reports/z300-ingest-source-backup-20260922"
+}

@@ -1,0 +1,15 @@
+{
+  "hardware_holder": "operator@lbl.gov",
+  "analysis_holder": "analyst@lbl.gov",
+  "jobs": [
+    [
+      "preview",
+      "completed",
+      2
+    ]
+  ],
+  "hardware_operations": 0,
+  "acquisitions": 0,
+  "competing_hardware_http_status": 409,
+  "ui_tests_passed": 31
+}

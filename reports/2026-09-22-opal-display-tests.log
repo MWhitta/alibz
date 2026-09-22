@@ -1,0 +1,13 @@
+test_already_requested_state_is_noop (test_z300_opal_display.DisplayTests.test_already_requested_state_is_noop) ... ok
+test_ambiguous_command_is_not_replayed (test_z300_opal_display.DisplayTests.test_ambiguous_command_is_not_replayed) ... ok
+test_binder_failure_does_not_claim_success (test_z300_opal_display.DisplayTests.test_binder_failure_does_not_claim_success) ... ok
+test_dry_run_does_not_dispatch (test_z300_opal_display.DisplayTests.test_dry_run_does_not_dispatch) ... ok
+test_exact_firmware_is_required_before_mutation (test_z300_opal_display.DisplayTests.test_exact_firmware_is_required_before_mutation) ... ok
+test_legacy_adb_blank_lines_are_accepted (test_z300_opal_display.DisplayTests.test_legacy_adb_blank_lines_are_accepted) ... ok
+test_signed_long_encoding_and_sleep_reason (test_z300_opal_display.DisplayTests.test_signed_long_encoding_and_sleep_reason) ... ok
+test_wake_and_sleep_verify_transition (test_z300_opal_display.DisplayTests.test_wake_and_sleep_verify_transition) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.002s
+
+OK

@@ -1,0 +1,15 @@
+{
+  "sessions": [
+    {
+      "run_mode": "live",
+      "state": "ready",
+      "total_shots": 0
+    }
+  ],
+  "rate_enabled": false,
+  "live_allowed": false,
+  "next_disabled": true,
+  "notice": "Optimization session created. No batch has been started.",
+  "acquisitions": 0,
+  "physical_operations": 0
+}

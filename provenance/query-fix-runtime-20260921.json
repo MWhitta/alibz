@@ -1,0 +1,20 @@
+{
+  "files": {
+    "pantheum/alibz/acquire.py": "fd6b373b93c8024f27adbc70cb09355b0f55a3ede3b3f1c44cc792324c50dde9",
+    "pantheum/alibz/z300.py": "a01ac05967253592d9c7a8c521e7ab50740ba3f0679f227e2b1604453b8d658c"
+  },
+  "before": {
+    "pantheum/alibz/acquire.py": "43fe174730263e8a1bbc95a84ef6ada3072a4617b0d32c56cb681dc77ca9c5e9",
+    "pantheum/alibz/z300.py": "ecc15883304d24d2c66e1aea2a13c959f343b40ea129f089c4b24f44344f79dd"
+  },
+  "config_sha256": "2d10dea71fdb10b960968df48279031d92b54c975be3ee2ee83da2e93b4c3ae4",
+  "runtime_backup": "/home/mwhittaker/pantheum-fire-fix-backup-20260921T162823",
+  "restored_config_sha256": "37e26ff18ff5b9b82ea949ea2f8c6678dbf9dd84de807fb487471676f9587728",
+  "verified_at": "2026-09-21T23:28:54Z",
+  "physical_commands_issued": false,
+  "tests": {
+    "full": 774,
+    "skipped": 11,
+    "source_acquisition": 65
+  }
+}

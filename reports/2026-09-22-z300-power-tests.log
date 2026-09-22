@@ -1,0 +1,10 @@
+test_backup_preserves_original_and_refuses_overwrite (test_z300_display_power.Z300DisplayPowerTests.test_backup_preserves_original_and_refuses_overwrite) ... ok
+test_dry_run_does_not_write_or_mutate (test_z300_display_power.Z300DisplayPowerTests.test_dry_run_does_not_write_or_mutate) ... ok
+test_powershell_encoding_is_utf16le (test_z300_display_power.Z300DisplayPowerTests.test_powershell_encoding_is_utf16le) ... ok
+test_read_state_parses_android_42_power_dump (test_z300_display_power.Z300DisplayPowerTests.test_read_state_parses_android_42_power_dump) ... ok
+test_wake_is_noop_if_screen_is_already_on (test_z300_display_power.Z300DisplayPowerTests.test_wake_is_noop_if_screen_is_already_on) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.002s
+
+OK

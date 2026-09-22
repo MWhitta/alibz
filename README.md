@@ -145,6 +145,9 @@ carbonate-rich and volatile-rich strata equally.
 
 ## Additional CLI Tools
 
+For automatic Z300 database retrieval and native-grid conversion on Opal before
+Pantheum processing, see [the acquisition ingestion workflow](docs/z300_opal_ingestion.md).
+
 Peak-shape PCA pipeline:
 
 ```bash

@@ -1,0 +1,44 @@
+✔ app.js loads in a stubbed DOM without throwing and exposes window.alibzPlot (21.449791ms)
+✔ wavelengthToRgb matches the Python reference (alibz.utils.colors.wavelength_to_rgb) within 0.002 (2.858667ms)
+✔ spectralBins groups a 2-point-per-nm series into 11 gapless 1 nm bins over 380-390 (2.372167ms)
+✔ resolveFitFigure fallback: panel C is observed - model with no band when background/residual/noise are absent (2.693625ms)
+✔ renderFitFigure renders three panels with a titled marker per peak and a noise band (7.648875ms)
+✔ a peak with an assigned ion gets a roman-numeral title; an unassigned peak omits it (3.046584ms)
+✔ resolveFitFigure turns null background/residual/noise into NaN (not 0) and counts invalid points (1.839167ms)
+✔ renderFitFigure blanks detector-edge points but still draws the band, and notes the count (4.209375ms)
+✔ a fit without `valid` reports invalidCount 0 and no blanked-points sentence (3.185208ms)
+✔ a result without background/residual/noise still renders and produces no band (4.097042ms)
+✔ voigt(x, sigma, gamma) matches the scipy.special.voigt_profile references within 1e-3 relative (3.23375ms)
+✔ decimateMinMax keeps the true per-column min and max once the window exceeds the pixel budget (3.373875ms)
+✔ decimateMinMax passes points through unchanged below the density threshold (1.626333ms)
+✔ formatFitHash/parseFitHash round-trip a window, and "#<id>" alone parses with no window (1.561584ms)
+✔ scaleXToNm inverts the panel x-scale (viewBox pixel -> nm), as drag-select and wheel-zoom use it (2.630875ms)
+✔ nearestPeakAt finds the covering peak (within max(0.5*fwhm, 3px-equivalent)) and peakCardData formats its candidates (1.737833ms)
+✔ Voigt components under panel B draw only when the window is narrower than 25 nm (7.759833ms)
+✔ the element filter dims non-matching peak markers, leaving the matching element at full brightness (4.19625ms)
+✔ creating an optimization session sends configuration only and never starts a batch (8.687959ms)
+✔ each live optimization batch needs fresh safety confirmation while simulation is visibly confirmation-free (1.998958ms)
+✔ an ambiguous next-batch network error keeps the caller batch id for an explicit retry (4.939083ms)
+✔ latest optimization metrics expose pinned Fe lines and diagnostic-only response limits (2.251292ms)
+✔ hardware held by another user disables hardware mutations but leaves owned analysis mutations enabled (1.768ms)
+✔ analysis held by another user disables analysis mutations but leaves owned hardware mutations enabled (1.918792ms)
+✔ unknown hardware and expired analysis checkout states fail closed (1.681083ms)
+✔ a hardware safety-hold owner keeps only cancel and abort recovery controls (1.578834ms)
+✔ frequent checkout refreshes preserve the renew interval for unchanged ownership and TTL (1.350084ms)
+✔ release is disabled and blocked reasons are displayed when hardware cannot be handed off (3.3245ms)
+✔ an expired owner safety hold can offer reconciliation only when the backend allows it (1.502625ms)
+✔ hardware reconciliation requires explicit idle acknowledgement and sends the exact recovery command (3.551ms)
+✔ failed reconciliation leaves an acknowledged dialog ready to retry (5.025625ms)
+✔ a shot-plan study sends a plan instead of a timing grid and keeps the form as entered (2.5735ms)
+✔ a shot plan over the analyzer ceiling is refused in the browser before any request (1.782541ms)
+✔ checkout failures stay in their independent panel scopes and authentication keeps its sign-in link (2.237542ms)
+✔ retriable simulated-run failures remain visible inside the still-open confirmation dialog (2.144333ms)
+✔ refused runs show their error in the originating panel after the dialog closes (2.007333ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 219.714875
