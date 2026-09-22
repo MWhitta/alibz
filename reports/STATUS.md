@@ -44,7 +44,21 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 14:40 PDT all nine grid conditions verified; study can start
+# Current state — 2026-09-22 15:35 PDT Fe plasma/surface analysis delivered
+
+reports/2026-09-22-fe-calibration-plasma-analysis.md (+ scripts/fe_plasma_analysis.py,
+figures/fe-plasma-20260922/): non-Fe = Ar purge, weak H/O/N, first-shot K
+transient; Mg/Al/Mn/Cu/Ni "detections" were Fe-forest coincidences (multiplet
+check in the coordinator section). Fe I + Fe II present, no Fe III. T ≈
+7,000–10,000 K (Fe I VIS Boltzmann, fresh sites only, σ 15–30 %); n_e not
+recoverable (no response calibration, Hα weak). No T change across the
+delay/period grid above a ~4,000 K (2σ) detection limit. Recommend delay 5 /
+period 10–25 / 10 Hz, fresh site per condition, discard first 3 shots, Fe II
+UV analytical set; radiance-standard response calibration is the prerequisite
+for n_e and quantitative work. Ledger mixes three wavelength grids (7,915 /
+5,849 / 23,251) with shifts −154/−182/−83 pm.
+
+## Earlier today (14:40 PDT) all nine grid conditions verified; study can start
 
 Operator fired 20/10 and 20/50 from the Acquire panel: first at pulsePeriod
 1000 (9 and 8 of 10 stored, verifies nothing: wrong key, not fully stored),
@@ -548,3 +562,20 @@ in pantheum-I/archive/source-backups/2026-09-21, commit3284cbc, pushed and verif
 on GitHub before deletion. All six originals removed from Projects/github;
 only the main pantheum-I checkout remains there. Existing RamanLab work preserved.
 Report:2026-09-22-pantheum-cleanup.md. No provider switch. Complete.
+
+
+## Optimize Acquisition: composition-aware study — 2026-09-22 IN FLIGHT
+
+User request: drop the "delay/period study requires element 'Fe'" rule, rename
+the ACQUISITION STUDY panel to "Optimize Acquisition", accept elements or
+compounds, and use the composition in downstream (batch metrics) analysis.
+Two agents in flight, source in pantheum-I (uncommitted):
+- alibz scripts/build_line_references.py reproduces fe-v1.json and generates
+  pantheum/alibz/references/<el>-v1.json for every supported element.
+  Report: 2026-09-22-line-references.md.
+- pantheum-I composition.py (formula/list parser), optimization.py (composition
+  columns, reference-availability rule), optimization_metrics.py (per-element
+  weighted score, cross-element blend flag), panel rename + Composition field,
+  tests, docs. Report: 2026-09-22-optimize-acquisition-composition.md.
+Deployment to Moissanite is NOT done; a deploy wrapper follows verification.
+No provider switch.
