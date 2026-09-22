@@ -44,7 +44,19 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 15:45 PDT native API grid is the global default; 11 runs to refetch
+# Current state — 2026-09-22 16:05 PDT all 26 runs on the native API grid; analysis regenerated
+
+Operator applied the refetch: all 26 succeeded live runs are 7,915-sample
+native API spectra; Pantheum re-scored the 11 batches (e.g. run-126d0c96 0.294
+to 0.311, run-6e38b110 to 0.396; closed/blocked sessions' `best` not
+recomputed). scripts/fe_plasma_analysis.py rerun on the single grid (script
+now tolerates absent grid families): shift −154 pm, Fe I VIS T resolves on
+2/26 runs (8,191 and 10,451 K; the formerly resampled 10/10 run no longer
+passes), 10/25 repeat scatter over n=8: continuum 32 %, Fe II/Fe I 0.93 ± 0.11.
+Conclusions unchanged. Next: operator creates the next raster study on fresh
+metal; optional deploy of the verify-min-shots rule.
+
+## Earlier today (15:45 PDT) native API grid is the global default; 11 runs to refetch
 
 Owner: default everything to the native API grid. Code and Moissanite already
 use acquire.retrieval=data_api; example config fixed (was deferred); decision

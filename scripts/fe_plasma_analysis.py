@@ -587,7 +587,9 @@ def main():
         family_resid[grid] = fres
 
     def shift_of(grid):
-        return family_models[grid]["global"]
+        # Families absent from the data (after the 2026-09-22 refetch every run
+        # is on the 7914-sample API grid) report NaN instead of crashing.
+        return family_models[grid]["global"] if grid in family_models else float("nan")
 
     # `model` = the native-family model, used for sections that measure on the
     # native reference run; other runs use family_models[run.grid].
@@ -621,13 +623,18 @@ def main():
     P(f"  - **{gc.get(7914,0)} runs, 7914 pts (7915 lines)** — native, streaming-API "
       f"path; 186-961 nm, pitch 0.089/0.129/0.179 nm UV/VIS/NIR, ~12 nm NIR gap "
       f"948-960 nm. Shift {1000*shift_of(7914):+.0f} pm.")
-    P(f"  - **{gc.get(5848,0)} runs, 5848 pts (5849 lines)** — native, Opal "
-      f"FlatBuffers decode (empirical pixel offset); 186-948 nm, no NIR tail. "
-      f"Shift {1000*shift_of(5848):+.0f} pm (does NOT match the -154 pm of the API grid).")
-    P(f"  - **{gc.get(23250,0)} runs, 23250 pts (23251 lines)** — vendor 1/30 nm "
-      f"cubic-spline RESAMPLE (uniform 0.0333 nm); correlated noise and smoothed "
-      f"peaks, so its SNRs and integrated areas are NOT directly comparable to the "
-      f"native families. Shift {1000*shift_of(23250):+.0f} pm.")
+    if gc.get(5848, 0):
+        P(f"  - **{gc.get(5848,0)} runs, 5848 pts (5849 lines)** — native, Opal "
+          f"FlatBuffers decode (empirical pixel offset); 186-948 nm, no NIR tail. "
+          f"Shift {1000*shift_of(5848):+.0f} pm (does NOT match the -154 pm of the API grid).")
+    if gc.get(23250, 0):
+        P(f"  - **{gc.get(23250,0)} runs, 23250 pts (23251 lines)** — vendor 1/30 nm "
+          f"cubic-spline RESAMPLE (uniform 0.0333 nm); correlated noise and smoothed "
+          f"peaks, so its SNRs and integrated areas are NOT directly comparable to the "
+          f"native families. Shift {1000*shift_of(23250):+.0f} pm.")
+    if len(family_models) == 1:
+        P("  - All runs are on the native API grid (the eleven Opal-decode / vendor-resample "
+          "runs were refetched from the analyzer on 2026-09-22); the family caveats below are historical.")
     P(f"- Grid family per run: 7914 = {{{', '.join(fam_runs[7914])}}}; "
       f"5848 = {{{', '.join(fam_runs.get(5848,[]))}}}; "
       f"23250 = {{{', '.join(fam_runs.get(23250,[]))}}}.")
@@ -672,9 +679,10 @@ def main():
         P(f"| {grid} | {GRID_PROV[grid]} | {m['n_total']} | {1000*m['global']:+.0f} "
           f"| {1000*m[0]['a']:+.0f} | {1000*m[1]['a']:+.0f} | {1000*m[2]['a']:+.0f} |")
     P("")
-    P(f"The native API family is **{1000*shift_of(7914):+.0f} pm**, the Opal-decode "
-      f"family **{1000*shift_of(5848):+.0f} pm**, the resampled family "
-      f"**{1000*shift_of(23250):+.0f} pm** — so a single global shift is NOT "
+    P(f"The native API family is **{1000*shift_of(7914):+.0f} pm**"
+      + (f", the Opal-decode family **{1000*shift_of(5848):+.0f} pm**" if 5848 in family_models else "")
+      + (f", the resampled family **{1000*shift_of(23250):+.0f} pm**" if 23250 in family_models else "")
+      + " — so a single global shift is NOT "
       f"adequate; each run is corrected with its own family's shift. The negative "
       f"(blue) offset matches two of the three first-look examples (Fe I "
       f"438.35->438.17, Ar I 763.51->763.19); the Fe II 259.94->260.12 example is "

@@ -7,10 +7,9 @@
 - 26 succeeded live runs, Fe Aesar 99.98%, argon pre-flush 300, gated, 10 shots requested/run, 1 location/run, no cleaning shots.
 - Total shots on disk: 252 across 26 runs.
 - **Data-provenance caveat — three wavelength-grid families** (measured on each run's OWN grid, no resampling by this analysis). Point counts are data rows (files carry one extra header line):
-  - **15 runs, 7914 pts (7915 lines)** — native, streaming-API path; 186-961 nm, pitch 0.089/0.129/0.179 nm UV/VIS/NIR, ~12 nm NIR gap 948-960 nm. Shift -154 pm.
-  - **6 runs, 5848 pts (5849 lines)** — native, Opal FlatBuffers decode (empirical pixel offset); 186-948 nm, no NIR tail. Shift -182 pm (does NOT match the -154 pm of the API grid).
-  - **5 runs, 23250 pts (23251 lines)** — vendor 1/30 nm cubic-spline RESAMPLE (uniform 0.0333 nm); correlated noise and smoothed peaks, so its SNRs and integrated areas are NOT directly comparable to the native families. Shift -83 pm.
-- Grid family per run: 7914 = {16bbf7, e99312, a23779, 5cecb3, 1a57e5, b6c766, 0661a4, f5ee5c, d75e0d, fa22f9, 9432dc, 43111b, a5b107, 4819b8, e47c4f}; 5848 = {e26b61, a4d327, b408b8, 904fa2, 3bee25, 73bbf4}; 23250 = {065f1a, 7898db, f6fdfc, 3f67f3, c5c346}.
+  - **26 runs, 7914 pts (7915 lines)** — native, streaming-API path; 186-961 nm, pitch 0.089/0.129/0.179 nm UV/VIS/NIR, ~12 nm NIR gap 948-960 nm. Shift -154 pm.
+  - All runs are on the native API grid (the eleven Opal-decode / vendor-resample runs were refetched from the analyzer on 2026-09-22); the family caveats below are historical.
+- Grid family per run: 7914 = {16bbf7, e99312, a23779, 065f1a, 7898db, f6fdfc, 3f67f3, c5c346, e26b61, a4d327, b408b8, 904fa2, 3bee25, 5cecb3, 73bbf4, 1a57e5, b6c766, 0661a4, f5ee5c, d75e0d, fa22f9, 9432dc, 43111b, a5b107, 4819b8, e47c4f}; 5848 = {}; 23250 = {}.
 - Segments: UV [186,365), VIS [365,620), NIR [620,948] nm. Every table below notes which grid families it mixes.
 
 ### Run groups (chronological index; d=delay p=period pp=pulsePeriod ms)
@@ -20,18 +19,18 @@
 | 0 | 15:58:34 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
 | 1 | 16:27:10 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
 | 2 | 16:31:42 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
-| 3 | 16:41:37 | 134,76,70 | 10 | 25 | 100 | 10 | 23250 | reused-spot depth |
-| 4 | 16:42:20 | 134,76,70 | 5 | 25 | 100 | 10 | 23250 | reused-spot depth |
-| 5 | 16:42:52 | 134,76,70 | 20 | 25 | 100 | 10 | 23250 | reused-spot depth |
-| 6 | 16:43:43 | 134,76,70 | 10 | 10 | 100 | 10 | 23250 | reused-spot depth |
-| 7 | 16:44:22 | 134,76,70 | 10 | 50 | 100 | 10 | 23250 | reused-spot depth |
-| 8 | 18:12:01 | 134,76,70 | 10 | 25 | 100 | 10 | 5848 | reused-spot depth |
-| 9 | 18:13:50 | 134,76,70 | 5 | 25 | 100 | 10 | 5848 | reused-spot depth |
-| 10 | 18:14:14 | 134,76,70 | 5 | 10 | 100 | 10 | 5848 | reused-spot depth |
-| 11 | 18:14:34 | 134,76,70 | 10 | 10 | 100 | 10 | 5848 | reused-spot depth |
-| 12 | 18:14:54 | 134,76,70 | 5 | 50 | 100 | 10 | 5848 | reused-spot depth |
+| 3 | 16:41:37 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
+| 4 | 16:42:20 | 134,76,70 | 5 | 25 | 100 | 10 | 7914 | reused-spot depth |
+| 5 | 16:42:52 | 134,76,70 | 20 | 25 | 100 | 10 | 7914 | reused-spot depth |
+| 6 | 16:43:43 | 134,76,70 | 10 | 10 | 100 | 10 | 7914 | reused-spot depth |
+| 7 | 16:44:22 | 134,76,70 | 10 | 50 | 100 | 10 | 7914 | reused-spot depth |
+| 8 | 18:12:01 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
+| 9 | 18:13:50 | 134,76,70 | 5 | 25 | 100 | 10 | 7914 | reused-spot depth |
+| 10 | 18:14:14 | 134,76,70 | 5 | 10 | 100 | 10 | 7914 | reused-spot depth |
+| 11 | 18:14:34 | 134,76,70 | 10 | 10 | 100 | 10 | 7914 | reused-spot depth |
+| 12 | 18:14:54 | 134,76,70 | 5 | 50 | 100 | 10 | 7914 | reused-spot depth |
 | 13 | 19:17:39 | 134,76,70 | 10 | 25 | 100 | 8 | 7914 | reused-spot depth |
-| 14 | 19:33:13 | 134,76,70 | 10 | 25 | 100 | 10 | 5848 | reused-spot depth |
+| 14 | 19:33:13 | 134,76,70 | 10 | 25 | 100 | 10 | 7914 | reused-spot depth |
 | 15 | 19:33:37 | 134,76,70 | 5 | 25 | 100 | 9 | 7914 | reused-spot depth |
 | 16 | 19:38:47 | 134,76,70 | 10 | 25 | 100 | 9 | 7914 | reused-spot depth |
 | 17 | 20:43:46 | 158,76,70 | 5 | 25 | 100 | 10 | 7914 | raster fresh |
@@ -53,25 +52,23 @@ Estimated PER GRID FAMILY from isolated, strong, unambiguous anchor lines (isola
 
 | grid family | provenance | n anchors | global shift (pm) | UV | VIS | NIR |
 |--|--|--|--|--|--|--|
-| 5848 | native (Opal FlatBuffers decode) | 5 | -182 | -182 | -182 | -182 |
-| 7914 | native (streaming API path) | 9 | -154 | -118 | -154 | -154 |
-| 23250 | 1/30 nm vendor cubic-spline resample | 6 | -83 | -84 | -83 | -83 |
+| 7914 | native (streaming API path) | 9 | -154 | -119 | -154 | -154 |
 
-The native API family is **-154 pm**, the Opal-decode family **-182 pm**, the resampled family **-83 pm** — so a single global shift is NOT adequate; each run is corrected with its own family's shift. The negative (blue) offset matches two of the three first-look examples (Fe I 438.35->438.17, Ar I 763.51->763.19); the Fe II 259.94->260.12 example is not reproduced (the strong db Fe II line there is 260.02 nm, measured ~-0.15 nm). Residual scatter (~50 pm) is set by the native pitch.
+The native API family is **-154 pm** — so a single global shift is NOT adequate; each run is corrected with its own family's shift. The negative (blue) offset matches two of the three first-look examples (Fe I 438.35->438.17, Ar I 763.51->763.19); the Fe II 259.94->260.12 example is not reproduced (the strong db Fe II line there is 260.02 nm, measured ~-0.15 nm). Residual scatter (~50 pm) is set by the native pitch.
 
 Per-anchor matched offsets, native (7914) family:
 
 | species | obs nm | db nm | seg | offset (pm) |
 |--|--|--|--|--|
 | Fe2 | 233.126 | 233.280 | UV | -154 |
-| Fe2 | 234.303 | 234.349 | UV | -47 |
-| Fe2 | 239.397 | 239.562 | UV | -166 |
-| Fe1 | 248.179 | 248.327 | UV | -149 |
-| Fe1 | 248.653 | 248.814 | UV | -162 |
-| Fe2 | 273.920 | 273.955 | UV | -34 |
+| Fe2 | 234.302 | 234.349 | UV | -47 |
+| Fe2 | 239.395 | 239.562 | UV | -167 |
+| Fe1 | 248.178 | 248.327 | UV | -149 |
+| Fe1 | 248.652 | 248.814 | UV | -163 |
+| Fe2 | 273.920 | 273.955 | UV | -35 |
 | Fe1 | 373.282 | 373.486 | VIS | -204 |
-| Fe1 | 538.261 | 538.337 | VIS | -76 |
-| ArI | 696.378 | 696.543 | NIR | -165 |
+| Fe1 | 538.256 | 538.337 | VIS | -81 |
+| ArI | 696.375 | 696.543 | NIR | -168 |
 
 ## 1. Non-Fe elements present
 
@@ -83,28 +80,28 @@ Measured on the reused-spot run-0 mean (native, 10/25) and cross-checked on the 
 | Ar I | 706.72 | ambient | 54 | 11.5 | -271 | no | high |
 | Ar I | 738.40 | ambient | 24 | 9.1 | -175 | no | high |
 | Ar I | 750.39 | ambient | 35 | 1.5 | -301 | no | not detected |
-| Ar I | 763.51 | ambient | 333 | 36.0 | -162 | no | high |
+| Ar I | 763.51 | ambient | 333 | 36.0 | -161 | no | high |
 | Ar I | 772.38 | ambient | 0 | 0.0 | - | no | not detected |
 | Ar I | 794.82 | ambient | 24 | 6.3 | -109 | no | medium |
 | Ar I | 801.48 | ambient | 53 | 8.6 | +28 | no | high |
 | Ar I | 811.53 | ambient | 20 | 4.6 | -244 | no | medium |
 | Ar I | 826.45 | ambient | 31 | 6.5 | +332 | no | medium |
 | Ar I | 842.46 | ambient | 0 | 0.0 | - | no | not detected |
-| H I | 656.28 | ambient | 26 | 38.8 | -233 | no | high |
+| H I | 656.28 | ambient | 26 | 38.8 | -232 | no | high |
 | O I | 777.19 | ambient | 27 | 7.7 | -162 | no | medium |
 | O I | 777.42 | ambient | 43 | 3.0 | -40 | no | not detected |
 | O I | 777.54 | ambient | 43 | 3.0 | -160 | no | not detected |
 | N I | 742.36 | ambient | 0 | 0.0 | - | no | not detected |
-| N I | 744.23 | ambient | 11 | 4.8 | +313 | no | medium |
+| N I | 744.23 | ambient | 11 | 4.8 | +314 | no | medium |
 | N I | 746.83 | ambient | 0 | 0.0 | - | no | not detected |
-| C I | 247.86 | surface/bulk | 330 | 6.8 | -121 | yes | Fe-blend (ambiguous) |
-| Ca II | 393.37 | surface | 10 | 6.1 | -12 | no | medium |
+| C I | 247.86 | surface/bulk | 330 | 6.8 | -120 | yes | Fe-blend (ambiguous) |
+| Ca II | 393.37 | surface | 10 | 6.1 | -11 | no | medium |
 | Ca II | 396.85 | surface | 0 | 0.0 | - | yes | not detected |
 | Ca I | 422.67 | surface | 106 | 35.9 | +128 | yes | Fe-blend (ambiguous) |
 | Na I | 588.99 | surface | 0 | 0.0 | - | no | not detected |
-| Na I | 589.59 | surface | 5 | 3.2 | -189 | no | not detected |
-| Mg II | 279.55 | surface | 147 | 48.9 | +114 | no | high |
-| Mg II | 280.27 | surface | 4 | 2.9 | +103 | no | not detected |
+| Na I | 589.59 | surface | 5 | 3.2 | -188 | no | not detected |
+| Mg II | 279.55 | surface | 147 | 48.9 | +115 | no | high |
+| Mg II | 280.27 | surface | 4 | 2.9 | +104 | no | not detected |
 | Mg I | 285.21 | surface | 0 | 0.0 | - | yes | not detected |
 | Si I | 288.16 | bulk/surface | 0 | 0.0 | - | no | not detected |
 | Si I | 251.61 | bulk/surface | 0 | 0.0 | - | yes | not detected |
@@ -114,12 +111,12 @@ Measured on the reused-spot run-0 mean (native, 10/25) and cross-checked on the 
 | Al I | 394.40 | bulk/surface | 100 | 93.1 | +213 | no | high |
 | Al I | 396.15 | bulk/surface | 0 | 0.0 | - | no | not detected |
 | Cr I | 425.43 | bulk | 0 | 0.0 | - | no | not detected |
-| Ni I | 341.48 | bulk | 53 | 22.7 | -105 | no | high |
+| Ni I | 341.48 | bulk | 53 | 22.7 | -104 | no | high |
 | Ni I | 352.45 | bulk | 149 | 22.0 | +151 | no | high |
 | Cu I | 324.75 | bulk | 0 | 0.0 | - | yes | not detected |
-| Cu I | 327.40 | bulk | 41 | 15.5 | -118 | no | high |
+| Cu I | 327.40 | bulk | 41 | 15.5 | -117 | no | high |
 | K I | 766.49 | surface | 213 | 12.6 | +153 | no | high |
-| K I | 769.90 | surface | 52 | 12.1 | -163 | no | high |
+| K I | 769.90 | surface | 52 | 12.1 | -162 | no | high |
 | Li I | 670.78 | surface | 0 | 0.0 | - | no | not detected |
 
 Element roll-up (clean detections = SNR>=3, positive area, not Fe-blend):
@@ -169,17 +166,17 @@ Raw and Fe-normalised area of each tracked line vs cumulative shot number.
 
 | element line | first-3 mean area | shots 20-40 mean | last-20 mean | trend |
 |--|--|--|--|--|
-| Ca II 393.37 | 12 | 12 | 18 | flat (bulk/ambient) |
-| Ca I 422.67 | 145 | 56 | 99 | decays (surface-enriched) |
-| Na I 588.99 | -4 | 0 | -2 | below noise |
-| K I 766.49 | 73 | 10 | 3 | decays (surface-enriched) |
-| Mg II 279.55 | 71 | 61 | 72 | flat (bulk/ambient) |
-| Si I 288.16 | -15 | 9 | 10 | below noise |
-| H I 656.28 | 22 | -6 | -27 | decays to noise (surface-enriched) |
-| Ar I 763.51 | 132 | 10 | 0 | decays (surface-enriched) |
-| O I 777.19 | 8 | 15 | 28 | flat (bulk/ambient) |
-| Mn I 403.45 | 38 | -6 | 45 | decays to noise (surface-enriched) |
-| Cr I 425.43 | -32 | -22 | -73 | below noise |
+| Ca II 393.37 | 12 | 11 | 18 | flat (bulk/ambient) |
+| Ca I 422.67 | 145 | 65 | 99 | decays (surface-enriched) |
+| Na I 588.99 | -4 | -1 | -2 | below noise |
+| K I 766.49 | 73 | 6 | 3 | decays (surface-enriched) |
+| Mg II 279.55 | 71 | 59 | 86 | flat (bulk/ambient) |
+| Si I 288.16 | -15 | 7 | 3 | below noise |
+| H I 656.28 | 22 | -21 | -27 | decays to noise (surface-enriched) |
+| Ar I 763.51 | 132 | 3 | 0 | decays (surface-enriched) |
+| O I 777.19 | 8 | 21 | 28 | rises with depth |
+| Mn I 403.45 | 38 | 26 | 45 | flat (bulk/ambient) |
+| Cr I 425.43 | -32 | -30 | -73 | below noise |
 
 Discard recommendation (data-driven): the clearest surface tracer, K I 766.49, falls from ~127 (shot 1) to ~20 (shots 4-6) net counts at the reused spot, a 6.3x drop, and Ca I 422.67 and Ar I decay similarly within the first few shots. **Discard the first 3 shots** per fresh site for bulk/plasma work; keep them only for surface-contaminant screening.
 
@@ -232,21 +229,21 @@ Fe II / Fe I integrated-area ratio per run (sum of curated-line net areas, SNR>=
 
 | run idx | d/p/pp | Fe I sum | Fe II sum | II/I |
 |--|--|--|--|--|
-| 0 | 10/25/100 | 4268 | 3439 | 0.81 |
+| 0 | 10/25/100 | 4240 | 3439 | 0.81 |
 | 1 | 10/25/100 | 4638 | 3843 | 0.83 |
 | 2 | 10/25/100 | 4747 | 4593 | 0.97 |
-| 3 | 10/25/100 | 2631 | 3329 | 1.27 |
-| 4 | 5/25/100 | 4694 | 5690 | 1.21 |
-| 5 | 20/25/100 | 2191 | 2768 | 1.26 |
-| 6 | 10/10/100 | 3778 | 4740 | 1.25 |
-| 7 | 10/50/100 | 3694 | 4659 | 1.26 |
-| 8 | 10/25/100 | 3530 | 4563 | 1.29 |
-| 9 | 5/25/100 | 5828 | 7130 | 1.22 |
-| 10 | 5/10/100 | 6365 | 7368 | 1.16 |
-| 11 | 10/10/100 | 4801 | 5784 | 1.20 |
-| 12 | 5/50/100 | 6139 | 7744 | 1.26 |
+| 3 | 10/25/100 | 4088 | 4363 | 1.07 |
+| 4 | 5/25/100 | 7100 | 6794 | 0.96 |
+| 5 | 20/25/100 | 3480 | 3592 | 1.03 |
+| 6 | 10/10/100 | 5788 | 5681 | 0.98 |
+| 7 | 10/50/100 | 5131 | 5645 | 1.10 |
+| 8 | 10/25/100 | 4234 | 4073 | 0.96 |
+| 9 | 5/25/100 | 6402 | 6539 | 1.02 |
+| 10 | 5/10/100 | 6973 | 6996 | 1.00 |
+| 11 | 10/10/100 | 5100 | 5517 | 1.08 |
+| 12 | 5/50/100 | 6927 | 6720 | 0.97 |
 | 13 | 10/25/100 | 4799 | 3779 | 0.79 |
-| 14 | 10/25/100 | 4558 | 5451 | 1.20 |
+| 14 | 10/25/100 | 4730 | 5140 | 1.09 |
 | 15 | 5/25/100 | 7097 | 6883 | 0.97 |
 | 16 | 10/25/100 | 4930 | 4731 | 0.96 |
 | 17 | 5/25/100 | 6721 | 6562 | 0.98 |
@@ -272,18 +269,18 @@ Runs are grouped fresh vs reused; the grid family is noted (resampled-family are
 | 0 | 10/25/100 | 7914 | reused | 8716 | 2925 | 14 | 2.9 | 0.43 | 1.20 | no |
 | 1 | 10/25/100 | 7914 | reused | - | - | 8 | - | - | - | no (positive_slope) |
 | 2 | 10/25/100 | 7914 | reused | 9066 | 4932 | 9 | 1.9 | 0.33 | 1.31 | no |
-| 3 | 10/25/100 | 23250 | reused | 8498 | 7396 | 8 | 2.7 | 0.18 | 2.29 | no |
-| 4 | 5/25/100 | 23250 | reused | 8859 | 3960 | 8 | 2.7 | 0.45 | 1.16 | no |
-| 5 | 20/25/100 | 23250 | reused | 9320 | 4622 | 9 | 2.7 | 0.37 | 1.25 | no |
-| 6 | 10/10/100 | 23250 | reused | 8559 | 2723 | 10 | 3.3 | 0.55 | 1.15 | YES |
-| 7 | 10/50/100 | 23250 | reused | - | - | 3 | - | - | - | no (too_few_lines) |
-| 8 | 10/25/100 | 5848 | reused | - | - | 4 | - | - | - | no (too_few_lines) |
-| 9 | 5/25/100 | 5848 | reused | 23222 | 52793 | 8 | 1.9 | 0.03 | 1.65 | no |
-| 10 | 5/10/100 | 5848 | reused | 7200 | 2503 | 12 | 2.9 | 0.45 | 1.24 | no |
-| 11 | 10/10/100 | 5848 | reused | 10693 | 7602 | 10 | 1.9 | 0.20 | 1.30 | no |
-| 12 | 5/50/100 | 5848 | reused | - | - | 6 | - | - | - | no (too_few_lines) |
+| 3 | 10/25/100 | 7914 | reused | - | - | 7 | - | - | - | no (too_few_lines) |
+| 4 | 5/25/100 | 7914 | reused | 13953 | 12528 | 9 | 1.9 | 0.15 | 1.16 | no |
+| 5 | 20/25/100 | 7914 | reused | - | - | 8 | - | - | - | no (positive_slope) |
+| 6 | 10/10/100 | 7914 | reused | 7873 | 1733 | 9 | 1.3 | 0.75 | 0.37 | no |
+| 7 | 10/50/100 | 7914 | reused | - | - | 4 | - | - | - | no (too_few_lines) |
+| 8 | 10/25/100 | 7914 | reused | - | - | 5 | - | - | - | no (too_few_lines) |
+| 9 | 5/25/100 | 7914 | reused | 9534 | 5474 | 9 | 1.9 | 0.30 | 1.08 | no |
+| 10 | 5/10/100 | 7914 | reused | 7197 | 2419 | 13 | 2.9 | 0.45 | 1.21 | no |
+| 11 | 10/10/100 | 7914 | reused | 9335 | 5312 | 12 | 1.9 | 0.24 | 1.25 | no |
+| 12 | 5/50/100 | 7914 | reused | - | - | 6 | - | - | - | no (too_few_lines) |
 | 13 | 10/25/100 | 7914 | reused | - | - | 10 | - | - | - | no (positive_slope) |
-| 14 | 10/25/100 | 5848 | reused | 20623 | 42427 | 8 | 1.9 | 0.04 | 1.68 | no |
+| 14 | 10/25/100 | 7914 | reused | 10138 | 7247 | 8 | 1.9 | 0.25 | 1.18 | no |
 | 15 | 5/25/100 | 7914 | reused | 10616 | 7927 | 8 | 1.9 | 0.23 | 1.18 | no |
 | 16 | 10/25/100 | 7914 | reused | - | - | 8 | - | - | - | no (positive_slope) |
 | 17 | 5/25/100 | 7914 | fresh | 9623 | 4180 | 13 | 2.8 | 0.33 | 1.21 | no |
@@ -296,7 +293,7 @@ Runs are grouped fresh vs reused; the grid family is noted (resampled-family are
 | 24 | 20/50/100 | 7914 | verif | - | - | 6 | - | - | - | no (too_few_lines) |
 | 25 | 20/10/100 | 7914 | verif | 8072 | 2709 | 15 | 2.9 | 0.41 | 1.26 | no |
 
-**Fe I VIS resolves on 3/26 runs: T = 8191-10451 K, median 8559 K.** The resolved runs are the short-period (period~10), low-crater fresh/early sites; long-period (50) and heavily-cratered runs fit poorly (few high-E_k lines survive SNR>=5), matching the expected loss of hot-plasma signal at long integration. Fe II UV resolves on 0/26 runs (its isolated UV lines span only ~1.7 eV, so it is usually under-constrained).
+**Fe I VIS resolves on 2/26 runs: T = 8191-10451 K, median 9321 K.** The resolved runs are the short-period (period~10), low-crater fresh/early sites; long-period (50) and heavily-cratered runs fit poorly (few high-E_k lines survive SNR>=5), matching the expected loss of hot-plasma signal at long integration. Fe II UV resolves on 0/26 runs (its isolated UV lines span only ~1.7 eV, so it is usually under-constrained).
 
 Fe II UV attempts (E_k span limited):
 
@@ -320,7 +317,7 @@ Run 18 (5/10), single shots: Fe I T mean 9018 K, std 1688 K (19%), n_shots=5. Si
 
 ### 4d. Comparison and trust
 
-- **Fe I VIS is the trusted thermometer**: T = 8191-10451 K (median 8559 K) on the resolved short-period fresh sites, with per-run sigma ~1000-2000 K (~15-25%). The E_k lever arm is ~2.5-3.4 eV and r^2 up to 0.86.
+- **Fe I VIS is the trusted thermometer**: T = 8191-10451 K (median 9321 K) on the resolved short-period fresh sites, with per-run sigma ~1000-2000 K (~15-25%). The E_k lever arm is ~2.5-3.4 eV and r^2 up to 0.86.
 - Systematics: Fe I strong low-E_k lines are self-absorbed (they sit below the trend and are shed by the robust fit, which biases T slightly high if over-aggressive); the within-VIS response is uncalibrated (a second-order tilt on the slope); LTE is assumed. Net: **a ~8000-10000 K class plasma on fresh sites**, consistent within uncertainty with an independent ~7000-8000 K estimate. What is NOT resolvable is a T change across the delay/period grid at this precision (see section 5).
 
 ## 5. Temperature vs acquisition parameters
@@ -332,18 +329,18 @@ Fe I VIS T (section 4) where resolved, plus response-independent observables: co
 | 0 | 10/25/100 | reused | 10 | 7914 | 8716±2925 | no | 0.81 | 46.3 |
 | 1 | 10/25/100 | reused | 20 | 7914 | - | no | 0.83 | 52.2 |
 | 2 | 10/25/100 | reused | 30 | 7914 | 9066±4932 | no | 0.97 | 34.9 |
-| 3 | 10/25/100 | reused | 40 | 23250 | 8498±7396 | no | 1.27 | 27.0 |
-| 4 | 5/25/100 | reused | 50 | 23250 | 8859±3960 | no | 1.21 | 35.1 |
-| 5 | 20/25/100 | reused | 60 | 23250 | 9320±4622 | no | 1.26 | 28.6 |
-| 6 | 10/10/100 | reused | 70 | 23250 | 8559±2723 | YES | 1.25 | 29.0 |
-| 7 | 10/50/100 | reused | 80 | 23250 | - | no | 1.26 | 41.1 |
-| 8 | 10/25/100 | reused | 90 | 5848 | - | no | 1.29 | 25.5 |
-| 9 | 5/25/100 | reused | 100 | 5848 | 23222±52793 | no | 1.22 | 32.4 |
-| 10 | 5/10/100 | reused | 110 | 5848 | 7200±2503 | no | 1.16 | 33.3 |
-| 11 | 10/10/100 | reused | 120 | 5848 | 10693±7602 | no | 1.20 | 29.1 |
-| 12 | 5/50/100 | reused | 130 | 5848 | - | no | 1.26 | 45.6 |
+| 3 | 10/25/100 | reused | 40 | 7914 | - | no | 1.07 | 26.5 |
+| 4 | 5/25/100 | reused | 50 | 7914 | 13953±12528 | no | 0.96 | 34.7 |
+| 5 | 20/25/100 | reused | 60 | 7914 | - | no | 1.03 | 28.5 |
+| 6 | 10/10/100 | reused | 70 | 7914 | 7873±1733 | no | 0.98 | 29.0 |
+| 7 | 10/50/100 | reused | 80 | 7914 | - | no | 1.10 | 41.5 |
+| 8 | 10/25/100 | reused | 90 | 7914 | - | no | 0.96 | 25.5 |
+| 9 | 5/25/100 | reused | 100 | 7914 | 9534±5474 | no | 1.02 | 32.4 |
+| 10 | 5/10/100 | reused | 110 | 7914 | 7197±2419 | no | 1.00 | 33.3 |
+| 11 | 10/10/100 | reused | 120 | 7914 | 9335±5312 | no | 1.08 | 29.1 |
+| 12 | 5/50/100 | reused | 130 | 7914 | - | no | 0.97 | 45.6 |
 | 13 | 10/25/100 | reused | 138 | 7914 | - | no | 0.79 | 64.8 |
-| 14 | 10/25/100 | reused | 148 | 5848 | 20623±42427 | no | 1.20 | 36.2 |
+| 14 | 10/25/100 | reused | 148 | 7914 | 10138±7247 | no | 1.09 | 36.2 |
 | 15 | 5/25/100 | reused | 157 | 7914 | 10616±7927 | no | 0.97 | 40.1 |
 | 16 | 10/25/100 | reused | 166 | 7914 | - | no | 0.96 | 32.5 |
 | 17 | 5/25/100 | fresh | - | 7914 | 9623±4180 | no | 0.98 | 75.8 |
@@ -356,7 +353,7 @@ Fe I VIS T (section 4) where resolved, plus response-independent observables: co
 | 24 | 20/50/100 | verif | - | 7914 | - | no | 1.06 | 42.1 |
 | 25 | 20/10/100 | verif | - | 7914 | 8072±2709 | no | 1.12 | 27.1 |
 
-**T vs delay/period:** across the 3 resolved fits, T spans 8191-10451 K (spread 990 K) while individual fit sigma is ~1947 K. The condition-to-condition T differences do NOT exceed the per-fit uncertainty: with ~1947 K 1-sigma errors and only a handful of resolved conditions, **no T trend with delay or period is detectable**. Detection limit: a T change smaller than ~3895 K (2σ) cannot be resolved with these data. The expected fall of T with delay is therefore below the noise over the narrow delay range (5-20 vendor units) sampled here.
+**T vs delay/period:** across the 2 resolved fits, T spans 8191-10451 K (spread 1130 K) while individual fit sigma is ~1517 K. The condition-to-condition T differences do NOT exceed the per-fit uncertainty: with ~1517 K 1-sigma errors and only a handful of resolved conditions, **no T trend with delay or period is detectable**. Detection limit: a T change smaller than ~3035 K (2σ) cannot be resolved with these data. The expected fall of T with delay is therefore below the noise over the narrow delay range (5-20 vendor units) sampled here.
 
 ### Robust observables vs delay/period (reused spot, condition sweep)
 
@@ -365,26 +362,26 @@ Fe I VIS T (section 4) where resolved, plus response-independent observables: co
 | 0 | 10/25/100 | 10 | 46.3 | 16 | 0.81 |
 | 1 | 10/25/100 | 20 | 52.2 | 14 | 0.83 |
 | 2 | 10/25/100 | 30 | 34.9 | 14 | 0.97 |
-| 3 | 10/25/100 | 40 | 27.0 | 14 | 1.27 |
-| 4 | 5/25/100 | 50 | 35.1 | 10 | 1.21 |
-| 5 | 20/25/100 | 60 | 28.6 | 17 | 1.26 |
-| 6 | 10/10/100 | 70 | 29.0 | 12 | 1.25 |
-| 7 | 10/50/100 | 80 | 41.1 | 14 | 1.26 |
-| 8 | 10/25/100 | 90 | 25.5 | 19 | 1.29 |
-| 9 | 5/25/100 | 100 | 32.4 | 16 | 1.22 |
-| 10 | 5/10/100 | 110 | 33.3 | 17 | 1.16 |
-| 11 | 10/10/100 | 120 | 29.1 | 19 | 1.20 |
-| 12 | 5/50/100 | 130 | 45.6 | 16 | 1.26 |
+| 3 | 10/25/100 | 40 | 26.5 | 15 | 1.07 |
+| 4 | 5/25/100 | 50 | 34.7 | 17 | 0.96 |
+| 5 | 20/25/100 | 60 | 28.5 | 14 | 1.03 |
+| 6 | 10/10/100 | 70 | 29.0 | 16 | 0.98 |
+| 7 | 10/50/100 | 80 | 41.5 | 15 | 1.10 |
+| 8 | 10/25/100 | 90 | 25.5 | 19 | 0.96 |
+| 9 | 5/25/100 | 100 | 32.4 | 18 | 1.02 |
+| 10 | 5/10/100 | 110 | 33.3 | 17 | 1.00 |
+| 11 | 10/10/100 | 120 | 29.1 | 18 | 1.08 |
+| 12 | 5/50/100 | 130 | 45.6 | 17 | 0.97 |
 
 Delay sweep at period=25 (reused idx 0-5, note confounded by cumulative shot):
-  - delay 5: continuum=35.1, top10 FeII SNR=10, II/I=1.21, cum-shot=50
+  - delay 5: continuum=34.7, top10 FeII SNR=17, II/I=0.96, cum-shot=50
   - delay 10: continuum=46.3, top10 FeII SNR=16, II/I=0.81, cum-shot=10
   - delay 10: continuum=52.2, top10 FeII SNR=14, II/I=0.83, cum-shot=20
   - delay 10: continuum=34.9, top10 FeII SNR=14, II/I=0.97, cum-shot=30
-  - delay 10: continuum=27.0, top10 FeII SNR=14, II/I=1.27, cum-shot=40
-  - delay 20: continuum=28.6, top10 FeII SNR=17, II/I=1.26, cum-shot=60
+  - delay 10: continuum=26.5, top10 FeII SNR=15, II/I=1.07, cum-shot=40
+  - delay 20: continuum=28.5, top10 FeII SNR=14, II/I=1.03, cum-shot=60
 
-Repeated 10/25 condition (reused spot, native 7914 family, n=5 runs): continuum mean 46.2 std 11.8 (26%); Fe II/Fe I mean 0.87 std 0.08. This run-to-run scatter (confounded by crater evolution) sets the floor against which any delay/period effect must be judged.
+Repeated 10/25 condition (reused spot, native 7914 family, n=8 runs): continuum mean 39.9 std 12.7 (32%); Fe II/Fe I mean 0.93 std 0.11. This run-to-run scatter (confounded by crater evolution) sets the floor against which any delay/period effect must be judged.
 
 ## 6. Optimisation for signal and interpretability
 
@@ -392,7 +389,7 @@ Repeated 10/25 condition (reused spot, native 7914 family, n=5 runs): continuum 
 
 - Highest mean top-10 Fe II SNR overall: run 18 (5/10/100), SNR 25 (a late reused-spot run, confounded by grid/crater).
 - Among fresh sites (clean comparison), best Fe II SNR is run 18 (5/10/100), SNR 25. Short delay (5) with short-to-mid period (10-25) gives the strongest Fe II UV signal; longer period (50) mainly raises continuum.
-- **Plasma temperature is resolvable**: Fe I VIS Boltzmann gives T = 8191-10451 K (median 8559 K) on short-period fresh sites, with more runs clustering 7000-10500 K at r^2~0.4. This is a real ~8000-10000 K result; only the T CHANGE across the delay/period grid is below the detection limit (~3894 K, 2σ).
+- **Plasma temperature is resolvable**: Fe I VIS Boltzmann gives T = 8191-10451 K (median 9321 K) on short-period fresh sites, with more runs clustering 7000-10500 K at r^2~0.4. This is a real ~8000-10000 K result; only the T CHANGE across the delay/period grid is below the detection limit (~3034 K, 2σ).
 - The Fe II/Fe I area ratio is ~0.8-1.1 within the native (7914) family and ~1.2-1.3 for the Opal/resampled families — the offset tracks the GRID FAMILY, not the acquisition condition (a grid/response artifact, not physics). Within a family it is flat across delay/period and depth, consistent with the flat T: the ionisation balance does not vary detectably across this grid.
 - Fe II UV lines (233-275 nm) are the strongest, most numerous set and sit in one segment; they are the better analytical set on this instrument. Fe I visible lines are weak (tens-to-hundreds of counts).
 
@@ -410,7 +407,7 @@ Repeated 10/25 condition (reused spot, native 7914 family, n=5 runs): continuum 
 ## Limits and unverified
 
 - **Detector response uncalibrated**: cross-segment intensity ratios (Fe II UV vs Fe I VIS, Saha n_e, absolute areas) carry an unknown wavelength-dependent gain. The Fe I VIS Boltzmann T is a WITHIN-segment slope, so it is largely immune; n_e from the UV-VIS intercept is not (order-of-magnitude only).
-- **Three grid families with distinct shifts** (7914 native/API -154 pm, 5848 native/Opal -182 pm, 23250 vendor-resample -83 pm): each run is shifted with its own family. The resampled family has correlated noise and smoothed peaks, so its areas/SNR are not directly comparable; the reused-spot depth series and the delay/period grid MIX families (noted per table), which aliases onto raw trends — Fe-normalised ratios cancel most of it.
+- **Three grid families with distinct shifts** (7914 native/API -154 pm, 5848 native/Opal +nan pm, 23250 vendor-resample +nan pm): each run is shifted with its own family. The resampled family has correlated noise and smoothed peaks, so its areas/SNR are not directly comparable; the reused-spot depth series and the delay/period grid MIX families (noted per table), which aliases onto raw trends — Fe-normalised ratios cancel most of it.
 - **T systematics**: strong low-E_k Fe I lines are self-absorbed (they sit below the Boltzmann trend and are shed by the robust 1.6σ clip; over-aggressive clipping biases T slightly HIGH). The E_k lever arm is ~2.5-3.4 eV, so per-run sigma is ~15-25%. Reported T (~8000-10000 K) is consistent within that with an independent ~7000-8000 K estimate.
 - **LTE / McWhirter**: LTE assumed; McWhirter is a necessary not sufficient check; no independent n_e (H-alpha weak under argon).
 - **Section-1 blends**: for a 99.98% Fe matrix almost every trace line sits near an Fe line; a non-Fe candidate is downgraded to 'Fe-blend' only when a top-decile-strength Fe line lies within 0.15 nm. (The fe-v1 curated set, strict-blended 90/96, is used only as an atomic reference, NOT for thermometry — the thermometric sets are built from the full database.)
@@ -477,3 +474,5 @@ reused-spot run" is also wrong; it is fresh raster site 3.
 Everything else in the report (shift model per grid family, depth profiles,
 Fe II/Fe I ratio, T-vs-parameter detection limit, recommendations) was read
 against the tables and stands.
+
+**Post-refetch rerun (16:00 PDT).** After the operator refetched the eleven non-native runs (`recover-alibz-awaiting-data.sh --refetch --apply`), all 26 runs are 7,915-sample native API spectra and every table above was regenerated on that single grid (the script now skips absent grid families). Pantheum re-scored the eleven batches on the native grid (e.g. run-126d0c96 0.294 to 0.311, run-6e38b110 to 0.396); the `best` records of the closed/blocked sessions were not recomputed.
