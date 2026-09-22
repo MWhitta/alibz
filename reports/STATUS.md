@@ -44,7 +44,18 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 15:35 PDT Fe plasma/surface analysis delivered
+# Current state — 2026-09-22 15:45 PDT native API grid is the global default; 11 runs to refetch
+
+Owner: default everything to the native API grid. Code and Moissanite already
+use acquire.retrieval=data_api; example config fixed (was deferred); decision
+in pantheum-I DECISIONS.md; grid-family table in device notes §5. Dry run of
+`recover-alibz-awaiting-data.sh --refetch` on the 11 non-native runs (5 vendor
+resample from opt-e301e73a, 6 Opal-decode from opt-981ee9c2 + b17cc043)
+fetched 10/10 native spectra each; operator to run it with --apply (re-scores
+those batches). Then rerun scripts/fe_plasma_analysis.py so the depth series
+is on one grid.
+
+## Earlier today (15:35 PDT) Fe plasma/surface analysis delivered
 
 reports/2026-09-22-fe-calibration-plasma-analysis.md (+ scripts/fe_plasma_analysis.py,
 figures/fe-plasma-20260922/): non-Fe = Ar purge, weak H/O/N, first-shot K
@@ -564,12 +575,12 @@ only the main pantheum-I checkout remains there. Existing RamanLab work preserve
 Report:2026-09-22-pantheum-cleanup.md. No provider switch. Complete.
 
 
-## Optimize Acquisition: composition-aware study — 2026-09-22 IN FLIGHT
+## Optimize Acquisition: composition-aware study — 2026-09-22 BUILT, NOT DEPLOYED
 
 User request: drop the "delay/period study requires element 'Fe'" rule, rename
 the ACQUISITION STUDY panel to "Optimize Acquisition", accept elements or
 compounds, and use the composition in downstream (batch metrics) analysis.
-Two agents in flight, source in pantheum-I (uncommitted):
+Built and verified (891 py tests OK, 42 UI tests pass), source in pantheum-I UNCOMMITTED:
 - alibz scripts/build_line_references.py reproduces fe-v1.json and generates
   pantheum/alibz/references/<el>-v1.json for every supported element.
   Report: 2026-09-22-line-references.md.
@@ -577,5 +588,5 @@ Two agents in flight, source in pantheum-I (uncommitted):
   columns, reference-availability rule), optimization_metrics.py (per-element
   weighted score, cross-element blend flag), panel rename + Composition field,
   tests, docs. Report: 2026-09-22-optimize-acquisition-composition.md.
-Deployment to Moissanite is NOT done; a deploy wrapper follows verification.
+Deploy: scripts/deploy-alibz-optimize-acquisition.sh (dry run default, --apply). Live optimization.py is at e4e79ee; the other session's pending rsync of ~/pantheum-I-stage-6f7c654 would overwrite these files, so run it first or commit the composition change before deploying.
 No provider switch.

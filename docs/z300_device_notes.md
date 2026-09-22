@@ -132,6 +132,20 @@ backfill_complete,archive_root}` summary on stdout (`--dry-run` prints the plan
 to stderr and touches nothing; exit 0 when the pass ran, 2 on usage, 3 when the
 instrument was unreachable).
 
+### Grid families (owner decision 2026-09-22: native API grid is the default)
+
+| family | samples | source | shift vs air db (2026-09-22) | status |
+|---|---|---|---|---|
+| native API | 7,914 | `/data/shotspectrum` per-shot `wlCalibrations` (data_api, also the refetch path) | −154 pm | **default; the only grid for scientific comparison** |
+| Opal decode | 5,848 | FlatBuffers decode on Opal (`opal_database`), empirical pixel offset | −182 pm | fallback; registration differs from the API |
+| vendor resample | 23,250 | 1/30 nm cubic-spline export (`deferred` era) | −83 pm | legacy; smoothed peaks, correlated noise |
+
+Anything produced by a fallback is re-fetched onto the API grid with
+`scripts/recover-alibz-awaiting-data.sh --refetch --run …` while the test is
+still on the instrument (tests persist; all eleven non-native runs from
+2026-09-22 were still readable at 15:40 PDT). `acquire.retrieval=data_api` is
+the code, example-config and Moissanite default.
+
 ## 6. Failure modes seen and their recovery
 
 | Symptom | Cause | Recovery |
