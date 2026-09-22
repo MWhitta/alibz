@@ -70,26 +70,26 @@ def main():
     for row in rows:
         params = json.loads(row['params'])
         total = params['numShotsPerLocation'] * params['numlocations']
-        try:
-            average = client.shot_spectrum(row['test_id'], -1)
-            shots = [client.shot_spectrum(row['test_id'], n) for n in range(total)]
-        except Z300Error as exc:
-            # The instrument stored fewer shots than requested (a 404 on shot n):
-            # report it and leave the run alone; it cannot become a full batch.
-            stored = 0
-            for n in range(total):
-                try:
-                    client.shot_spectrum(row['test_id'], n); stored += 1
-                except Z300Error:
-                    break
+        min_shots = cfg.get('min_shots', 6)
+        average = client.shot_spectrum(row['test_id'], -1)
+        shots = []
+        for n in range(total):
+            try:
+                shots.append(client.shot_spectrum(row['test_id'], n))
+            except Z300Error as exc:
+                if getattr(exc, 'http_status', None) == 404 and shots:
+                    break   # the instrument stored fewer spectra (dropped frames)
+                raise
+        if len(shots) < min_shots:
             print(json.dumps({'run': row['id'], 'test_id': row['test_id'], 'expected_shots': total,
-                              'stored_shots': stored, 'skipped': True, 'error': str(exc)[:160]}), flush=True)
+                              'stored_shots': len(shots), 'skipped': True,
+                              'reason': f'below acquire.min_shots {min_shots}'}), flush=True)
             continue
         lines = [len(Acquisition._sorted_unique_csv(s).splitlines()) for s in [average] + shots]
         if min(lines) < 1000:
             raise RuntimeError(f'{row["id"]}: a converted spectrum has only {min(lines)} lines')
         fetched.append((row, params, average, shots))
-        print(json.dumps({'run': row['id'], 'test_id': row['test_id'], 'shots': total,
+        print(json.dumps({'run': row['id'], 'test_id': row['test_id'], 'requested': total, 'stored': len(shots),
                           'csv_lines': lines[0], 'fetched': True}), flush=True)
     with service.db() as db:
         batches = {r['run_id']: dict(r) for r in db.execute(
@@ -122,13 +122,14 @@ def main():
             work_dir = acq._run_dir(run_id)
             (work_dir / 'raw').mkdir(parents=True, exist_ok=True)
             (work_dir / 'shots').mkdir(parents=True, exist_ok=True)
+            requested = params['numShotsPerLocation'] * params['numlocations']
             dataset_id, count = acq._finish_dataset(run_id, row['run_mode'], params, row['test_id'],
-                                                    average, shots, work_dir)
+                                                    average, shots, work_dir, requested=requested)
             acq._set_state(run_id, 'succeeded', finished_at=_now(), test_id=row['test_id'],
                            dataset_ids=json.dumps([dataset_id]), shots=count,
-                           detail=(f'Fired earlier under acquire.retrieval=deferred as analyzer test '
-                                   f'{row["test_id"]}; {count} shots recovered from /data/shotspectrum '
-                                   f'at {_now()} by recover-alibz-awaiting-data.'))
+                           detail=(f'Analyzer test {row["test_id"]}: {count} of {requested} spectra recovered from '
+                                   f'/data/shotspectrum at {_now()} by recover-alibz-awaiting-data'
+                                   + (f' ({requested - count} dropped by the instrument).' if count < requested else '.')))
             entry = {'run': run_id, 'dataset_id': dataset_id, 'shots': count,
                      'previous_dataset_ids': json.loads(row['dataset_ids'] or '[]')}
             batch = batches.get(run_id)

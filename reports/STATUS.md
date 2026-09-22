@@ -44,7 +44,17 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 13:20 PDT raster patch DEPLOYED; NEW: spectrometer frame drops
+# Current state — 2026-09-22 13:55 PDT dropped-frame tolerance patched, AWAITING USER DEPLOY
+
+acquire.min_shots=6: live runs keep the contiguous spectra the analyzer stored
+(first 404 ends the fetch), succeed with dropped_frames recorded or fail below 6;
+optimizer/metrics/retrieval accept 6..10. Focused 137 OK; full suite 824 OK (skipped=26). User: deploy-alibz-dropped-frames.sh
+--apply, recover run-bb777df5… (9 shots), then --enable-data-api. Report:
+reports/2026-09-22-dropped-frames.md.
+
+## Earlier state (superseded)
+
+# Earlier — 2026-09-22 13:20 PDT raster patch DEPLOYED; NEW: spectrometer frame drops
 
 Raster/verified/refusal/retrieval patch is live (refusals column populated). The
 --enable-data-api switch has NOT been applied (wrapper bug fixed, commit 47b0cf6)
