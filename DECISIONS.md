@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-09-22 — Optimize Acquisition scores any composition, not only Fe
+
+The Pantheum delay/period study no longer requires element Fe; the panel is
+"Optimize Acquisition" and takes a composition (symbol, formula such as Fe2O3,
+or weighted list such as "Fe 70, Cr 20, Ni 10"). The FIRST element entered is
+the primary element (formula cation-first), so Fe2O3 is scored as an Fe study.
+The primary element must have a bundled line reference; other constituents are
+scored when a reference exists and reported as unscored otherwise. Batch score =
+fraction-weighted mean of per-element window scores; eligibility follows the
+primary element. Lines within 0.25 nm of another constituent's reference line
+are flagged potential_blend. References for 82 further elements are generated
+by scripts/build_line_references.py with the exact fe-v1 recipe (verified by
+--check-fe) plus an observable-range filter 180–961 nm (the export grid span),
+so vacuum-UV lines never occupy candidate windows.
+
 ## 2026-09-22 — Complete Z300 acquisitions from native data converted on Opal
 
 Use Pantheum's existing Moissanite worker and authorized SSH path to invoke a

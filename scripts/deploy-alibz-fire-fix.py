@@ -38,7 +38,12 @@ def main():
                 raise RuntimeError('Unsafe manifest path')
             if digest(args.bundle / rel) != after:
                 raise RuntimeError('Bundle changed: ' + name)
-            if digest(root / rel) != manifest['before'][name]:
+            before = manifest['before'][name]
+            live = root / rel
+            if before is None:
+                if live.exists():
+                    raise RuntimeError('Live file already exists: ' + name)
+            elif digest(live) != before:
                 raise RuntimeError('Live source changed: ' + name)
         if digest(config) != manifest['config_sha256']:
             raise RuntimeError('Private configuration changed')
@@ -62,13 +67,17 @@ def main():
             database.backup(target)
         database.close()
         for name in manifest['files']:
+            live = root / name
+            if not live.exists():
+                continue
             target = backup / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(root / name, target)
+            shutil.copy2(live, target)
         subprocess.run(['systemctl', '--user', 'stop', *services], check=True)
         try:
             for name, expected in manifest['files'].items():
                 target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
                 temporary = target.with_name(target.name + '.fire-fix-tmp')
                 shutil.copy2(args.bundle / name, temporary)
                 os.replace(temporary, target)
@@ -77,8 +86,13 @@ def main():
             if digest(config) != manifest['config_sha256']:
                 raise RuntimeError('Private configuration changed during deployment')
         except BaseException:
-            for name in manifest['files']:
-                shutil.copy2(backup / name, root / name)
+            for name, before in manifest['before'].items():
+                target = root / name
+                if before is None:
+                    if target.exists():
+                        target.unlink()
+                elif (backup / name).exists():
+                    shutil.copy2(backup / name, target)
             raise
         finally:
             subprocess.run(['systemctl', '--user', 'start', *reversed(services)], check=True)

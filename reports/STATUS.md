@@ -587,7 +587,7 @@ only the main pantheum-I checkout remains there. Existing RamanLab work preserve
 Report:2026-09-22-pantheum-cleanup.md. No provider switch. Complete.
 
 
-## Optimize Acquisition: composition-aware study — 2026-09-22 BUILT, NOT DEPLOYED
+## Optimize Acquisition: composition-aware study — 2026-09-22 DEPLOYED
 
 User request: drop the "delay/period study requires element 'Fe'" rule, rename
 the ACQUISITION STUDY panel to "Optimize Acquisition", accept elements or
@@ -602,3 +602,7 @@ Built and verified (891 py tests OK, 42 UI tests pass), source in pantheum-I UNC
   tests, docs. Report: 2026-09-22-optimize-acquisition-composition.md.
 Deploy: scripts/deploy-alibz-optimize-acquisition.sh (dry run default, --apply). Live optimization.py is at e4e79ee; the other session's pending rsync of ~/pantheum-I-stage-6f7c654 would overwrite these files, so run it first or commit the composition change before deploying.
 No provider switch.
+Deployed by the operator 15:23:35 PDT (backup ~/pantheum-fire-fix-backup-20260922T152335):
+live hashes of the 5 code files match the local tree, 83 references live, both
+services active, /api/optimization serves existing sessions with derived
+composition fields. Source still UNCOMMITTED in pantheum-I. Complete.
