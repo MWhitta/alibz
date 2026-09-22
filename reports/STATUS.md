@@ -44,6 +44,20 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
+# Current state — 2026-09-22 13:40 PDT analyzer clock reset diagnosed; launcher restart handed to operator
+
+Power cycle at ~13:09 PDT reset the analyzer clock to 1970 (PCF8563 RTC backup
+cell is dead). The LIBZ Home launcher opened Date settings and is now idle
+behind an undismissed "Loading..." dialog; the operator set the clock to the
+correct time (skew ~0 s vs Opal). API, RemoteService and trigger service are
+unaffected: the refetch dry run fetched 8/9/9 spectra for the three partial
+runs. Remote key/force-stop writes are refused by the classifier, so the fix is
+`scripts/z300-clock.sh --restart-home` (new wrapper; status mode is read-only),
+then Geochem Pro + laser arm on the handheld, then the `--refetch --apply`
+recovery command. Report: reports/2026-09-22-clock-reset-home-loading.md.
+Device notes updated (§1, §3.5, §6, §8.7). Open for the owner: RTC cell repair
+or an Opal clock-sync task; avoid power cycles (warm reboot keeps time).
+
 # Current state — 2026-09-22 14:10 PDT dropped-frame tolerance DEPLOYED; analyzer rebooted
 
 User deployed the five modules (13:05:20). Config is retrieval=data_api. The
@@ -485,3 +499,13 @@ significant trailing zeros retained. Deployed12:39:52 PDT, no restart or hardwar
 action. Source/served hashes, browser readouts, syntax and42 UI tests verified.
 Report:2026-09-22-readouts-3sig.md. Supersedes earlier one-figure precision.
 No provider switch. Complete.
+
+
+## Parallel cleanup — 2026-09-22 Pantheum backups preserved and originals removed
+
+Pantheum has only main locally/remotely; stale missing worktree registration
+pruned. Six dated backup folders (52 files,1,967,619 bytes) archived byte-for-byte
+in pantheum-I/archive/source-backups/2026-09-21, commit3284cbc, pushed and verified
+on GitHub before deletion. All six originals removed from Projects/github;
+only the main pantheum-I checkout remains there. Existing RamanLab work preserved.
+Report:2026-09-22-pantheum-cleanup.md. No provider switch. Complete.

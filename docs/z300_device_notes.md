@@ -15,7 +15,7 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 | Network | `192.168.60.65:9000` on the `lml_automation` Wi-Fi; from Moissanite use the proxy `192.168.50.112:19000`. `config/alibz.example.json`'s `192.168.50.65` is dead since the 2026-09-13 renumber. |
 | HTTP server | `com.sciaps.android:remoteService` (devsmart miniweb inside the vendor app); no authentication; one thread pool |
 | Vendor timeouts | Profile Builder uses 5 s connect / 90 s read; the portal caps live I/O at min(90, configured) |
-| Clock | Analyzer runs ~52 s behind Moissanite (`adb shell date`). Test `unixTime` and `/data/tests?since=` cursors are analyzer seconds. |
+| Clock | **The RTC (PCF8563, `/sys/class/rtc/rtc0`) loses time on every power-off**: its backup cell is dead, so a cold boot starts at 1970-01-02 (Android's floor) and logcat shows `01-01 16:02:xx` PST until someone sets the date. A warm reboot keeps the time. No NTP (`NetworkTimeUpdateService` has no reachable server). Before the fix the analyzer ran ~52 s behind Moissanite. Test `unixTime` and `/data/tests?since=` cursors are analyzer seconds. Check/set with `scripts/z300-clock.sh` (status is read-only; `--set` copies Opal's local time via root ADB `date -s YYYYMMDD.HHMMSS`). |
 | USB | Opal sees `mtp,adb`. ADB is **root** (`uid=0`). Serial `0123456789ABCDEF`, host server port 5038. The recovery copy of platform-tools is in `C:\Users\Whittaker\AppData\Local\Temp\alibz-api-recovery-20260921\platform-tools\`; the ingest uses its own copy in `C:\InstrumentControl\alibz\z300-ingest-20260922\platform-tools\`. |
 | Reaching Opal | `ssh opal` (user `whittaker`, port 52222 via Moissanite). Pass PowerShell as `-EncodedCommand` (UTF-16LE base64); plain quoting is mangled. From Moissanite's worker: `ssh -p 52222 whittaker@192.168.50.112`. |
 | On-device tools | `/system/xbin/sqlite3` (3.7.11) reads `libzdb.cblite` in place; `logcat -d -v time` is the single most useful diagnostic; `dumpsys activity`, `dumpsys power`, `ps` work. No `head`, `which`. |
@@ -50,6 +50,20 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 3. **Calibration.** `wlCalibrationNeededCode 0` is advisory in the vendor UI
    (a confirm dialog); the portal does not gate on it. Last WL calibration
    2026-09-21 14:55, next wanted 24 h later.
+5. **After a power cycle: clock, then launcher.** With the clock at 1970 the
+   vendor launcher `com.sciaps.android.home` ("LIBZ Home", v2.18.1) shows a
+   modal "Loading..." dialog and opens Settings > Date & time (twice, at
+   +9 s and +23 s after boot). Setting the date and time there fixes the
+   clock but the dialog never closes: the launcher sits idle behind it (no
+   working thread, nothing logged) and Geochem Pro cannot be opened from the
+   handheld. The HTTP API, `TriggerLockService` and `RemoteService` are
+   separate processes and keep working, so data-API retrieval is unaffected;
+   only new fires are blocked (no Geochem Pro START screen, laser disarmed).
+   Recovery: `scripts/z300-clock.sh --set` (if the clock is still wrong) then
+   `scripts/z300-clock.sh --restart-home` (force-stops the launcher; Android
+   relaunches it against the corrected clock), or on the handheld: pull down
+   the status bar → Settings → Apps → LIBZ Home → Force stop. Then open
+   Geochem Pro, arm the laser (PIN), check the padlock.
 4. **Laser safety** (`/storage/sdcard0/sciaps/laserconfig.json`): pump-time
    window 4 / threshold 500 µs / `pumptimeTemp 40 °C` / `dutyCycleBudget 1` /
    `pumpThresholdCost 300 s`. A LASER STOP event halts the laser and re-enables
@@ -97,6 +111,7 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 | Test "finishes" with 8–9 of 10 spectra | **Spectrometer-link frame drops**: `E/onyx: checksum mismatch! computed/read …` then `error. event type: 7` on the shot; the laser fired all ten (`shot:buffer` x10) but one spectrum is never stored (shot n → 404). Seen 4 times between 12:16 and 12:38 PDT on 2026-09-22, 3 of 4 tests affected, none in the morning's 5 tests. Solenoid 39 °C, uptime 3.5 h, no kernel USB fault. | Unknown root cause (thermal/EMI on the readout link?). Power-cycle and re-observe; make the pipeline tolerate ≥ 8 stored shots (decision pending). |
 | Trigger "unlocked" in the portal but refused | identity field is cosmetic | Read the handheld log: `logcat` tag `TestController`. |
 | Black/absent handheld screen | display asleep | wake on the device; there is no API. |
+| Handheld stuck on "Loading..." over the app grid after a power cycle; logcat dated `01-01` | Dead RTC backup cell → clock at 1970 → launcher's date check opens Date settings and never dismisses its dialog | Set the clock (`scripts/z300-clock.sh --set`, or Settings > Date & time), then restart the launcher (`--restart-home` or Force stop LIBZ Home). API and retrieval keep working meanwhile. See §3 item 5. |
 
 ## 7. Pipeline state (2026-09-22 12:15 PDT)
 
@@ -151,9 +166,16 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 6. **RemoteService has no watchdog.** Two crashes and the API stays dead until
    someone runs `am startservice`. A scheduled Opal task that checks
    `/instrument/id` and restarts the service would remove a bench trip.
-7. **Clock skew.** The analyzer is ~52 s slow with no NTP; seconds-based
-   cursors and `unixTime` in provenance drift. Note it in provenance or sync
-   the clock when the LBL drop is restored.
+7. **Clock resets on every power-off (dead RTC cell).** Beyond the launcher
+   hang (§3 item 5), a fire made while the clock reads 1970 gets a 1970
+   `unixTime`, so the test lands at the *front* of the `/data/tests` list and
+   provenance timestamps are wrong. The portal has no clock check because the
+   HTTP API exposes no time; the ADB-based `scripts/z300-clock.sh` is the
+   check. Options for the owner: (a) run `--set` after every power cycle and
+   before the first batch (cheapest); (b) add an Opal scheduled task that
+   syncs the clock whenever ADB sees uptime < 10 min; (c) replace the RTC
+   backup cell (a bench repair on the analyzer's board). Until then, avoid
+   power cycles: `--reboot` (warm) keeps the time.
 8. **Laser thermal/duty limits.** Solenoid at 39 °C against `pumptimeTemp 40`
    and `dutyCycleBudget 1`: sustained batches can trigger LASER STOP events that
    look like short tests. Watch `LIBZLaserController` for "STOP" and pump times.
