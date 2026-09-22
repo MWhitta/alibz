@@ -44,7 +44,22 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 16:05 PDT all 26 runs on the native API grid; analysis regenerated
+# Current state — 2026-09-22 16:20 PDT vanadium next: sequence mode + fresh-site rule IN PROGRESS
+
+Owner switching to vanadium; asked for (1) automatic stepping to a new
+position after every 10-shot test and (2) a one-click run of all specified
+conditions in sequence. Implementation delegated (specialist) on pantheum-I
+HEAD 393741d (composition change, 83 element refs incl. v-v1.json; confirmed
+LIVE on Moissanite 15:23 PDT by session alibz-59, backup
+pantheum-fire-fix-backup-20260922T152335). Design: sample-scoped fresh-site
+rule in _batch_geometry; session.sequence with server-process auto_step
+thread dispatching under the operator's captured lease, pausing on any
+refusal; routes /sequence and /sequence/pause; UI "Run all conditions" +
+"Pause sequence". Deploy wrapper will pin to 393741d as live baseline. NOTE:
+the pending ~/pantheum-I-stage-6f7c654 rsync on Moissanite is stale (would
+revert the composition change) and must not be run.
+
+## Earlier today (16:05 PDT) all 26 runs on the native API grid; analysis regenerated
 
 Operator applied the refetch: all 26 succeeded live runs are 7,915-sample
 native API spectra; Pantheum re-scored the 11 batches (e.g. run-126d0c96 0.294
