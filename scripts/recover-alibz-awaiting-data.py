@@ -61,17 +61,30 @@ def main():
         rows = [r for r in rows if r['id'] in set(args.run)]
     else:
         rows = [r for r in rows if r['state'] == 'awaiting_data' or r['id'] in set(args.run)]
-    if not rows and args.apply and args.enable_data_api:
-        rows = []  # config-only invocation
-    elif not rows:
-        print(json.dumps({'error': 'no matching awaiting_data runs'})); return 1
+    if not args.run and not args.all_awaiting:
+        rows = []  # config-only invocation (--enable-data-api) touches no run
+    if not rows and not args.enable_data_api:
+        print(json.dumps({'error': 'no matching runs; use --run or --all-awaiting'})); return 1
     client = Z300Client(cfg['analyzer_url'], timeout=min(90.0, float(cfg['timeout_seconds'])))
     fetched = []
     for row in rows:
         params = json.loads(row['params'])
         total = params['numShotsPerLocation'] * params['numlocations']
-        average = client.shot_spectrum(row['test_id'], -1)
-        shots = [client.shot_spectrum(row['test_id'], n) for n in range(total)]
+        try:
+            average = client.shot_spectrum(row['test_id'], -1)
+            shots = [client.shot_spectrum(row['test_id'], n) for n in range(total)]
+        except Z300Error as exc:
+            # The instrument stored fewer shots than requested (a 404 on shot n):
+            # report it and leave the run alone; it cannot become a full batch.
+            stored = 0
+            for n in range(total):
+                try:
+                    client.shot_spectrum(row['test_id'], n); stored += 1
+                except Z300Error:
+                    break
+            print(json.dumps({'run': row['id'], 'test_id': row['test_id'], 'expected_shots': total,
+                              'stored_shots': stored, 'skipped': True, 'error': str(exc)[:160]}), flush=True)
+            continue
         lines = [len(Acquisition._sorted_unique_csv(s).splitlines()) for s in [average] + shots]
         if min(lines) < 1000:
             raise RuntimeError(f'{row["id"]}: a converted spectrum has only {min(lines)} lines')
