@@ -61,7 +61,7 @@ authorized ADB connection available; otherwise the queue waits and retries.
 Run focused checks with:
 
 ```sh
-.venv/bin/python -m pytest tests/test_z300_opal_ingest.py tests/test_deploy_z300_ingest.py
+.venv/bin/python -m pytest tests/test_z300_opal_ingest.py tests/test_z300_sync_tests.py tests/test_deploy_z300_ingest.py
 ```
 
 Pantheum owns queue/state-machine tests in `tests/test_alibz_retrieval.py` and

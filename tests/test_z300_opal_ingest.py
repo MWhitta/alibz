@@ -219,6 +219,42 @@ def test_incomplete_exact_test_is_pending(config, mode):
     assert not (config.archive_root / config.run_id).exists()
 
 
+def test_native_dropped_frame_archived_and_reverifies_without_instrument(config):
+    # Only 1 of the 2 expected shots stored; explicit min_shots=1 tolerates it.
+    cfg = replace(config, min_shots=1)
+    adb = MockAdb(blob=bundle(1))
+    payload = producer.ingest(cfg, adb)
+    with zipfile.ZipFile(payload) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["shots"] == 1
+        assert manifest["provenance"]["expected_shots"] == 2
+        assert manifest["provenance"]["min_shots"] == 1
+        assert manifest["provenance"]["dropped_frames"] == 1
+        assert set(name for name in manifest["files"] if name.startswith("shots/")) == {"shots/shot-0.csv"}
+    expected_bytes = payload.read_bytes()
+    adb.read = lambda *args: pytest.fail("idempotent retry with fewer shots contacted the instrument")
+    assert producer.ingest(cfg, adb).read_bytes() == expected_bytes
+
+
+@pytest.mark.parametrize("min_shots", [0, 3, -1])
+def test_min_shots_outside_expected_range_rejected(config, min_shots):
+    with pytest.raises(producer.IngestError, match="min_shots"):
+        producer.validate_config(replace(config, min_shots=min_shots))
+
+
+def test_min_shots_defaults_to_min_of_six_and_expected_shots(config):
+    assert producer.effective_min_shots(config) == 2
+    assert producer.effective_min_shots(replace(config, expected_shots=10)) == 6
+    assert producer.effective_min_shots(replace(config, expected_shots=10, min_shots=3)) == 3
+
+
+def test_cli_min_shots_outside_range_is_rejected(config, capsys):
+    assert producer.main(["--run-id", config.run_id, "--test-id", config.test_id,
+                          "--expected-shots", "2", "--min-shots", "5",
+                          "--archive-root", str(config.archive_root)]) == 2
+    assert "min_shots" in capsys.readouterr().err
+
+
 def test_conflicting_current_revisions_rejected(config):
     adb = MockAdb()
     adb.db.execute("INSERT INTO revs VALUES(2,1,'1-conflict',1,0,?)", (adb.raw_document,))
@@ -260,23 +296,39 @@ def test_all_fb_must_be_plain_filename(name):
 ])
 def test_invalid_bundle_fails_closed(options, message):
     with pytest.raises(producer.IngestError, match=message):
-        producer.decode_native(bundle(**options), 2)
+        producer.decode_native(bundle(**options), 2, 2)
 
 
 @pytest.mark.parametrize("malformed", [b"", b"\xff" * 32, bundle()[:25], bundle()[:-1]])
 def test_flatbuffer_bounds_rejected(malformed):
     with pytest.raises(producer.IngestError):
-        producer.decode_native(malformed, 2)
+        producer.decode_native(malformed, 2, 2)
 
 
 def test_original_decoder_math_is_identical_for_real_channels(tmp_path):
     path = tmp_path / "all.fb"
     path.write_bytes(bundle())
-    old, strict = decoder.decode(str(path)), producer.decode_native(path.read_bytes(), 2)
+    old, strict = decoder.decode(str(path)), producer.decode_native(path.read_bytes(), 2, 2)
     for (old_x, old_y), (new_x, new_y) in zip(old, strict):
         keep = old_x < 960
         np.testing.assert_array_equal(new_x, old_x[keep])
         np.testing.assert_array_equal(new_y, old_y[keep])
+
+
+def test_flatbuffer_dropped_frame_tolerated_down_to_min_shots():
+    # 2 of 3 expected shots stored (expected-1), min_shots allows as few as 2.
+    shots = producer.decode_native(bundle(2), 3, 2)
+    assert len(shots) == 2
+
+
+def test_flatbuffer_below_min_shots_is_pending():
+    with pytest.raises(producer.PendingData, match=r"below min_shots 2 of expected 3"):
+        producer.decode_native(bundle(1), 3, 2)
+
+
+def test_flatbuffer_more_shots_than_expected_is_rejected():
+    with pytest.raises(producer.IngestError, match="exceeds expected"):
+        producer.decode_native(bundle(3), 2, 2)
 
 
 def test_dry_run_does_not_access_adb_or_create_files(config, monkeypatch, capsys):
@@ -301,9 +353,22 @@ def test_cli_output_is_zip_or_empty_on_failure(config, monkeypatch, capsysbinary
     destination = tmp_path / "out" / "native.zip"
     assert producer.main(args + ["--output", str(destination)]) == 0
     assert destination.read_bytes() == captured.out
-    assert capsysbinary.readouterr().out == b""
+    output_captured = capsysbinary.readouterr()
+    assert output_captured.out == b""
+    assert output_captured.err.decode().strip() == "native ZIP archived: 2 of 2 expected shots"
     assert producer.main([*args[:-1], str(tmp_path / "missing"), "--expected-shots", "3"]) == 3
     assert capsysbinary.readouterr().out == b""
+
+
+def test_cli_output_reports_dropped_frames(config, monkeypatch, capsysbinary, tmp_path):
+    monkeypatch.setattr(producer, "Adb", lambda *_: MockAdb(blob=bundle(1)))
+    destination = tmp_path / "out" / "native.zip"
+    args = ["--run-id", config.run_id, "--test-id", config.test_id,
+            "--expected-shots", "2", "--min-shots", "1",
+            "--archive-root", str(config.archive_root), "--output", str(destination)]
+    assert producer.main(args) == 0
+    err = capsysbinary.readouterr().err.decode().strip()
+    assert err == "native ZIP archived: 1 of 2 expected shots"
 
 
 def test_lock_excludes_concurrent_ingestion_and_is_reusable(config):
@@ -458,7 +523,7 @@ def test_legacy_calibration_matches_reference_scalar_pixel_zero_math():
 
 
 def test_legacy_plain_json_members_supported():
-    shots, average = producer.decode_legacy_native(legacy_bundle(plain_json=True), 2)
+    shots, average = producer.decode_legacy_native(legacy_bundle(plain_json=True), 2, 2)
     assert len(shots) == 2 and len(average[0]) == 5849
 
 
@@ -473,19 +538,54 @@ def test_all_fb_precedence_is_preserved():
         "flatbuffer", "/sdcard/libzdata/spectra/bundle-uuid", "raw/all.fb")
 
 
-@pytest.mark.parametrize("missing", ["-1", "0", "1"])
-def test_legacy_missing_average_or_shot_is_pending(missing):
-    records = {"-1": legacy_record(), "0": legacy_record(), "1": legacy_record()}
-    del records[missing]
-    with pytest.raises(producer.PendingData, match="exact expected"):
-        producer.decode_legacy_native(legacy_bundle(records), 2)
+def test_legacy_missing_average_is_pending():
+    # "-1" (the vendor average) missing entirely: not ready yet, regardless of shots.
+    records = {"0": legacy_record(), "1": legacy_record()}
+    with pytest.raises(producer.PendingData, match="average"):
+        producer.decode_legacy_native(legacy_bundle(records), 2, 2)
+
+
+def test_legacy_trailing_shot_missing_is_pending_below_min_shots():
+    # "1" missing but "0" present: a valid, still-filling-in contiguous prefix.
+    records = {"-1": legacy_record(), "0": legacy_record()}
+    with pytest.raises(producer.PendingData, match="below min_shots"):
+        producer.decode_legacy_native(legacy_bundle(records), 2, 2)
+
+
+def test_legacy_gap_in_shots_is_rejected():
+    # "0" missing but "1" present: shots are not written out of order, so a
+    # gap is a broken/inconsistent bundle rather than one still filling in.
+    records = {"-1": legacy_record(), "1": legacy_record()}
+    with pytest.raises(producer.IngestError, match="not contiguous"):
+        producer.decode_legacy_native(legacy_bundle(records), 2, 1)
 
 
 @pytest.mark.parametrize("extra", ["../0", "2", "0.json"])
 def test_legacy_unexpected_entries_are_rejected(extra):
     records = {"-1": legacy_record(), "0": legacy_record(), "1": legacy_record(), extra: legacy_record()}
     with pytest.raises(producer.IngestError, match="unexpected"):
-        producer.decode_legacy_native(legacy_bundle(records), 2)
+        producer.decode_legacy_native(legacy_bundle(records), 2, 2)
+
+
+def test_legacy_more_members_than_expected_is_rejected():
+    # A member at or beyond expected_shots is always an error: never publish
+    # more shots than requested, however many the instrument has stored.
+    records = {"-1": legacy_record(), "0": legacy_record(), "1": legacy_record(), "2": legacy_record()}
+    with pytest.raises(producer.IngestError, match="unexpected"):
+        producer.decode_legacy_native(legacy_bundle(records), 2, 1)
+
+
+def test_legacy_dropped_frame_tolerated_down_to_min_shots():
+    # 2 of 3 expected shots stored, min_shots allows as few as 2: succeeds.
+    records = {"-1": legacy_record(999), "0": legacy_record(), "1": legacy_record(100)}
+    shots, average = producer.decode_legacy_native(legacy_bundle(records), 3, 2)
+    assert len(shots) == 2
+
+
+def test_legacy_below_min_shots_is_pending():
+    records = {"-1": legacy_record(999), "0": legacy_record()}
+    with pytest.raises(producer.PendingData, match=r"below min_shots 2 of expected 3"):
+        producer.decode_legacy_native(legacy_bundle(records), 3, 2)
 
 
 @pytest.mark.parametrize("fault", ["pixels", "nonfinite", "knots", "constant", "dummy", "coefficients"])
@@ -511,17 +611,18 @@ def test_legacy_differing_average_axis_rejected():
     average = legacy_record()
     average["wlCalibrations"][0]["pixToNm"]["coefficients"][0] += 0.001
     with pytest.raises(producer.IngestError, match="axes differ"):
-        producer.decode_legacy_native(legacy_bundle({"-1": average, "0": legacy_record(), "1": legacy_record()}), 2)
+        producer.decode_legacy_native(
+            legacy_bundle({"-1": average, "0": legacy_record(), "1": legacy_record()}), 2, 2)
 
 
 def test_legacy_gzip_and_zip_expansion_are_bounded(monkeypatch):
     data = legacy_bundle()
     monkeypatch.setattr(producer, "MAX_DOCUMENT_BYTES", 30000)
     with pytest.raises(producer.IngestError, match="expansion exceeds"):
-        producer.decode_legacy_native(data, 2)
+        producer.decode_legacy_native(data, 2, 2)
     monkeypatch.setattr(producer, "MAX_DOCUMENT_BYTES", 100)
     with pytest.raises(producer.IngestError, match="members exceed"):
-        producer.decode_legacy_native(data, 2)
+        producer.decode_legacy_native(data, 2, 2)
 
 
 def test_legacy_sharded_binary_path_uses_pull(config, monkeypatch):

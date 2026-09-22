@@ -11,7 +11,9 @@ export, acquisition, instrument-side temporary file, or grid interpolation
 is involved. The instrument can still change after that observation.
 
 Successful stdout is binary ZIP; diagnostics and --dry-run plans use stderr.
-An incomplete acquisition exits 3 with empty stdout, and may be retried later.
+An acquisition storing fewer than --min-shots exits 3 (PendingData) with empty
+stdout and may be retried later; storing more than --expected-shots is a hard
+error, never published.
 """
 from __future__ import annotations
 
@@ -51,6 +53,7 @@ MAX_BLOB_BYTES = 128 * 1024 * 1024
 MAX_CSV_BYTES = 8 * 1024 * 1024
 MAX_PAYLOAD_BYTES = 256 * 1024 * 1024
 MAX_SHOTS = 1000
+MIN_STORED_SHOTS = 6
 PLACEHOLDER_CALIBRATION = np.array([961.0, -0.0004, 1e-12, 1e-12])
 LEGACY_REFERENCE_SHA256 = "8a6135d058f09c8de62542695c7a1ac923d577906fdc88b8db2e8ded89bd156d"
 CALIBRATION_NOTE = (
@@ -95,6 +98,14 @@ class Config:
     archive_root: Path
     source_revision: str | None = None
     timeout: float = 45.0
+    min_shots: int | None = None
+
+
+def effective_min_shots(config: Config) -> int:
+    """min_shots, or min(MIN_STORED_SHOTS, expected_shots) when unset."""
+    if config.min_shots is not None:
+        return config.min_shots
+    return min(MIN_STORED_SHOTS, config.expected_shots)
 
 
 def validate_config(config: Config) -> None:
@@ -106,6 +117,8 @@ def validate_config(config: Config) -> None:
         raise IngestError(f"expected_shots must be 1..{MAX_SHOTS}")
     if not 1 <= config.adb_port <= 65535 or not 0 < config.timeout <= 300:
         raise IngestError("invalid ADB port or timeout")
+    if config.min_shots is not None and not 1 <= config.min_shots <= config.expected_shots:
+        raise IngestError(f"min_shots must be 1..{config.expected_shots}")
 
 
 def sha256(data: bytes) -> str:
@@ -362,7 +375,7 @@ class StrictReader(decoder._Reader):
         return values
 
 
-def decode_native(blob: bytes, expected_shots: int) -> list[tuple[np.ndarray, np.ndarray]]:
+def decode_native(blob: bytes, expected_shots: int, min_shots: int) -> list[tuple[np.ndarray, np.ndarray]]:
     reader = StrictReader(blob)
     try:
         root = reader.follow(0)
@@ -372,8 +385,11 @@ def decode_native(blob: bytes, expected_shots: int) -> list[tuple[np.ndarray, np
         count, shot_data = reader.vector(shot_pos)
         if not 0 < count <= MAX_SHOTS:
             raise IngestError("FlatBuffer shot count is outside supported bounds")
-        if count != expected_shots:
-            raise PendingData(f"stored shot count {count} differs from expected {expected_shots}")
+        if count > expected_shots:
+            raise IngestError(f"stored shot count {count} exceeds expected {expected_shots}")
+        if count < min_shots:
+            raise PendingData(
+                f"stored shot count {count} is below min_shots {min_shots} of expected {expected_shots}")
         reader.check(shot_data, 4 * count)
         tables = [reader.follow(shot_data + 4 * i) for i in range(count)]
         shots = []
@@ -469,23 +485,30 @@ def legacy_spectrum(record: dict) -> tuple[np.ndarray, np.ndarray]:
     return wavelength, intensity
 
 
-def decode_legacy_native(blob: bytes, expected_shots: int) -> tuple[
+def decode_legacy_native(blob: bytes, expected_shots: int, min_shots: int) -> tuple[
         list[tuple[np.ndarray, np.ndarray]], tuple[np.ndarray, np.ndarray]]:
-    """Bound ZIP/gzip expansion and require all shots plus the vendor average."""
-    expected = {"-1", *(str(i) for i in range(expected_shots))}
+    """Bound ZIP/gzip expansion; require the vendor average plus 0..n-1 shots."""
+    full_expected = {"-1", *(str(i) for i in range(expected_shots))}
     try:
         with zipfile.ZipFile(io.BytesIO(blob)) as archive:
             entries = archive.infolist()
             names = {entry.filename for entry in entries}
-            if len(names) != len(entries) or names - expected:
+            if len(names) != len(entries) or names - full_expected:
                 raise IngestError("legacy ZIP has duplicate or unexpected shot entries")
-            if names != expected:
-                raise PendingData("legacy ZIP does not contain the exact expected shots and average")
+            if "-1" not in names:
+                raise PendingData("legacy ZIP does not contain the average yet")
+            stored = sorted(int(name) for name in names if name != "-1")
+            count = len(stored)
+            if stored != list(range(count)):
+                raise IngestError("legacy ZIP shots are not contiguous starting at 0")
+            if count < min_shots:
+                raise PendingData(
+                    f"legacy ZIP has {count} shots below min_shots {min_shots} of expected {expected_shots}")
             if (any(entry.file_size > MAX_DOCUMENT_BYTES or entry.flag_bits & 1 for entry in entries)
                     or sum(entry.file_size for entry in entries) > MAX_PAYLOAD_BYTES):
                 raise IngestError("legacy ZIP expanded members exceed size limit or are encrypted")
             decoded, total = {}, 0
-            for name in ["-1", *(str(i) for i in range(expected_shots))]:
+            for name in ["-1", *(str(i) for i in range(count))]:
                 with archive.open(name) as stream:
                     raw = stream.read(MAX_DOCUMENT_BYTES + 1)
                 if len(raw) > MAX_DOCUMENT_BYTES:
@@ -503,7 +526,7 @@ def decode_legacy_native(blob: bytes, expected_shots: int) -> tuple[
             reference = decoded["0"][0]
             if any(not np.array_equal(reference, spectrum[0]) for spectrum in decoded.values()):
                 raise IngestError("legacy shot/average wavelength axes differ; no shared native grid")
-            return [decoded[str(i)] for i in range(expected_shots)], decoded["-1"]
+            return [decoded[str(i)] for i in range(count)], decoded["-1"]
     except (zipfile.BadZipFile, gzip.BadGzipFile, EOFError, UnicodeError,
             json.JSONDecodeError, RecursionError, RuntimeError) as exc:
         raise IngestError("invalid legacy ZIP/gzip JSON bundle") from exc
@@ -557,15 +580,21 @@ def verify_archive(directory: Path, config: Config) -> Path:
     try:
         manifest_raw = (directory / "manifest.json").read_bytes()
         manifest = json.loads(manifest_raw)
-        if (manifest["schema"], manifest["run_id"], manifest["test_id"], manifest["shots"], manifest["grid"]) != (
-                SCHEMA, config.run_id, config.test_id, config.expected_shots, "native"):
+        if (manifest["schema"], manifest["run_id"], manifest["test_id"], manifest["grid"]) != (
+                SCHEMA, config.run_id, config.test_id, "native"):
+            raise IngestError("existing archive belongs to a different acquisition")
+        min_shots = effective_min_shots(config)
+        stored_shots = manifest["shots"]
+        if (not isinstance(stored_shots, int) or isinstance(stored_shots, bool)
+                or not min_shots <= stored_shots <= config.expected_shots
+                or manifest["provenance"].get("expected_shots") != config.expected_shots):
             raise IngestError("existing archive belongs to a different acquisition")
         source_format = manifest["provenance"].get("source_format", "flatbuffer")
         raw_name = {"flatbuffer": "raw/all.fb", "legacy-zip-gzip-json": "raw/all.zip"}.get(source_format)
         if raw_name is None:
             raise IngestError("existing archive has an unknown source format")
         required = {"average.csv", "raw/test.json", raw_name, "raw/revision.json"}
-        required.update(f"shots/shot-{i}.csv" for i in range(config.expected_shots))
+        required.update(f"shots/shot-{i}.csv" for i in range(stored_shots))
         if set(manifest["files"]) != required:
             raise IngestError("existing archive has unexpected files")
         for name, digest in manifest["files"].items():
@@ -610,13 +639,14 @@ def ingest(config: Config, adb: Adb | None = None) -> Path:
             if adb.read(query, response_limit) != revision_raw:
                 raise PendingData("test revision changed during bundle read")
             observed = utc_now()
+            min_shots = effective_min_shots(config)
             if source_format == "flatbuffer":
-                shots = decode_native(blob, config.expected_shots)
+                shots = decode_native(blob, config.expected_shots, min_shots)
                 average = np.zeros_like(shots[0][1])
                 for _, intensity in shots:
                     average += intensity / len(shots)
             else:
-                shots, (_, average) = decode_legacy_native(blob, config.expected_shots)
+                shots, (_, average) = decode_legacy_native(blob, config.expected_shots, min_shots)
             (stage / "raw").mkdir()
             (stage / "shots").mkdir()
             (stage / "raw" / "test.json").write_bytes(document_bytes)
@@ -643,6 +673,7 @@ def ingest(config: Config, adb: Adb | None = None) -> Path:
                     "instrument_serial": config.serial, "read_started_utc": started,
                     "read_completed_utc": observed, "blob_bytes": len(blob),
                     "blob_sha256": sha256(blob), "expected_shots": config.expected_shots,
+                    "min_shots": min_shots, "dropped_frames": config.expected_shots - len(shots),
                     "stored_configuration": observed_config,
                     "consistency": "transactional SELECT; identical full blob reads; identical revision recheck",
                     "database_archive": None,
@@ -694,6 +725,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--archive-root", type=Path, default=Path(r"C:\LIBS-Staging\z300-native"))
     parser.add_argument("--source-revision")
     parser.add_argument("--timeout", type=float, default=45.0)
+    parser.add_argument("--min-shots", type=int, default=None,
+                         help="minimum stored shots to publish, 1..expected-shots "
+                              "(default: min(6, expected-shots))")
     parser.add_argument("--output", type=Path, help="atomically write ZIP here instead of stdout")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
@@ -723,7 +757,10 @@ def main(argv: list[str] | None = None) -> int:
                 finally:
                     if os.path.exists(temporary):
                         os.unlink(temporary)
-            print(f"native ZIP archived: {config.expected_shots} shots", file=sys.stderr)
+            with zipfile.ZipFile(payload) as archive:
+                stored_shots = json.loads(archive.read("manifest.json"))["shots"]
+            print(f"native ZIP archived: {stored_shots} of {config.expected_shots} expected shots",
+                  file=sys.stderr)
             return 0
         # Windows stdout otherwise translates newline bytes inside a binary ZIP.
         if os.name == "nt":

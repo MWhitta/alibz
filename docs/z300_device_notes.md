@@ -99,6 +99,39 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 - SD card also holds `pumptime.csv` (28 MB, growing), `wlcalspectrum.csv`
   (278 MB), `xyzstage.json`, `hardware.cfg`, `laserconfig.json`.
 
+`scripts/z300_sync_tests.py` archives **every** test on the instrument, not
+only portal-fired runs. Each pass runs two read-only, transactional
+`sqlite3 -batch -noheader` SELECTs (the same style as `z300_opal_ingest`'s
+revision query, never by name or "latest", never a write) that list up to
+`--list-limit` (default 200, max 1000) current, non-deleted `type:"test"`
+documents ordered by sequence descending: a **fresh** window of the newest
+tests, then a **backfill** window strictly below a persisted `backfill_cursor`
+(`<state-root>/cursor.json`, initialised to the fresh window's minimum
+sequence). So the ~thousands of historical tests on the card drain while new
+tests keep priority. For each test not already archived under `--archive-root`
+(default `C:\LabData\LIBS\z300-tests`) or an `--also-archived` directory
+(default `C:\LabData\LIBS\pantheum-acquisitions`, read from each bundle's
+`manifest.json` `test_id`), it calls `z300_opal_ingest.ingest()` in-process
+with `run_id = z300-<test-id>` (archived only when that id satisfies both the
+producer's id rule and pantheum's `^[a-z0-9][a-z0-9-]{7,47}$` run-id rule),
+`expected_shots = config.numShotsPerLocation * config.rasterNumLocations` from
+the stored document, and the `--min-shots` rule. Archive attempts are spent
+fresh-first then backfill, up to `--limit` (default 20) per pass. The backfill
+cursor only advances to a window's minimum once **every** row in that window is
+resolved (archived or skipped) — a still-pending test holds it, so it is never
+skipped; an empty backfill window sets `backfill_complete` (a `--rescan` flag
+re-walks from the newest). A test whose bundle is not stored yet is recorded
+`pending` and retried while its `unixTime` is within `--retry-window-hours`
+(default 24); an empty, averaged-only, unsafe-id or timed-out test is recorded
+in a skip index (`<state-root>/skipped.json`, default state root
+`C:\LabData\.labdesk\libs\z300-tests`) so it is not re-read every pass. It never
+deletes or alters the instrument copy, holds a pass-level lock in the state
+root plus the producer's per-run lock, and prints a `{listed,listed_fresh,
+listed_backfill,new,archived,pending,skipped,errors,backfill_cursor,
+backfill_complete,archive_root}` summary on stdout (`--dry-run` prints the plan
+to stderr and touches nothing; exit 0 when the pass ran, 2 on usage, 3 when the
+instrument was unreachable).
+
 ## 6. Failure modes seen and their recovery
 
 | Symptom | Cause | Recovery |
@@ -124,7 +157,8 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
   classifier refuses agent-run deploys, the user runs them);
   `recover-alibz-awaiting-data.{py,sh}` (data-API recovery / `--refetch`);
   `unblock-alibz-session.{py,sh}`; `z300_opal_ingest.py` (deployed to Opal);
-  `z300_fb_decode.py`.
+  `z300_sync_tests.py` (deployed to Opal; enumerates and archives every
+  instrument test through `z300_opal_ingest.ingest`); `z300_fb_decode.py`.
 - Datasets on the old resampled grid still exist (`2679219a…`, `4f678d79…`,
   `0982aede…`); runs now reference native datasets.
 
@@ -142,12 +176,17 @@ which is the worn fixed spot of the 2026-09-22 sessions: shift the window
 
 0. **Spectrometer frame drops (active, 2026-09-22 afternoon).** 3 of the last 4
    tests stored 8–9 of 10 spectra after `onyx` checksum errors. Every pipeline
-   stage assumes exactly ten (retrieval validation, `_run_live` shot fetch →
+   stage assumed exactly ten (retrieval validation, `_run_live` shot fetch →
    `uncertain` under `data_api`, optimizer `shots != 10` → failed, metrics
-   "exactly ten shot spectra"). Until batches tolerate dropped frames, most
-   batches will fail and `data_api` mode would leave runs `uncertain` with the
-   hardware hold pinned. Decide: accept ≥ N stored shots (recommend 8) and
-   record `dropped_frames`, or stop and service the instrument.
+   "exactly ten shot spectra"). The Opal producer, `z300_opal_ingest.py`, no
+   longer requires an exact match: `--min-shots` (default `min(6,
+   expected-shots)`) accepts any stored count `n` with `min_shots <= n <=
+   expected-shots`, records `provenance.dropped_frames` and `provenance.min_shots`
+   in the manifest, and still refuses to publish more shots than requested.
+   This mirrors pantheum-I `retrieval.py::validate_archive`'s existing
+   `MIN_STORED_SHOTS=6` tolerance (`DECISIONS.md` 2026-09-22). The other
+   pipeline stages named above (retrieval validation, optimizer `shots != 10`,
+   metrics) are outside this repo and still need the owner's decision.
 
 1. **Unvalidated grid points waste fires.** Period 100 stored one shot; delays
    20 and 50 in the current grid have never been tried. Each bad point now
