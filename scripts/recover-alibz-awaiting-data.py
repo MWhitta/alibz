@@ -52,7 +52,7 @@ def main():
     service = Service(config)
     acq = service.acquisition
     cfg = acq._cfg()
-    states = ('awaiting_data', 'succeeded') if args.refetch else ('awaiting_data',)
+    states = ('awaiting_data', 'succeeded', 'failed') if args.refetch else ('awaiting_data',)
     with service.db() as db:
         rows = [dict(r) for r in db.execute(
             f"SELECT * FROM acquisitions WHERE state IN ({','.join('?' * len(states))}) "
@@ -61,7 +61,9 @@ def main():
         rows = [r for r in rows if r['id'] in set(args.run)]
     else:
         rows = [r for r in rows if r['state'] == 'awaiting_data' or r['id'] in set(args.run)]
-    if not rows:
+    if not rows and args.apply and args.enable_data_api:
+        rows = []  # config-only invocation
+    elif not rows:
         print(json.dumps({'error': 'no matching awaiting_data runs'})); return 1
     client = Z300Client(cfg['analyzer_url'], timeout=min(90.0, float(cfg['timeout_seconds'])))
     fetched = []
@@ -78,7 +80,7 @@ def main():
                           'csv_lines': lines[0], 'fetched': True}), flush=True)
     with service.db() as db:
         batches = {r['run_id']: dict(r) for r in db.execute(
-            "SELECT * FROM optimization_batches WHERE state IN ('awaiting_data','completed')")}
+            "SELECT * FROM optimization_batches WHERE state IN ('awaiting_data','completed','failed')")}
         batches = {k: v for k, v in batches.items()
                    if v['state'] == 'awaiting_data' or args.refetch}
     print(json.dumps({'apply': args.apply, 'runs': [r['id'] for r, *_ in fetched],
@@ -137,6 +139,18 @@ def main():
                                     _canonical(best) if best else None, session_id))
                 entry.update(session=session_id, rescored=ok, score=metrics.get('score'),
                              grid=metrics.get('grid'), proposal=proposal if session['state'] in ('ready', 'complete') else None)
+            elif batch and batch['state'] == 'failed':
+                # A run the retrieval gave up on: the spectra exist after all, so
+                # re-queue the batch and let the optimizer score it.
+                with service.db() as db:
+                    db.execute("UPDATE optimization_batches SET state='queued', detail=? WHERE id=?",
+                               ('Spectra recovered from the analyzer after retrieval gave up; scoring.', batch['id']))
+                    db.execute("UPDATE optimization_sessions SET state='acquiring' WHERE id=?", (batch['session_id'],))
+                view = service.optimization._reconcile(batch['session_id'])
+                scored = next((b for b in view.get('batches', []) if b['id'] == batch['id']), {})
+                entry.update(session=batch['session_id'], session_state=view.get('state'),
+                             proposal=view.get('proposal'), batch_state=scored.get('state'),
+                             score=(scored.get('metrics') or {}).get('score'))
             elif batch:
                 with service.db() as db:
                     db.execute("UPDATE optimization_batches SET state='queued', detail=? WHERE id=?",

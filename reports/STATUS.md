@@ -44,7 +44,21 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 12:15 PDT session opt-981ee9c2… unblocked; grid [10,25,50]
+# Current state — 2026-09-22 12:50 PDT raster/verified/refusal/retrieval patch AWAITING DEPLOY
+
+Implemented + tested (126 focused OK; full suite 820 OK (skipped=26)):
+verified-condition allowlist from the ledger (7 conditions verified at 10 Hz),
+refused dispatch keeps session ready, retrieval cap counts producer refusals only
+with transport backoff, data-API native path (decoder archived in pantheum-I/tools),
+gilbert raster of one site per 10-shot batch (12 sites in the vendor window).
+User session opt-b61065d7… is acquiring; deploy between batches:
+scripts/deploy-alibz-raster.sh --apply, then
+scripts/recover-alibz-awaiting-data.sh --apply --enable-data-api. Report:
+reports/2026-09-22-raster-verified-conditions.md.
+
+## Earlier state (superseded)
+
+# Earlier — 2026-09-22 12:15 PDT session opt-981ee9c2… unblocked; grid [10,25,50]
 
 Period 100 dropped from the live session; 5 completed batches, 1 failed (5/100,
 1 shot). Best so far 5/10 @ 0.3845 (native); proposal 10/50. Study continues from
