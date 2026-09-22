@@ -425,3 +425,13 @@ significant figure, as clarified by user. Display-only app.js update deployed
 12:22:14 PDT; no service restart, layout/configuration change or hardware action.
 42 UI tests and syntax passed; served hash and live browser values verified.
 Report:2026-09-22-readout-precision.md. No provider switch. Complete.
+
+
+## Parallel follow-up — 2026-09-22 three significant figures deployed
+
+User revised pressure and calibration readouts to THREE significant figures.
+Shared pressure/calibration/depth formatter and nominal pitch fallback updated;
+significant trailing zeros retained. Deployed12:39:52 PDT, no restart or hardware
+action. Source/served hashes, browser readouts, syntax and42 UI tests verified.
+Report:2026-09-22-readouts-3sig.md. Supersedes earlier one-figure precision.
+No provider switch. Complete.
