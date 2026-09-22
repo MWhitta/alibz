@@ -17,7 +17,7 @@
 set -euo pipefail
 SRC=${PANTHEUM_SRC:-"$HOME/Projects/github/pantheum-I"}
 HERE=$(cd "$(dirname "$0")" && pwd)
-COMMIT=${PANTHEUM_COMMIT:-73bd891}
+COMMIT=${PANTHEUM_COMMIT:-bc5a319}
 BASELINE=278d525
 REMOTE_DIR=pantheum-interlock-refusal-bundle-20260922
 FILES=(pantheum/alibz/acquire.py pantheum/alibz/optimization.py web/alibz/app.js)
