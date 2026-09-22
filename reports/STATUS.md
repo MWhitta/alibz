@@ -44,7 +44,19 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 13:40 PDT analyzer clock reset diagnosed; launcher restart handed to operator
+# Current state — 2026-09-22 13:45 PDT clock-reset hang cleared; partial batches recovered; ready to fire
+
+Operator ran scripts/z300-clock.sh --restart-home, armed the laser and ran WL
+calibration: Geochem Pro foreground, no dialog, skew 4 s, triggerLocked 0,
+wlCalibrationNeededCode 1. Refetch --apply scored the three dropped-frame
+batches (8/9/9 shots; scores 0.345/0.328/0.315); sessions opt-f8c5243d,
+opt-b1c216f4, opt-b61065d7 and opt-981ee9c2 are all `ready` with proposals.
+No active acquisitions. Next: operator starts the next batch from the portal.
+Watch dropped_frames on new batches (onyx checksum errors). RTC cell still dead:
+run scripts/z300-clock.sh after any power cycle. Report:
+reports/2026-09-22-clock-reset-home-loading.md.
+
+## Earlier today (13:40 PDT) analyzer clock reset diagnosed; launcher restart handed to operator
 
 Power cycle at ~13:09 PDT reset the analyzer clock to 1970 (PCF8563 RTC backup
 cell is dead). The LIBZ Home launcher opened Date settings and is now idle

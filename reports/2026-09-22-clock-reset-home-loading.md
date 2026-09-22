@@ -1,6 +1,6 @@
 # Z300 clock reset after power cycle: launcher stuck on "Loading..." — 2026-09-22
 
-Status: diagnosed; clock already correct; launcher restart handed to the operator
+Status: RESOLVED 13:40 PDT. Operator ran the wrapper, armed and calibrated; recovery applied. (Earlier: diagnosed; clock already correct; launcher restart handed to the operator
 as a wrapper (`scripts/z300-clock.sh --restart-home`) because the auto-mode
 classifier refuses remote writes (key injection / `am force-stop`) from this
 session. Data-API recovery is not blocked by the launcher state and its dry run
@@ -62,6 +62,15 @@ laser (PIN), check the padlock → `scripts/recover-alibz-awaiting-data.sh
 
 The refetch dry run at 13:24 PDT fetched 8/9/9 spectra for the three tests and
 listed all three batches for re-scoring; `retrieval_now: data_api`.
+
+## Outcome (13:45 PDT)
+
+- Handheld: Geochem Pro in the foreground, no launcher dialog, clock skew 4 s.
+- Analyzer: `triggerLocked 0`, `wlCalibrationNeededCode 1` (calibrated), laser armed by the operator.
+- Recovery applied (backup `/home/mwhittaker/pantheum-recover-backup-20260922T133948`):
+  run-8264fabf 8 shots → score 0.3452 (opt-f8c5243d, proposal 5/25);
+  run-d99401be 9 shots → 0.3276 (opt-b1c216f4, proposal 20/25);
+  run-bb777df5 9 shots → 0.3151 (opt-b61065d7, proposal 5/25). All four sessions `ready`.
 
 ## Recorded elsewhere
 
