@@ -94,6 +94,7 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 | Fire times out, run `uncertain` | `stepSize 0` divide-by-zero | Never send 0 (validator now refuses); reconcile the hold. |
 | 500 with a UUID body | Invalid laser config (e.g. 100 Hz) | Use pulsePeriod 100. |
 | Run `awaiting_data` forever | Test stored fewer shots than requested (period 100) and retrieval kept pending | Cap now ends it `failed` after `max_attempts`; the optimizer continues. |
+| Test "finishes" with 8–9 of 10 spectra | **Spectrometer-link frame drops**: `E/onyx: checksum mismatch! computed/read …` then `error. event type: 7` on the shot; the laser fired all ten (`shot:buffer` x10) but one spectrum is never stored (shot n → 404). Seen 4 times between 12:16 and 12:38 PDT on 2026-09-22, 3 of 4 tests affected, none in the morning's 5 tests. Solenoid 39 °C, uptime 3.5 h, no kernel USB fault. | Unknown root cause (thermal/EMI on the readout link?). Power-cycle and re-observe; make the pipeline tolerate ≥ 8 stored shots (decision pending). |
 | Trigger "unlocked" in the portal but refused | identity field is cosmetic | Read the handheld log: `logcat` tag `TestController`. |
 | Black/absent handheld screen | display asleep | wake on the device; there is no API. |
 
@@ -113,6 +114,15 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
   `0982aede…`); runs now reference native datasets.
 
 ## 8. Anticipated problems (for the owner to decide)
+
+0. **Spectrometer frame drops (active, 2026-09-22 afternoon).** 3 of the last 4
+   tests stored 8–9 of 10 spectra after `onyx` checksum errors. Every pipeline
+   stage assumes exactly ten (retrieval validation, `_run_live` shot fetch →
+   `uncertain` under `data_api`, optimizer `shots != 10` → failed, metrics
+   "exactly ten shot spectra"). Until batches tolerate dropped frames, most
+   batches will fail and `data_api` mode would leave runs `uncertain` with the
+   hardware hold pinned. Decide: accept ≥ N stored shots (recommend 8) and
+   record `dropped_frames`, or stop and service the instrument.
 
 1. **Unvalidated grid points waste fires.** Period 100 stored one shot; delays
    20 and 50 in the current grid have never been tried. Each bad point now

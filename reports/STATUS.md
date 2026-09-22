@@ -44,7 +44,21 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 12:50 PDT raster/verified/refusal/retrieval patch AWAITING DEPLOY
+# Current state — 2026-09-22 13:20 PDT raster patch DEPLOYED; NEW: spectrometer frame drops
+
+Raster/verified/refusal/retrieval patch is live (refusals column populated). The
+--enable-data-api switch has NOT been applied (wrapper bug fixed, commit 47b0cf6)
+and must wait: since 12:16 PDT the analyzer drops spectra (onyx checksum mismatch,
+event type 7): tests 00537a8a 8/10, 35c4b74b 9/10, c665693c 9/10 stored; 1721c588
+10/10. Every stage assumes exactly 10 shots, so these batches fail (two sessions
+blocked/continued, run-bb777df5… still awaiting with 9 shots). Under data_api such a
+run would end uncertain with the hardware hold pinned. Awaiting user decision on
+tolerating >= 8 stored shots; recommend power-cycling the analyzer and watching
+the error rate. Notes: docs/z300_device_notes.md §6/§8 item 0.
+
+## Earlier state (superseded)
+
+# Earlier — 2026-09-22 12:50 PDT raster/verified/refusal/retrieval patch AWAITING DEPLOY
 
 Implemented + tested (126 focused OK; full suite 820 OK (skipped=26)):
 verified-condition allowlist from the ledger (7 conditions verified at 10 Hz),
