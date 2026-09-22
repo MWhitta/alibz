@@ -416,3 +416,12 @@ Browser confirmed Awake, pending-data Sleep gating, then enabled Sleep when that
 run left pending retrieval. No deliberate sleep cycle, laser, motion, or replay.
 Source synchronized to ../pantheum-I. Report:2026-09-22-display-controls.md.
 No provider switch. Follow-up complete; physical sleep-to-wake unexercised.
+
+
+## Parallel follow-up — 2026-09-22 readout precision deployed
+
+Argon pressure and camera calibration/depth measurement readouts now use one
+significant figure, as clarified by user. Display-only app.js update deployed
+12:22:14 PDT; no service restart, layout/configuration change or hardware action.
+42 UI tests and syntax passed; served hash and live browser values verified.
+Report:2026-09-22-readout-precision.md. No provider switch. Complete.

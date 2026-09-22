@@ -1,0 +1,12 @@
+{
+  "before": {
+    "web/alibz/styles.css": "499c0ff6bd9504a60415a29b6bf16920da078d38731cf6ee48731950640ea7cf",
+    "web/alibz/app.js": "063949526ab1b595e3b04e90648b05a8c30c6812cbfa13ae89cd5527a970b711",
+    "web/alibz/index.html": "26585c26bc078b754ae766002e05aaaf840ba40938359acbf36bad398f8c208b"
+  },
+  "after": {
+    "web/alibz/styles.css": "499c0ff6bd9504a60415a29b6bf16920da078d38731cf6ee48731950640ea7cf",
+    "web/alibz/app.js": "ed52029a4f68af335ee83af85b36dac91bf930343a9b4eedf26963250d0e3846",
+    "web/alibz/index.html": "26585c26bc078b754ae766002e05aaaf840ba40938359acbf36bad398f8c208b"
+  }
+}
