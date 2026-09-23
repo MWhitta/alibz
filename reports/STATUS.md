@@ -44,7 +44,25 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 17:45 PDT first replicated V study COMPLETE (27 batches, one click); interlock fix deploy pending
+# Current state — 2026-09-23 09:30 PDT wavelength registration + thermal-drift correction IN PROGRESS
+
+Owner hypothesis: db mismatch = WL calibration done cold (~25 C) before the
+instrument warms to 35-40 C. Facts gathered: every shot record carries
+wlCalibrations[].calibrationTime (09-22 runs: "Sep 22 1:39:21 PM" from
+run-126d0c96 on; the three morning runs "Sep 21 2:55:07 PM"); handheld holds
+/sdcard/sciaps/calibration.json (base pixel->nm map) and
+currentwlcalibration.json (13:39 recal; UV segment moved +50..+85 pm vs base);
+only temperature telemetry = WLCalLog solenoidTemp (35 C) in logcat; API has
+no temperature endpoint. Delegated (specialist): alibz/wavelength_registration.py
+(ambient Ar I/O I registration, many-line piecewise element registration,
+combined correction, vendor-calibration shift, thermal drift model), pipeline +
+peaky_indexer_v3 integration, Pantheum provenance fields (wl_calibration_time,
+collected_at, warmup_minutes, analyzer_temperature_c), measurement of shift vs
+minutes-since-calibration over the 53 runs, report
+reports/2026-09-23-wavelength-registration.md. Interlock-refusal deploy
+(scripts/deploy-alibz-interlock-refusal.sh --apply, bc5a319) still pending.
+
+## Earlier (2026-09-22 17:45 PDT) first replicated V study COMPLETE (27 batches, one click); interlock fix deploy pending
 
 Session opt-9d384296 ran the 3x3 grid with 3 replicates unattended (16:12-16:33
 PDT). Period dominates: 10 > 25 > 50 (0.485/0.460/0.414, replicate SD 0.021);
