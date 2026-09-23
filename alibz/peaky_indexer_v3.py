@@ -446,8 +446,16 @@ class PeakyIndexerV3:
         weighted_solve: bool = False,
         ne_prior: Optional[Tuple[float, float]] = None,
         stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
+        wavelength_registration: object = None,
     ):
         self.peak_array = np.asarray(peak_array, dtype=float)
+        # Optional independent wavelength registration (a combined-registration
+        # dict or a RegistrationShift) supplied by the pipeline as a prior.  It
+        # does NOT change matching -- the peak table it receives is already in
+        # the database frame -- but it is retained so the indexer can report
+        # its own anchor-based shift alongside the external one and flag any
+        # disagreement (see :meth:`wavelength_registration_report`).
+        self.wavelength_registration = wavelength_registration
         # Stage-consistency thermometer weight (see _stage_tie_cost).
         self._stage_consistency_weight = float(stage_consistency_weight)
         self.n_peaks = self.peak_array.shape[0]
@@ -2558,6 +2566,38 @@ class PeakyIndexerV3:
                   f"{delta_bic if np.isfinite(delta_bic) else 'inf'}, "
                   f"{len(scored)} basins)")
         return best_p, info
+
+    def wavelength_registration_report(self, tolerance_nm=0.05):
+        """Compare the indexer's own anchor shift with the external prior.
+
+        Returns ``None`` when no registration was supplied.  Otherwise runs the
+        indexer's own locally-dominant anchor estimator on its peak table and
+        reports it beside the external registration's global/segment shifts,
+        flagging a disagreement when they differ by more than ``tolerance_nm``.
+        Purely diagnostic: matching is unchanged.
+        """
+        reg = self.wavelength_registration
+        if reg is None:
+            return None
+        from alibz.utils.wavelength import estimate_wavelength_shift, shift_at
+        own_shift, own_n = estimate_wavelength_shift(self.peak_array, self.db)
+        # external global shift (dict or RegistrationShift or scalar)
+        if isinstance(reg, dict):
+            ext_global = float(reg.get("global_shift_nm", 0.0))
+            ext_segments = {k: v.get("shift_nm")
+                            for k, v in reg.get("segments", {}).items()}
+        else:
+            ext_global = float(reg) if reg is not None else 0.0
+            ext_segments = {}
+        diff = own_shift - ext_global
+        return {
+            "indexer_own_shift_nm": float(own_shift),
+            "indexer_own_n_anchors": int(own_n),
+            "external_global_shift_nm": ext_global,
+            "external_segment_shifts_nm": ext_segments,
+            "difference_nm": float(diff),
+            "disagreement": bool(abs(diff) > tolerance_nm),
+        }
 
     def solve_at(
         self,
