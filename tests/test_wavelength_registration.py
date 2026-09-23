@@ -180,6 +180,35 @@ def test_ambient_registration_detects_argon(db):
     assert abs(nir["shift_nm"] - (-0.15)) < 0.05
 
 
+def test_ambient_registration_accepts_composition_gate(db):
+    """The composition only removes ambient anchors; it never adds any."""
+    x = _native_grid()
+    lines = list(zip(*wr._lines_of(db, ["Ar"], 1)))
+    y = _plant(x, lines, lambda wl: -0.15, amp_scale=400.0, seed=3, noise=2.0)
+    plain = wr.ambient_registration(x, y, db)
+    gated = wr.ambient_registration(x, y, db, composition=["Fe"])
+    via_cfg = wr.ambient_registration(x, y, db, config={"composition": ["Fe"]})
+    assert gated["species_detected"] == via_cfg["species_detected"]
+    assert gated["n_lines"] <= plain["n_lines"]
+    assert {r["db_nm"] for r in gated["lines"] if r.get("matched")} <= \
+        {r["db_nm"] for r in plain["lines"] if r.get("matched")}
+    nir = gated["segments"]["NIR"]
+    assert nir["n_lines"] >= 3 and abs(nir["shift_nm"] - (-0.15)) < 0.05
+
+
+def test_ar_cross_check_between_engines():
+    from alibz.pipeline import _ar_cross_check
+    assert _ar_cross_check(None, {"shift_nm": -0.19}) is None
+    assert _ar_cross_check({"offset_nm": None}, {"shift_nm": -0.19}) is None
+    agree = _ar_cross_check({"offset_nm": -0.17, "uncertainty_nm": 0.03, "status": "calibrated"},
+                            {"shift_nm": -0.19, "sigma_nm": 0.0, "n_lines": 1})
+    assert agree is not None and agree["flagged"] is False
+    assert agree["combined_sigma_nm"] >= 0.02   # single-line floor applied
+    clash = _ar_cross_check({"offset_nm": -0.05, "uncertainty_nm": 0.01, "status": "calibrated"},
+                            {"shift_nm": -0.34, "sigma_nm": 0.0, "n_lines": 1})
+    assert clash["flagged"] is True and clash["n_sigma"] > 3
+
+
 def test_ambient_registration_no_argon_is_quiet(db):
     x = _native_grid()
     rng = np.random.default_rng(4)
@@ -306,6 +335,9 @@ def test_pipeline_registration_on_off(db):
     assert wlr["applied_segments"] == []
     # ambient, golden element, combined, and the vote-mode diagnostic recorded
     assert all(k in wlr for k in ("combined", "ambient", "element", "diagnostic"))
+    # the consistency record against the independent Ar I engine is always
+    # present (None when either estimator produced no offset)
+    assert "gas_cross_check" in wlr
     # default mode is "ambient": element UV/VIS is diagnostic, never applied
     dflt = analyze_spectrum(x, y, "db", n_calls=6)
     assert dflt["wavelength_registration"]["mode"] == "ambient"

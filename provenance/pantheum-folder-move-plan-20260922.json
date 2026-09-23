@@ -1,0 +1,46 @@
+{
+  "destination": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922",
+  "destination_exists": false,
+  "moves": [
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-fire-fix-source-backup-20260921T153917",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-fire-fix-source-backup-20260921T153917",
+      "files": 6,
+      "bytes": 170280
+    },
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-I-acquisition-backup-20260921T130028",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-I-acquisition-backup-20260921T130028",
+      "files": 15,
+      "bytes": 460506
+    },
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-I-acquisition-backup-20260921T141426",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-I-acquisition-backup-20260921T141426",
+      "files": 16,
+      "bytes": 549900
+    },
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-I-acquisition-backup-20260921T142747",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-I-acquisition-backup-20260921T142747",
+      "files": 6,
+      "bytes": 324639
+    },
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-panel-errors-source-backup-20260921T165416",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-panel-errors-source-backup-20260921T165416",
+      "files": 4,
+      "bytes": 298384
+    },
+    {
+      "from": "/Users/mwhittaker/Projects/github/pantheum-query-fix-source-backup-20260921T162743",
+      "to": "/Users/mwhittaker/Projects/archive/pantheum-source-backups-20260922/pantheum-query-fix-source-backup-20260921T162743",
+      "files": 5,
+      "bytes": 163910
+    }
+  ],
+  "status": "superseded_not_executed",
+  "final_archive": "pantheum-I/archive/source-backups/2026-09-21",
+  "archive_commit": "3284cbc8791041fe60975d50e98b09322c20f22d",
+  "original_folders_removed": true
+}

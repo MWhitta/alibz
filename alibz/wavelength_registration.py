@@ -79,6 +79,11 @@ _DEFAULTS = {
     # matching / unambiguity
     "ambiguity_ratio": 3.0,       # 2nd candidate must be >=ratio x farther
     "prior_shift_nm": 0.0,
+    # sample elements whose strong lines gate the AMBIENT anchors as
+    # competitors (a pure-Fe target has Fe II lines within 0.1-0.2 nm of the
+    # Ar I 763/794/811/842 nm anchors; without this gate they are matched as
+    # argon).  Normally passed as ambient_registration(..., composition=...)
+    "composition": (),
     # element line selection
     "kT_eV": 8.617333262e-5 * 9000.0,   # Boltzmann weight temperature (9 kK)
     "isolation_window_nm": 0.30,
@@ -534,7 +539,7 @@ def _eval_model(model, wl):
 # ---------------------------------------------------------------------------
 # ambient registration
 # ---------------------------------------------------------------------------
-def ambient_registration(x, y, db, *, config=None) -> dict:
+def ambient_registration(x, y, db, *, composition=None, config=None) -> dict:
     """Composition-independent wavelength registration from ambient lines.
 
     Ar I, O I (and optionally N I, H-alpha) are present in almost every Z300
@@ -547,6 +552,15 @@ def ambient_registration(x, y, db, *, config=None) -> dict:
     survive.
 
     Works from a ``shift_nm = 0`` prior with a +-0.5 nm search window.
+
+    ``composition`` (or ``config["composition"]``) lists the sample elements
+    whose strong lines are added to the unambiguity gate.  This matters in
+    pure-metal targets: on the 2026-09-22 Fe run means the Ar I 706, 738,
+    763, 794, 811, 826 and 842 nm anchors each matched a repeatable feature
+    0.2-0.6 nm from the argon registration (Fe II 763.19, 794.51, 810.98,
+    842.06 nm and unlisted Fe features); only 696.5, 772.4 and 801.5 nm are
+    argon there.  The estimator stays composition-independent in the sense
+    that the composition only REMOVES anchors; it never supplies them.
     """
     x, y = _validate_spectrum(x, y)
     cfg = _config(config)
@@ -556,7 +570,7 @@ def ambient_registration(x, y, db, *, config=None) -> dict:
         ambient_elems.append("N")
     if cfg["use_hydrogen"]:
         ambient_elems.append("H")
-    comp = list(config.get("composition", ())) if isinstance(config, Mapping) else []
+    comp = list(composition) if composition else list(cfg.get("composition") or ())
     competitor_wl = _strong_competitors(db, sorted(set(ambient_elems) | set(comp)),
                                         cfg)
 

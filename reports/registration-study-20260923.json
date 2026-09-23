@@ -1516,18 +1516,9 @@
     "VIS": 9,
     "NIR": 10
    },
-   "ambient_nir_shift_nm": 0.47740911093114846,
-   "ambient_species": [
-    "Ar"
-   ],
-   "nir_disagreement": {
-    "element_nir_shift_nm": -0.032924278973581925,
-    "ambient_nir_shift_nm": 0.47740911093114846,
-    "difference_nm": -0.5103333899047304,
-    "combined_sigma_nm": 0.12262456215927875,
-    "n_sigma": 4.161755042532599,
-    "flagged": true
-   }
+   "ambient_nir_shift_nm": null,
+   "ambient_species": [],
+   "nir_disagreement": null
   },
   {
    "run": "seq-f27890f1365b",
@@ -1682,18 +1673,9 @@
     "VIS": 6,
     "NIR": 8
    },
-   "ambient_nir_shift_nm": -0.33286868805373615,
-   "ambient_species": [
-    "Ar"
-   ],
-   "nir_disagreement": {
-    "element_nir_shift_nm": -0.20148207982178729,
-    "ambient_nir_shift_nm": -0.33286868805373615,
-    "difference_nm": 0.13138660823194886,
-    "combined_sigma_nm": 0.08269814206430466,
-    "n_sigma": 1.588749214338877,
-    "flagged": false
-   }
+   "ambient_nir_shift_nm": null,
+   "ambient_species": [],
+   "nir_disagreement": null
   },
   {
    "run": "seq-2dcf7fa5ca1a",
@@ -1834,11 +1816,11 @@
    },
    "vs_temperature": null,
    "vs_ambient_nir_shift": {
-    "intercept": 0.0007420306865094848,
-    "slope": 0.028622578017924526,
-    "slope_sigma": 0.0641888113913301,
-    "rms_nm": 0.05550394807805895,
-    "n": 46
+    "intercept": 0.004133092260552126,
+    "slope": 0.05408117112532033,
+    "slope_sigma": 0.10098057732114125,
+    "rms_nm": 0.055874438029462806,
+    "n": 44
    },
    "resolved": false,
    "detection_limit_nm_per_hour": 0.006396335535006309,
@@ -1855,11 +1837,11 @@
    },
    "vs_temperature": null,
    "vs_ambient_nir_shift": {
-    "intercept": 0.014288399390994307,
-    "slope": 0.0657072431634988,
-    "slope_sigma": 0.1344660330076637,
-    "rms_nm": 0.11601436594126878,
-    "n": 43
+    "intercept": 0.03576330579803322,
+    "slope": 0.14347574928197895,
+    "slope_sigma": 0.2061339016242313,
+    "rms_nm": 0.11382805824810194,
+    "n": 41
    },
    "resolved": true,
    "detection_limit_nm_per_hour": 0.012542731769501186,
@@ -1899,11 +1881,11 @@
    },
    "vs_temperature": null,
    "vs_ambient_nir_shift": {
-    "intercept": 0.0016587864695320061,
-    "slope": 0.03983509726658699,
-    "slope_sigma": 0.062435242452064214,
-    "rms_nm": 0.05492258699297062,
-    "n": 48
+    "intercept": 0.007432333237723968,
+    "slope": 0.0764669964879705,
+    "slope_sigma": 0.09621415440741755,
+    "rms_nm": 0.055131742187069906,
+    "n": 46
    },
    "resolved": false,
    "detection_limit_nm_per_hour": 0.0032183560462913426,
@@ -1920,11 +1902,11 @@
    },
    "vs_temperature": null,
    "vs_ambient_nir_shift": {
-    "intercept": 0.01665138005762815,
-    "slope": 0.05920017108716267,
-    "slope_sigma": 0.13090924209683294,
-    "rms_nm": 0.1149428078144794,
-    "n": 45
+    "intercept": 0.03701214308686231,
+    "slope": 0.13108524401654567,
+    "slope_sigma": 0.19691255499019064,
+    "rms_nm": 0.11263778531414426,
+    "n": 43
    },
    "resolved": false,
    "detection_limit_nm_per_hour": 0.007501163654416523,
@@ -3352,14 +3334,14 @@
  },
  "subpixel_comparison": {
   "gaussian": {
-   "n": 0,
-   "median_abs_pm": null,
-   "rms_pm": null
+   "n": 1786,
+   "median_abs_pm": 47.80192577430853,
+   "rms_pm": 62.29123907049764
   },
   "parabolic": {
-   "n": 0,
-   "median_abs_pm": null,
-   "rms_pm": null
+   "n": 1786,
+   "median_abs_pm": 51.903620354238456,
+   "rms_pm": 70.56945552122332
   }
  }
 }

@@ -1,0 +1,109 @@
+{
+  "access_date": "2026-09-22",
+  "purpose": "Primary-source and pinned local evidence for LIBS physical triage priors",
+  "sources": [
+    {
+      "id": "nist-asd-lines-help",
+      "type": "primary_reference_database_documentation",
+      "url": "https://physics.nist.gov/PhysRefData/ASD/Html/lineshelp.html",
+      "facts_used": [
+        "Observed relative intensities depend on source conditions and are generally not sensitivity corrected.",
+        "Transition probabilities carry accuracy grades and may be flagged as doubtful or intensity derived."
+      ]
+    },
+    {
+      "id": "nist-atomic-spectroscopy-lines",
+      "type": "primary_reference_documentation",
+      "url": "https://physics.nist.gov/Pubs/AtSpec/node17.html",
+      "facts_used": [
+        "Optically thin emitted line power is proportional to upper-level population times A times photon energy.",
+        "Lines sharing an upper level therefore have a branching relation after wavelength and response correction."
+      ]
+    },
+    {
+      "id": "nist-ar-i-persistent-lines",
+      "type": "primary_reference_table",
+      "url": "https://physics.nist.gov/PhysRefData/Handbook/Tables/argontable3.htm",
+      "facts_used": [
+        "Persistent neutral-argon anchors occur throughout the red and near infrared, including the detector groups near 696.54, 706.72, 763.51, 811.53, 826.45, and 842.46 nm."
+      ]
+    },
+    {
+      "id": "nist-o-i-persistent-lines",
+      "type": "primary_reference_table",
+      "url": "https://physics.nist.gov/PhysRefData/Handbook/Tables/oxygentable3.htm",
+      "facts_used": [
+        "The O I 777 nm components form one multiplet-scale observable, while the 844.6 nm group supplies an independent neutral-oxygen feature."
+      ]
+    },
+    {
+      "id": "cristoforetti-2010-lte",
+      "type": "original_research_article",
+      "url": "https://doi.org/10.1016/j.sab.2009.11.005",
+      "facts_used": [
+        "The McWhirter density criterion is necessary but insufficient for LTE in LIBS plasma.",
+        "Spatial and temporal gradients limit hard Saha-Boltzmann rejection rules."
+      ]
+    },
+    {
+      "id": "urbina-medina-2021-branching-ratios",
+      "type": "original_research_article",
+      "url": "https://doi.org/10.1177/00037028211006764",
+      "facts_used": [
+        "Branching-ratio measurements require control of self-absorption, blends, and spectral response."
+      ]
+    },
+    {
+      "id": "el-sherbini-2006-self-absorption",
+      "type": "original_research_article",
+      "url": "https://doi.org/10.1016/j.sab.2005.10.011",
+      "facts_used": [
+        "Resonance and low-lying LIBS lines can be strongly self-absorbed, invalidating naive intensity ratios."
+      ]
+    },
+    {
+      "id": "gornushkin-1999-curve-of-growth",
+      "type": "original_research_article",
+      "url": "https://doi.org/10.1016/S0584-8547(99)00004-X",
+      "facts_used": [
+        "LIBS curve-of-growth behavior links optical depth to saturation and self-absorption diagnostics."
+      ]
+    },
+    {
+      "id": "amato-2010-automatic-line-ranking",
+      "type": "original_research_article",
+      "url": "https://doi.org/10.1016/j.sab.2010.04.019",
+      "facts_used": [
+        "Automated LIBS line selection should account for interference and line quality rather than raw database intensity alone."
+      ]
+    },
+    {
+      "id": "hartoog-cowley-1973-weak-line-correlation",
+      "type": "original_research_article",
+      "url": "https://adsabs.harvard.edu/pdf/1973ApJ...182..847H",
+      "facts_used": [
+        "Chance wavelength coincidences rise with line and feature density, motivating a local coincidence penalty."
+      ]
+    },
+    {
+      "id": "mw2-k-resonance-local",
+      "type": "pinned_local_measurement_reanalysis",
+      "path": "runs/mw2_112_profile/k_resonance_diagnostic_20260716/k_wide_line_profiles.csv",
+      "sha256": "35dc5ca86a9346775790aa25f11e34a8a0dd225c01f2438038d50f06063de280",
+      "facts_used": [
+        "928 rows have positive integrated areas and SNR at least 5 for both K resonance features.",
+        "Area-ratio 5th, 50th, and 95th percentiles are 1.351270, 1.440607, and 1.527383; 926 of 928 fall outside plus or minus 20 percent of 2.006045.",
+        "This reused corpus has no independent certified composition and does not uniquely prove self-absorption."
+      ]
+    },
+    {
+      "id": "fe-session-local-analysis",
+      "type": "pinned_local_analysis_report",
+      "path": "reports/2026-09-22-fe-calibration-plasma-analysis.md",
+      "sha256": "c2fe4a90e90c246fe673647f2ec07c53e6aeccfe9f6fb9024a1691e3505a1c0c",
+      "facts_used": [
+        "The Fe session is useful for native-grid and nuisance checks but is not an independently certified Ar/O gas validation set."
+      ]
+    }
+  ]
+}

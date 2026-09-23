@@ -251,6 +251,22 @@ class AnalysisConfig:
     weighted_solve: bool = False
     #: stage-consistency thermometer weight (PeakyIndexerV3._stage_tie_cost)
     stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT
+    physical_triage: str = "off"
+    gas_wavelength_calibration: str = "apply"
+    #: independent wavelength registration (:mod:`alibz.wavelength_registration`):
+    #: "off" | "report" | "ambient" | "apply_element".  DEFAULT "ambient" applies
+    #: only the composition-INDEPENDENT ambient (Ar/O/N/H) registration to the
+    #: NIR segment and keeps the legacy anchor shift for UV/VIS; the golden-line
+    #: and vote-mode element registrations are recorded as diagnostics but not
+    #: applied.  "apply_element" additionally applies the element registration
+    #: where a segment passes quality (element UV/VIS is not yet validated: the
+    #: strongest pure-metal lines are optically thick / displaced).  "report"
+    #: records everything and applies nothing.
+    wavelength_registration: str = "ambient"
+    #: sub-pixel line-centre method for the registration and the peak table:
+    #: "gaussian" (instrumental-profile fit, :mod:`alibz.utils.peakfit`) or
+    #: "parabolic" (legacy three-point interpolation).
+    subpixel: str = "gaussian"
     segment_response_fallback_ratio: Optional[float] = None
     segment_response_fallback_source: Optional[str] = None
     segment_response_fallback_uncertainty: Optional[float] = None
@@ -350,6 +366,33 @@ def load_spectrum_csv(path: str) -> Tuple[np.ndarray, np.ndarray]:
     return x[order], y[order]
 
 
+def load_spectrum_metadata(path: str) -> dict:
+    """Wavelength-calibration provenance for a spectrum, if recorded.
+
+    Looks for a sibling ``test.json`` (as written by pantheum
+    ``_finish_dataset``) next to ``path`` or in its parent directory, and
+    returns the fields the thermal drift model consumes -- ``wl_calibration_time``,
+    ``collected_at``, ``warmup_minutes``, ``analyzer_temperature_c``,
+    ``wl_calibration_coefficients`` -- or ``{}`` when none is found.  Never
+    raises; a missing or malformed file yields an empty dict.
+    """
+    import json as _json
+    keys = ("wl_calibration_time", "wl_calibration_time_raw", "collected_at",
+            "warmup_minutes", "analyzer_temperature_c",
+            "wl_calibration_coefficients")
+    here = os.path.dirname(os.path.abspath(path))
+    for candidate in (os.path.join(here, "test.json"),
+                      os.path.join(os.path.dirname(here), "test.json")):
+        try:
+            with open(candidate) as fh:
+                meta = _json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(meta, dict):
+            return {k: meta[k] for k in keys if k in meta}
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Single-spectrum analysis
 # ---------------------------------------------------------------------------
@@ -376,6 +419,88 @@ def _get_sb(dbpath: str):
         sb = SahaBoltzmann(dbpath)
         _DB_CACHE[key] = sb
     return sb
+
+
+def _coarse_composition(peaks: np.ndarray, db, *, max_elements=8,
+                        min_gA=1.0e6, tol_nm=0.12, min_hits=2):
+    """Rough element list from the brightest refined peaks.
+
+    :func:`alibz.wavelength_registration.element_registration` needs a
+    composition, but the pipeline only discovers one after indexing.  This is a
+    cheap bootstrap: match the strongest peaks to bright (gA>=``min_gA``,
+    ion<=2) database lines and keep the elements with at least ``min_hits``
+    unambiguous hits.  Used only to SELECT registration lines; it never enters
+    the composition result.
+    """
+    peaks = np.atleast_2d(np.asarray(peaks, dtype=float))
+    if peaks.size == 0:
+        return []
+    wl_all, el_all = [], []
+    for el in getattr(db, "supported_elements", db.elements):
+        if el in getattr(db, "no_lines", ()) or el in getattr(db, "analysis_excluded_elements", ()):
+            continue
+        arr = np.asarray(db.lines(el))
+        if arr.size == 0:
+            continue
+        ion = arr[:, 0].astype(float)
+        wl = arr[:, 1].astype(float)
+        gA = arr[:, 3].astype(float)
+        keep = (ion <= 2) & (gA >= min_gA) & (wl > 180) & (wl < 1000)
+        wl_all.append(wl[keep])
+        el_all.append(np.full(int(np.sum(keep)), el))
+    if not wl_all:
+        return []
+    wl_all = np.concatenate(wl_all)
+    el_all = np.concatenate(el_all)
+    order = np.argsort(wl_all)
+    wl_all, el_all = wl_all[order], el_all[order]
+    strongest = np.argsort(peaks[:, 0])[::-1][:60]
+    tally: dict = {}
+    for mu in peaks[strongest, 1]:
+        j = np.searchsorted(wl_all, mu)
+        lo, hi = max(j - 3, 0), min(j + 3, wl_all.size)
+        if lo >= hi:
+            continue
+        d = np.abs(wl_all[lo:hi] - mu)
+        k = int(np.argmin(d))
+        if d[k] <= tol_nm:
+            tally[el_all[lo + k]] = tally.get(el_all[lo + k], 0) + 1
+    ranked = sorted((e for e, c in tally.items() if c >= min_hits),
+                    key=lambda e: tally[e], reverse=True)
+    return ranked[:max_elements]
+
+
+def _ar_cross_check(gas_ar, ambient_nir, *, sigma_floor_nm=0.02, flag_n_sigma=3.0):
+    """Consistency record between the two argon-based NIR estimators.
+
+    ``gas_ar`` is :func:`alibz.gas_calibration.calibrate_background_gases`
+    ``["Ar"]`` (regional, peak-table based) and ``ambient_nir`` is the NIR
+    segment of :func:`alibz.wavelength_registration.ambient_registration`.
+    They share the Ar I lines but not the peak finder, gates or aggregation,
+    so agreement is a consistency check, never an independent confirmation.
+    Returns None unless both produced an offset.  ``sigma_floor_nm`` is the
+    single-line repeatability measured on the 2026-09-22 Fe run means (Ar I
+    696.5 nm: 11 pm MAD over 25 runs), applied because a one-line segment
+    reports sigma 0.
+    """
+    if not gas_ar or not ambient_nir:
+        return None
+    g = gas_ar.get("offset_nm")
+    a = ambient_nir.get("shift_nm")
+    if g is None or a is None:
+        return None
+    gs = float(gas_ar.get("uncertainty_nm") or 0.0)
+    as_ = float(ambient_nir.get("sigma_nm") or 0.0)
+    sigma = float(np.hypot(max(gs, sigma_floor_nm), max(as_, sigma_floor_nm)))
+    diff = float(g) - float(a)
+    return {
+        "gas_ar_offset_nm": float(g), "gas_ar_uncertainty_nm": gs,
+        "gas_ar_status": gas_ar.get("status"),
+        "ambient_nir_shift_nm": float(a), "ambient_nir_sigma_nm": as_,
+        "ambient_nir_n_lines": int(ambient_nir.get("n_lines") or 0),
+        "difference_nm": diff, "combined_sigma_nm": sigma,
+        "n_sigma": abs(diff) / sigma, "flagged": bool(abs(diff) > flag_n_sigma * sigma),
+    }
 
 
 def _halpha_ne(peak_array: np.ndarray):
@@ -409,6 +534,10 @@ def analyze_spectrum(
     segment_shift_offsets_nm: Optional[Sequence[float]] = None,
     segment_shift_prior_nm: Optional[Sequence[float]] = None,
     verbose: bool = False,
+    physical_triage: str = "off",
+    gas_wavelength_calibration: str = "apply",
+    wavelength_registration: str = "ambient",
+    subpixel: str = "gaussian",
 ) -> dict:
     """Run the full chain on one spectrum.
 
@@ -446,6 +575,15 @@ def analyze_spectrum(
                                         estimate_wavelength_shift_segments,
                                         shift_at)
 
+    if physical_triage not in {"off", "report", "prune"}:
+        raise ValueError("physical_triage must be 'off', 'report', or 'prune'")
+    if gas_wavelength_calibration not in {"off", "report", "apply"}:
+        raise ValueError("gas_wavelength_calibration must be off, report, or apply")
+    if wavelength_registration not in {"off", "report", "ambient", "apply_element", "apply"}:
+        raise ValueError("wavelength_registration must be off, report, ambient, "
+                         "or apply_element")
+    if subpixel not in {"gaussian", "parabolic"}:
+        raise ValueError("subpixel must be 'gaussian' or 'parabolic'")
     telemetry.reset()
     db = _get_db(dbpath)
     finder = PeakyFinder.__new__(PeakyFinder)  # fit_spectrum needs no data dir
@@ -455,6 +593,17 @@ def analyze_spectrum(
     peaks = fit["sorted_parameter_array"]
     if peaks.size == 0:
         raise ValueError("blind fit found no peaks")
+
+    # Independent references: raw instrument-axis samples and original observed
+    # peaks, before any mixed-element shift or Fe-informed refinement. Gas
+    # offsets are absolute residuals, never additions to another calibration.
+    from alibz.wavelength_calibration import apply_gas_calibrations
+    gas_calibrations = {}
+    if gas_wavelength_calibration != "off":
+        from alibz.gas_calibration import calibrate_background_gases
+        with telemetry.stage("gas_wavelength_calibration"):
+            gas_calibrations = calibrate_background_gases(
+                x, y, db, peak_array=peaks)
 
     # pooled global shift from the blind table (robust median) — enough
     # for stage 3a's coarse db evidence windows
@@ -468,6 +617,29 @@ def analyze_spectrum(
         refined, dec_data = refine_fit(x, y, fit, db=db, shift_nm=shift0,
                                        asymmetric="defer")
     rpeaks = refined["sorted_parameter_array"]
+
+    # Per-peak Gaussian instrumental-profile diagnostics for the refined table
+    # (fitted sigma in px, chi^2/nu, blend flag).  This is ADDITIVE: it records
+    # the peakfit quality of every accepted peak without changing the peak
+    # centres the physics inversion consumes (those come from the blind Voigt
+    # fit).  Re-centring the production table by default is a larger,
+    # unvalidated change to the inversion and is intentionally NOT done here;
+    # the Gaussian centre is used where it is validated -- the wavelength
+    # registration -- and this table lets a caller (or the indexer) see the
+    # per-peak fit quality and blends.  See the report's "Limits" section.
+    peak_refinement = None
+    if subpixel == "gaussian" and rpeaks.size:
+        from alibz.utils.peakfit import refine_peaks
+        idxs = [int(np.argmin(np.abs(x - c))) for c in np.atleast_2d(rpeaks)[:, 1]]
+        recs = refine_peaks(x, y, idxs)
+        peak_refinement = {
+            "method": "gaussian", "version": "1.0",
+            "sigma_px": [r.get("sigma_px") if r.get("ok") else None for r in recs],
+            "chi2_nu": [r.get("chi2_nu") if r.get("ok") else None for r in recs],
+            "blend": [bool(r.get("blend")) if r.get("ok") else None for r in recs],
+            "n_blends": int(sum(1 for r in recs if r.get("ok") and r.get("blend"))),
+            "n_ok": int(sum(1 for r in recs if r.get("ok"))),
+        }
 
     # per-detector-segment shifts, from the REFINED table: the three
     # segments drift independently (measured ~25-35 pm apart on MW2-112),
@@ -510,6 +682,77 @@ def analyze_spectrum(
                              shift.n_matches, shift.applied)
         shift_prior_applied = tuple(bool(v) for v in use_prior)
 
+    # Independent wavelength registration from ambient (Ar/O) lines and the
+    # sample's own strong isolated lines (see alibz.wavelength_registration).
+    # Composition is bootstrapped from the refined bright peaks.  When enabled
+    # and a segment's registration quality passes, its per-segment correction
+    # REPLACES the legacy anchor shift for that segment; otherwise the legacy
+    # shift is kept (logged in analysis['wavelength_registration']['applied']).
+    wl_registration = None
+    if wavelength_registration != "off":
+        from alibz import wavelength_registration as _wr
+        from alibz.utils.wavelength import SegmentShift
+        reg_cfg = {"subpixel": subpixel, "attach_vote_diagnostic": True}
+        with telemetry.stage("wavelength_registration"):
+            comp = _coarse_composition(rpeaks, db)
+            # the bootstrapped composition only REMOVES ambient anchors that a
+            # sample line could be mistaken for; it never supplies anchors
+            reg_amb = _wr.ambient_registration(x, y, db, composition=comp,
+                                               config=reg_cfg)
+            reg_ele = (_wr.element_registration(x, y, db, comp, config=reg_cfg)
+                       if comp else dict(reg_amb))
+            reg_comb = _wr.combined_registration(reg_amb, reg_ele)
+        # DEFAULT ("ambient"): apply the composition-INDEPENDENT ambient (Ar I /
+        # O I / N I / Halpha) registration to the NIR segment only, and keep the
+        # legacy anchor shift for UV/VIS.  The golden-line and vote-mode element
+        # registrations are RECORDED as diagnostics but NOT applied unless
+        # "apply_element" is requested: the strongest lines of a pure-metal
+        # plasma are optically thick / displaced (see docs), so element UV/VIS
+        # registration is not yet validated.
+        applied_segments = []
+        new_shifts = list(np.asarray(shift.shifts, dtype=float))
+        for si, name in enumerate(_wr.SEGMENT_NAMES[:len(new_shifts)]):
+            lo = 200.0 if si == 0 else shift.edges[si - 1]
+            hi = 1000.0 if si >= len(shift.edges) else shift.edges[si]
+            mid = 0.5 * (lo + hi)
+            if wavelength_registration == "ambient" and name == "NIR":
+                a_seg = reg_amb["segments"].get(name, {})
+                if (a_seg.get("model") and a_seg.get("n_lines", 0) >= 3
+                        and a_seg.get("quality") in ("ok", "weak")):
+                    new_shifts[si] = float(_wr._eval_model(a_seg["model"], mid))
+                    applied_segments.append(name)
+            elif wavelength_registration in ("apply_element", "apply"):
+                seg = reg_comb["segments"].get(name, {})
+                if seg.get("source") in ("element", "ambient") and seg.get("quality") == "ok":
+                    new_shifts[si] = float(
+                        _wr.registration_shift(reg_comb).at(mid))
+                    applied_segments.append(name)
+        if applied_segments:
+            shift = SegmentShift(shift.edges, new_shifts, shift.global_shift,
+                                 shift.n_matches, shift.applied)
+        wl_registration = {
+            "mode": wavelength_registration, "subpixel": subpixel,
+            "applied": bool(applied_segments),
+            "applied_segments": applied_segments,
+            "composition_bootstrap": comp,
+            "ambient": _wr.registration_to_json(reg_amb),
+            "element": _wr.registration_to_json(reg_ele),
+            "combined": _wr.registration_to_json(reg_comb),
+            "diagnostic": _wr.registration_to_json(reg_ele.get("diagnostic")),
+            "method_version": _wr.REGISTRATION_VERSION,
+            # consistency with the independent Ar I engine (gas_calibration)
+            "gas_cross_check": _ar_cross_check(
+                gas_calibrations.get("Ar") if gas_calibrations else None,
+                reg_amb["segments"].get("NIR")),
+        }
+        if verbose:
+            print(f"wavelength_registration[{wavelength_registration}]: "
+                  f"applied={applied_segments} composition={comp}")
+
+    baseline_shift = shift
+    shift, wavelength_calibration = apply_gas_calibrations(
+        baseline_shift, gas_calibrations, mode=gas_wavelength_calibration)
+
     ne_init, ne_bounds = _halpha_ne(rpeaks)
     # physical ne prior: H-alpha Stark anchor when present, else the
     # instrument-level default.  The data cost is flat in ne while the
@@ -532,7 +775,9 @@ def analyze_spectrum(
     idx_kwargs = dict(dbpath=dbpath, db=db, sb=sb,
                       weighted_solve=bool(weighted_solve),
                       stage_consistency_weight=float(stage_consistency_weight),
-                      ne_prior=ne_prior)
+                      ne_prior=ne_prior,
+                      wavelength_registration=(wl_registration["combined"]
+                                               if wl_registration else None))
     # amp_sigma_floor is attached after the noise scale is measured below
     run_kwargs = dict(sa_doublets=True, n_calls=n_calls, verbose=verbose,
                       sa_stimulated_emission=bool(stimulated_emission),
@@ -619,13 +864,31 @@ def analyze_spectrum(
 
     # pass 1: establish elements (a PROVISIONAL posterior — its basin can
     # be wrong; its outputs only license seeding and condition stage 3b)
+    from alibz.gas_detection import detect_background_gases
+    with telemetry.stage("background_gas_detection"):
+        background_gases = detect_background_gases(
+            x, y, db, shift_nm=shift, peak_array=_db_frame(rpeaks))
+    gas_supported = tuple(el for el, evidence in background_gases.items()
+                          if evidence["status"] == "detected")
+    # A provisional rejection must not prohibit later residual recovery:
+    # only pass 1 uses triage; pass 2/deepening rebuild from their own peaks.
+    triage_coverage = None
+    if physical_triage != "off":
+        cuts = np.flatnonzero(np.diff(x) > max(0.5, 5 * np.median(np.diff(x)))) + 1
+        pieces = np.split(np.asarray(x), cuts)
+        triage_coverage = [(float(p[0] - shift_at(shift, p[0])),
+                            float(p[-1] - shift_at(shift, p[-1])))
+                           for p in pieces if len(p) >= 2]
     with telemetry.stage("indexer_pass1"):
         idx1 = PeakyIndexerV3(_db_frame(rpeaks), amp_sigma=_amp_sigma(rpeaks),
                               **idx_kwargs)
         # pass 1 is provisional (it licenses seeding and the 3b gates and
         # is re-done in pass 2 on the final peak table): a shorter search
         # costs nothing downstream and ~30 % of the indexer time
-        res1 = idx1.run(**dict(run_kwargs, n_calls=min(n_calls, PASS1_N_CALLS)))
+        res1 = idx1.run(**dict(run_kwargs, n_calls=min(n_calls, PASS1_N_CALLS),
+                              physical_triage=physical_triage,
+                              triage_coverage=triage_coverage,
+                              triage_protected_elements=gas_supported))
     established = sorted(
         [el for el, f in res1.element_fractions.items()
          if f >= ESTABLISHED_MIN_FRACTION],
@@ -785,7 +1048,7 @@ def analyze_spectrum(
                       & (arr[:, 3].astype(float) >= SUPPORT_GA_FLOOR))
                 wl = arr[mk, 1].astype(float)
                 if wl.size:
-                    sup.append(wl + shift_at(shift, wl))
+                    sup.append(wl + shift_at(shift, wl, frame="database"))
             supported = (np.concatenate(sup) if sup
                          else np.empty(0, dtype=float))
 
@@ -916,12 +1179,18 @@ def analyze_spectrum(
     return dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
         records=records, recovered=recovered, shift=shift,
+        baseline_shift=baseline_shift,
+        wavelength_calibration=wavelength_calibration,
+        wavelength_registration=wl_registration,
+        peak_refinement=peak_refinement,
         segment_response=seg_response, segment_response_edges=(620.0,),
         segment_response_metadata=seg_response_meta,
         shift_prior_applied=shift_prior_applied,
         n_anchor=n_anchor, n_shift_anchor=n_shift_anchor, ne_init=ne_init,
         ne_bounds=tuple(ne_bounds), ne_bounds_source=ne_bounds_source,
         result=result, established=established,
+        physical_triage=getattr(idx1, "_triage_report", None),
+        background_gases=background_gases,
         element_uncertainty=det["element_uncertainty"],
         detections=det["detections"], support=det["support"],
         contested=det["contested"],
@@ -989,12 +1258,19 @@ def _summary_row(path: str, analysis: dict) -> dict:
         flags.append(f"sa-area-recovered({n_sa})")
     response_meta = analysis.get("segment_response_metadata") or [{}]
     response_620 = response_meta[0]
-    shift = analysis["shift"]
+    # Historical shift columns retain baseline calibration semantics. Independent
+    # gas corrections and their exact application ranges are exported separately.
+    shift = analysis.get("baseline_shift", analysis["shift"])
     shift_segments = getattr(shift, "shifts", (float(shift),))
     shift_counts = getattr(shift, "n_matches", (analysis.get("n_anchor", 0),))
     shift_applied = getattr(shift, "applied", (False,) * len(shift_segments))
     shift_prior_applied = analysis.get(
         "shift_prior_applied", (False,) * len(shift_segments))
+    calibration = analysis.get("wavelength_calibration", {})
+    gas_cals = calibration.get("gases", {})
+    def gas_pm(element, key):
+        value = gas_cals.get(element, {}).get(key)
+        return round(1000 * float(value), 2) if value is not None else ""
     qc_fail, qc_warn = [], []
     r_squared = float(res.r_squared)
     if r_squared < FIT_R2_FAIL:
@@ -1016,8 +1292,16 @@ def _summary_row(path: str, analysis: dict) -> dict:
         qc_fail.append("detector-response-invalid")
     elif response_620.get("source") != "measured":
         qc_warn.append("detector-response-fallback")
-    if not any(shift_applied) and not any(shift_prior_applied):
+    if (not any(shift_applied) and not any(shift_prior_applied)
+            and not calibration.get("applied", False)):
         qc_warn.append("global-only-wavelength-shift")
+    if calibration.get("conflicts"):
+        qc_warn.append("gas-wavelength-disagreement")
+    registration = analysis.get("wavelength_registration") or {}
+    cross_check = registration.get("gas_cross_check") or {}
+    if cross_check.get("flagged"):
+        qc_warn.append("ar-registration-disagreement")
+    ambient_nir = ((registration.get("ambient") or {}).get("segments") or {}).get("NIR") or {}
     qc_status = "fail" if qc_fail else "warn" if qc_warn else "pass"
     qc_reasons = ";".join(dict.fromkeys(qc_fail + qc_warn))
     # guard_triggered: the reactive-guard vocabulary, regularized into its
@@ -1031,6 +1315,26 @@ def _summary_row(path: str, analysis: dict) -> dict:
         file=os.path.basename(path),
         sample=sample_name(path),
         status="ok",
+        physical_triage=analysis.get("physical_triage"),
+        background_gases=analysis.get("background_gases", {}),
+        wavelength_calibration=calibration,
+        gas_calibration_applied=bool(calibration.get("applied", False)),
+        gas_calibration_conflicts=len(calibration.get("conflicts", [])),
+        Ar_calibration_status=gas_cals.get("Ar", {}).get("status", ""),
+        Ar_calibration_shift_pm=gas_pm("Ar", "offset_nm"),
+        Ar_calibration_uncertainty_pm=gas_pm("Ar", "uncertainty_nm"),
+        O_calibration_status=gas_cals.get("O", {}).get("status", ""),
+        O_calibration_shift_pm=gas_pm("O", "offset_nm"),
+        O_calibration_uncertainty_pm=gas_pm("O", "uncertainty_nm"),
+        Ar_status=analysis.get("background_gases", {}).get("Ar", {}).get("status", ""),
+        O_status=analysis.get("background_gases", {}).get("O", {}).get("status", ""),
+        wavelength_registration_mode=registration.get("mode", ""),
+        wavelength_registration_applied=";".join(registration.get("applied_segments") or []),
+        ambient_nir_shift_pm=(round(1000.0 * float(ambient_nir["shift_nm"]), 1)
+                              if ambient_nir.get("shift_nm") is not None else ""),
+        ambient_nir_n_lines=int(ambient_nir.get("n_lines") or 0),
+        ar_registration_n_sigma=(round(float(cross_check["n_sigma"]), 2)
+                                 if cross_check.get("n_sigma") is not None else ""),
         n_peaks=int(analysis["final"]["sorted_parameter_array"].shape[0]),
         shift_pm=round(1000.0 * float(shift), 1),
         shift_segments_pm=";".join(f"{1000.0 * float(v):.1f}"
@@ -1146,6 +1450,10 @@ def _analyze_file(job) -> dict:
                 gp_seed=cfg.gp_seed,
                 weighted_solve=cfg.weighted_solve,
                 stage_consistency_weight=cfg.stage_consistency_weight,
+                physical_triage=cfg.physical_triage,
+                gas_wavelength_calibration=cfg.gas_wavelength_calibration,
+                wavelength_registration=cfg.wavelength_registration,
+                subpixel=cfg.subpixel,
                 segment_response_fallback_ratio=
                 cfg.segment_response_fallback_ratio,
                 segment_response_fallback_source=
@@ -1203,6 +1511,10 @@ def analyze_directory(
     provenance: bool = True,
     strict_provenance: bool = False,
     progress=print,
+    physical_triage: str = "off",
+    gas_wavelength_calibration: str = "apply",
+    wavelength_registration: str = "ambient",
+    subpixel: str = "gaussian",
 ) -> List[dict]:
     """Analyze every spectrum matching ``pattern`` in ``data_dir``.
 
@@ -1242,6 +1554,10 @@ def analyze_directory(
         search=search, gp_seed=gp_seed,
         weighted_solve=bool(weighted_solve),
         stage_consistency_weight=float(stage_consistency_weight),
+        physical_triage=physical_triage,
+        gas_wavelength_calibration=gas_wavelength_calibration,
+        wavelength_registration=wavelength_registration,
+        subpixel=subpixel,
         segment_response_fallback_ratio=segment_response_fallback_ratio,
         segment_response_fallback_source=segment_response_fallback_source,
         segment_response_fallback_uncertainty=
@@ -1371,7 +1687,14 @@ def write_summary_csv(rows: Sequence[dict], path: str) -> List[str]:
             "response_620_source", "T_K", "log_ne", "r_squared",
             "sa_converged", "qc_status", "qc_reasons", "flags",
             "t_total_s", "failure_stage", "failure_reason",
-            "guard_triggered"]
+            "guard_triggered", "Ar_status", "O_status",
+            "gas_calibration_applied", "gas_calibration_conflicts",
+            "Ar_calibration_status", "Ar_calibration_shift_pm",
+            "Ar_calibration_uncertainty_pm", "O_calibration_status",
+            "O_calibration_shift_pm", "O_calibration_uncertainty_pm",
+            "wavelength_registration_mode", "wavelength_registration_applied",
+            "ambient_nir_shift_pm", "ambient_nir_n_lines",
+            "ar_registration_n_sigma"]
     header = meta + [c for el in elements for c in (el, f"{el}_unc")]
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
@@ -1478,6 +1801,7 @@ def build_inspection_notebook(
     summary_name: str = "summary.csv",
     n_calls: int = DEFAULT_N_CALLS,
     stimulated_emission: bool = DEFAULT_STIMULATED_EMISSION,
+    gas_wavelength_calibration: str = "apply",
 ) -> dict:
     """Notebook (nbformat-4.5 JSON dict) that inspects this directory.
 
@@ -1636,10 +1960,16 @@ else:
 print(sample_name(SPECTRUM_FILE))
 x, y = load_spectrum_csv(SPECTRUM_FILE)
 a = analyze_spectrum(x, y, DB_PATH, n_calls={n_calls}, draws=16,
-                     stimulated_emission={stimulated_emission!r})
+                     stimulated_emission={stimulated_emission!r},
+                     gas_wavelength_calibration={gas_wavelength_calibration!r})
 res = a['result']
 print(f"T = {{res.temperature:.0f}} K   log ne = {{res.ne:.2f}}   "
-      f"r^2 = {{res.r_squared:.3f}}   peaks = {{a['final']['sorted_parameter_array'].shape[0]}}")"""
+      f"r^2 = {{res.r_squared:.3f}}   peaks = {{a['final']['sorted_parameter_array'].shape[0]}}")
+calibration = a.get('wavelength_calibration', {{}})
+for gas, evidence in calibration.get('gases', {{}}).items():
+    print(gas, evidence.get('status'), 'offset nm:', evidence.get('offset_nm'),
+          'uncertainty nm:', evidence.get('uncertainty_nm'))
+print('Applied gas calibration regions:', calibration.get('applied_regions', []))"""
 
     code_composition = """# composition +- uncertainty for this spectrum
 els = sorted([e for e in res.element_fractions

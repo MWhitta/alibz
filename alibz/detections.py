@@ -195,7 +195,7 @@ def element_support(
         con = float(E[i, dom[i]])
         if obs[i] > 0 and con >= MIN_SUPPORT_FRACTION * obs[i]:
             wl = float(indexer._obs_wl[i])
-            wl_obs = wl + float(shift_at(shift, wl))
+            wl_obs = wl + float(shift_at(shift, wl, frame="database"))
             support.setdefault(el, []).append((con, wl_obs, float(obs[i])))
             sup_idx.setdefault(el, []).append(i)
     for el, lines in support.items():

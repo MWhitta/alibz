@@ -25,5 +25,25 @@ onto the current working tree.
 Inventory: reports/2026-09-22-pantheum-folder-audit.md.
 File hashes/history coverage: provenance/pantheum-backup-audit-20260922.json.
 Prepared exact move plan: provenance/pantheum-folder-move-plan-20260922.json.
-Awaiting scope clarification before moving these backups outside /github.
+User explicitly chose to track all six source backups in pantheum-I and then
+remove the original sibling folders. Completed: archive/source-backups/2026-09-21
+contains all 52 original files, plus README and SHA-256/directory manifest, in
+Pantheum commit 3284cbc8791041fe60975d50e98b09322c20f22d. Push succeeded and
+GitHub refs/heads/main was queried directly to confirm that exact commit.
+
+Before deletion, all 52 originals matched the working archive, staged blobs,
+and committed Git blobs. The dry-run verifier checked exact inventories and
+rejected modified content, extra files, and symlinks in isolated fixture checks.
+The same verifier then removed exactly the six approved original folders.
+Postcheck: only pantheum-I remains among Pantheum-named /github siblings; all
+52 archived hashes still match. Main/origin main have zero divergence; the
+existing RamanLab edits remain uncommitted and untouched.
+
+The alternative move-to-Projects/archive plan was superseded, never executed.
+Payload review: reports/2026-09-22-pantheum-backup-payload-review.md. No secret,
+private-runtime-config or binary-content blockers were identified. Agent ran
+unrelated project tests outside its review brief; main stopped that attempt.
+Those environment-dependent/incomplete tests do not validate the archive;
+archive validation is the complete byte, inventory, Git and remote verification.
+One-time verifier preserved at reports/pantheum-cleanup-verifier-20260922.py.
 No provider switch.

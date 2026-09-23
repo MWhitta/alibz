@@ -1,0 +1,420 @@
+[
+  {
+    "directory": "pantheum-fire-fix-source-backup-20260921T153917",
+    "file_count": 6,
+    "total_bytes": 170280,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "DECISIONS.md",
+        "bytes": 36781,
+        "sha256": "c2ada71c3b58ff7f305fd314ade00b0cda9fc4724af2c46867cc8eb60b19d8df",
+        "blob": "66b3bdbe18bbcc2e892ae30db5bc50f375e31c93",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/acquire.py",
+        "bytes": 34764,
+        "sha256": "d5e793e7a051cecdd1a79b3f9b181aecea70ed2b4a65618402a3900a84005658",
+        "blob": "8b7774c806f26cc2626fa6639c337397c3bc5b2d",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/z300.py",
+        "bytes": 18269,
+        "sha256": "3243843ce91a979009e3d470d20824cfc31e232f7131a17c6fdd9f3d6eebb808",
+        "blob": "ab05b0faeb0b0740c258ae1818082bd851f82aee",
+        "in_main_history": true
+      },
+      {
+        "path": "tests/test_alibz_acquire.py",
+        "bytes": 27130,
+        "sha256": "a305f037f628ab3c3b43796a6f0c5a934332885601f16e8323c987beb5408a78",
+        "blob": "b38493f0f7d094420c4aeffda0e984257954acb1",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_checkouts.py",
+        "bytes": 24764,
+        "sha256": "c5b8a6e99f74f3ee599c71ad0df9a24576f4555e1b33d54b311717aeaafa9ab0",
+        "blob": "3f743477544e0ca850c18ceafb451ef5d96b1b59",
+        "in_main_history": false
+      },
+      {
+        "path": "docs/alibz-architecture.md",
+        "bytes": 28572,
+        "sha256": "ab415fe87476bdaf715babaf5f697cafd86f1270fbca9d236853b146215a2f73",
+        "blob": "57e90202ac11f57e03c1e274caa66e4833855529",
+        "in_main_history": false
+      }
+    ]
+  },
+  {
+    "directory": "pantheum-I-acquisition-backup-20260921T130028",
+    "file_count": 15,
+    "total_bytes": 460506,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 16681,
+        "sha256": "49297ca37f4d30f7650bc0570bfb9d99a8483a0a73ffce5ee55079005aacf871",
+        "blob": "543a7a371bb5092c4a711a05699b3ad396eec497",
+        "in_main_history": true
+      },
+      {
+        "path": "DECISIONS.md",
+        "bytes": 33671,
+        "sha256": "3c06dc1ee610c90ae00f5e88de7cf9d456dfd9b6c974eac21d2166e222efe3c1",
+        "blob": "678dd1a95dbe13d316cf7e6523ff6b0b93229e5e",
+        "in_main_history": true
+      },
+      {
+        "path": "pantheum/alibz/service.py",
+        "bytes": 21249,
+        "sha256": "531ea82bb630153c3ce604f331ab4e1169f14a5ee974b5fbfce55e9ebc36e400",
+        "blob": "ff42914dbc927d0edc4b01967b3103e7cd67f016",
+        "in_main_history": true
+      },
+      {
+        "path": "pantheum/alibz/motion.py",
+        "bytes": 22666,
+        "sha256": "46a40a9574ed8b6c1e4feddd35da92f770e9ad80a53a154d081633f079970cbd",
+        "blob": "a662f4b679098c9cadd1e4d7c8ece1de4fc3f49a",
+        "in_main_history": true
+      },
+      {
+        "path": "pantheum/alibz/__main__.py",
+        "bytes": 22972,
+        "sha256": "88e131cd57566ede73ae8dd432ec702e8404a1de7448f1bd2ec0efdd958d739d",
+        "blob": "34cb9cd30ff939eedfe5905f3be830fd84018cf4",
+        "in_main_history": true
+      },
+      {
+        "path": "config/alibz.example.json",
+        "bytes": 3172,
+        "sha256": "fd599b2d219a4febe3e12d01a24a657b9bc512d0efaae28df5c1327dcb875ee6",
+        "blob": "c119fdc2e1f06d3f68b95822fd070e5b7d53bb52",
+        "in_main_history": true
+      },
+      {
+        "path": "web/alibz/index.html",
+        "bytes": 22428,
+        "sha256": "ac6566d8f3147ceaf43f787b626e958d362e75fd560cb5f8ac22afd0c8b289fb",
+        "blob": "87d2df46365baebc0c5f6b4518a4dbcc7b2b7eb1",
+        "in_main_history": true
+      },
+      {
+        "path": "web/alibz/styles.css",
+        "bytes": 22464,
+        "sha256": "7af5f960912451a0d4e32d212110bc6eb8e569dd102bcfcc4c16b0cb12b5ce6d",
+        "blob": "cdd8ea4c34d4e9fd08aff8f05fc8f1cd7856ee29",
+        "in_main_history": true
+      },
+      {
+        "path": "web/alibz/app.js",
+        "bytes": 159901,
+        "sha256": "3e76043c80a0ef0b8372ed0a10a38c2a1a6cf310421bbff54e68384201a21bb7",
+        "blob": "f6a0b8a7f6f05cbfd21e325c883c698895503025",
+        "in_main_history": true
+      },
+      {
+        "path": "deploy/alibz/enable-gantry.py",
+        "bytes": 4303,
+        "sha256": "3b40356f61c9df5cf5a9bf4c20f88e13cc8c3122489e46b948ed7bb3de9068ed",
+        "blob": "c67c5445d2c3db2714e585a2c3d498c864d58f9c",
+        "in_main_history": true
+      },
+      {
+        "path": "deploy/alibz/README.md",
+        "bytes": 16942,
+        "sha256": "a44adad460ec50230788d0aa78706b263ce0faba721eff36675fc1ee46453637",
+        "blob": "0d01ded006bf9d643e56ae22e6c133b0a1190039",
+        "in_main_history": true
+      },
+      {
+        "path": "tests/test_alibz_motion.py",
+        "bytes": 22686,
+        "sha256": "ec742611cfa2f4656390c63e4903073ca022d6f3cdb6937c3cbf1ee7f80cde2d",
+        "blob": "88146e7a8b791d1a4d5fa4e1fd1365a912587303",
+        "in_main_history": true
+      },
+      {
+        "path": "tests/test_alibz_ui.cjs",
+        "bytes": 24849,
+        "sha256": "9035d36944f28202c270e72e692bd83704af6143d72d79d6f548e85e64dd19e7",
+        "blob": "a5923eedad22710c57f249c789049543eeed6b85",
+        "in_main_history": true
+      },
+      {
+        "path": "docs/alibz-architecture.md",
+        "bytes": 25915,
+        "sha256": "2ee3a7269e1a40d3091b40896f8b0801d407d2e81b4bf7d6cf68fe3f19906e0b",
+        "blob": "450381c1cd569a95abbb51b8502986cd4cbd01ae",
+        "in_main_history": true
+      },
+      {
+        "path": "reports/STATUS.md",
+        "bytes": 40607,
+        "sha256": "86cd4683f9bb09485c7fb40fe824da916f6df01f8ba89b6afe88f1542ffb3a00",
+        "blob": "66292820261c13e083ba718141b0d69ba62ef614",
+        "in_main_history": true
+      }
+    ]
+  },
+  {
+    "directory": "pantheum-I-acquisition-backup-20260921T141426",
+    "file_count": 16,
+    "total_bytes": 549900,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 17109,
+        "sha256": "5e75db212f5a3b85b44a127af591f395c42ba81ca410f195e4e8c6186a7032d5",
+        "blob": "e992364fd8138b31a22ffeac7fae0459050a0459",
+        "in_main_history": false
+      },
+      {
+        "path": "DECISIONS.md",
+        "bytes": 35165,
+        "sha256": "9e532be6832f1ebc39a9fa02eefbf338c4ca64f5da0e5c6f51098906337ac4bb",
+        "blob": "a12d484a5a553bcedb2facf91e4eb0ea79fa9c47",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/reservation.py",
+        "bytes": 8897,
+        "sha256": "353009c6903aeb533c398ff7558c6f9fbabfb783d08bb16a2166835dc90fb2d5",
+        "blob": "13daf96f5808285f63a1d925f352357245ffdfbb",
+        "in_main_history": true
+      },
+      {
+        "path": "pantheum/alibz/acquire.py",
+        "bytes": 24966,
+        "sha256": "17295cab0e382e94b68b528d601bd910cc09eccdb5ff2855f9aa76a63d4f7389",
+        "blob": "3ae7bb7e1981c51e6ef72f2f793e4418770a5e30",
+        "in_main_history": true
+      },
+      {
+        "path": "pantheum/alibz/optimization.py",
+        "bytes": 29298,
+        "sha256": "e913b3699ce568bccb55c67a1291628ddaffc9119120bcf3a09a393a9fc827ee",
+        "blob": "10f235c336d0418af514cf5e511b57c770f98ff4",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/motion.py",
+        "bytes": 35013,
+        "sha256": "42acde62a6faeb178a925b4d0fb89d7472bf884ea9275d8df6b7eabc3e685f48",
+        "blob": "0cc7a4580f24477f7acb75d9a2fc562f5da57bd5",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/__main__.py",
+        "bytes": 24448,
+        "sha256": "d20523ca85ef25c6788da71008764897b7dd5b510a90289aec30719fe4a5724b",
+        "blob": "45c5231daed9110f122c070f6ab83a1648b9c4fa",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/index.html",
+        "bytes": 25490,
+        "sha256": "cda4ac09a3e4597864eba55041b144adcc325a30ae1e28b42c2973f6d02a3c7e",
+        "blob": "830ee9d385848d8fbdfd536dbcc37d1595ba512e",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/styles.css",
+        "bytes": 24317,
+        "sha256": "9ec3d3bd68f25785df096b0ec61da20775474a469a24c70f1420f70e93ea7951",
+        "blob": "5e5536517a0f6ef75acbb2b1c98feebb3b5db104",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/app.js",
+        "bytes": 185069,
+        "sha256": "c8d6be82964e8c190d1104bb6cda1207a65cd25fc9a9d2f9a94d10cb88cb6283",
+        "blob": "ef2cdf9815a5429d84d070c5482931fc1a930a79",
+        "in_main_history": false
+      },
+      {
+        "path": "deploy/alibz/README.md",
+        "bytes": 18481,
+        "sha256": "f19741c1edf7790c23f994da6677491ac83629fab9bb54098c7ad6f1f0fba646",
+        "blob": "e88e64ed53c9f4394565ecbbea97cc6c7dd0d361",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz.py",
+        "bytes": 28288,
+        "sha256": "c0c9c77bbb1d3464dfdc1ce8ef55b1aacef4b23aa9f714e2a2ced4e240059962",
+        "blob": "735b686edf4790acc1fc43fc5855a44040c93b3e",
+        "in_main_history": true
+      },
+      {
+        "path": "tests/test_alibz_acquire.py",
+        "bytes": 22406,
+        "sha256": "243543d3b68d0558065c32ce4b73d00ef103c1901fe45c9207110eb0363bcfec",
+        "blob": "aa0cfc76931793827358d9d8dde4168205b87dec",
+        "in_main_history": true
+      },
+      {
+        "path": "tests/test_alibz_ui.cjs",
+        "bytes": 33352,
+        "sha256": "bf7bc06bfd03f247c1f2880c5aa577656d8b9b21e379d36b81e4c983abc43bb8",
+        "blob": "718ee5dfbe233ea660a2cb0d7d18c126c40dab3f",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_reservation.py",
+        "bytes": 10990,
+        "sha256": "fc0eb09b6a9bd43817a5b26d7ab82bf205d818265ec1949b6acb4ccd3eea6b03",
+        "blob": "f4021d000d84492c4f7af1757cc7b158cf85abd3",
+        "in_main_history": true
+      },
+      {
+        "path": "docs/alibz-architecture.md",
+        "bytes": 26611,
+        "sha256": "7bc9e623fe3f43d370c41b91439ef1d990fafcbe1d434938a33f5b4797924991",
+        "blob": "df752b1e836394b7d765f7a98d722fdbf248a497",
+        "in_main_history": false
+      }
+    ]
+  },
+  {
+    "directory": "pantheum-I-acquisition-backup-20260921T142747",
+    "file_count": 6,
+    "total_bytes": 324639,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "DECISIONS.md",
+        "bytes": 35934,
+        "sha256": "ff60e2514e33fd748d0372a323e00ee6375e8be11d2122e199bd41ee166ad5a6",
+        "blob": "afc256c3d1617036ccd5911c0825045d20aa648f",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/optimization.py",
+        "bytes": 29622,
+        "sha256": "847c7adcacc5b2e25c62a164218b2a02fb48c2c04664c4df4c361b47c7b39da7",
+        "blob": "934a9ecd49957058b814a72758e36f20fc5b1f45",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/app.js",
+        "bytes": 190292,
+        "sha256": "35cf9f1e74fc330cfe81ef31abb5f8691c9e4933a724fd2a501f961fa8fd339d",
+        "blob": "9fb98e9da8e824d9e04ccbdf699f59f06137805d",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_ui.cjs",
+        "bytes": 46049,
+        "sha256": "875d872a8235d07020ad105fdc7f0b3213c255b2bffa8a0da45b8cad0895103f",
+        "blob": "91d23a65a27ce1d8d21bff8b1339fd70117a99fa",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_optimization.py",
+        "bytes": 17294,
+        "sha256": "fda1638765adb0fb7cc7c3fd43e13f844f2a0e942ed78b7d3dd69b8ec1194206",
+        "blob": "011a04c93a48f2f6c48f175f8379bf7477598718",
+        "in_main_history": false
+      },
+      {
+        "path": "docs/acquisition-optimization.md",
+        "bytes": 5448,
+        "sha256": "8bd0283f6dfa256f67f525bcab4a54eec03417367100d97058ac0a55af7df624",
+        "blob": "59a97d515604c4c1e97fb542671e91dea576f8b7",
+        "in_main_history": false
+      }
+    ]
+  },
+  {
+    "directory": "pantheum-panel-errors-source-backup-20260921T165416",
+    "file_count": 4,
+    "total_bytes": 298384,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "web/alibz/index.html",
+        "bytes": 28992,
+        "sha256": "d3399370d840dbd9f154a54870fff02228447dbc531b009cc87274d24db4da10",
+        "blob": "bec790ca781b0112d03edde0dcfdd7e228236bc1",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/styles.css",
+        "bytes": 24577,
+        "sha256": "6e92823ef31da2ba111a253264cbb4b1f670bf0fd1b724f3ea86705cc4a3b706",
+        "blob": "0ee41782100af3150d7104c83cb07976f83885fe",
+        "in_main_history": false
+      },
+      {
+        "path": "web/alibz/app.js",
+        "bytes": 193746,
+        "sha256": "5ed2a61203d7bbc95ba1d3c0f99359245e53b481d081cc8cd069910bbebdc06a",
+        "blob": "f1c35f982b0d03bdf8b2e21ad215f8fdec02cb8c",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_ui.cjs",
+        "bytes": 51069,
+        "sha256": "2f044ae7d6d7104ef29cf412569e119cf377f58997ea4fb36c72d3b762f6add4",
+        "blob": "1908027ca2254a5e5c2b4519c6ebe199e1323e73",
+        "in_main_history": false
+      }
+    ]
+  },
+  {
+    "directory": "pantheum-query-fix-source-backup-20260921T162743",
+    "file_count": 5,
+    "total_bytes": 163910,
+    "git_markers": [],
+    "symlinks": [],
+    "files": [
+      {
+        "path": "DECISIONS.md",
+        "bytes": 37542,
+        "sha256": "d892d49484f190f5964f478c6033263c19b359d592a745ca589bf3c0383e7cbd",
+        "blob": "915da3a6f28a9d789f02bb61cfdef3f98d4a29a6",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/acquire.py",
+        "bytes": 39973,
+        "sha256": "ed1921bfe4c89b10b2dcdb3fc36dc135542feb632857ca0f27a15898c57ad348",
+        "blob": "cf3a8689a2d5a65c0149bf5d89eb2158133fbee7",
+        "in_main_history": false
+      },
+      {
+        "path": "pantheum/alibz/z300.py",
+        "bytes": 19259,
+        "sha256": "ecc15883304d24d2c66e1aea2a13c959f343b40ea129f089c4b24f44344f79dd",
+        "blob": "3ea8f7b7501027bf9a81dd6ea6594fb83ef4e47f",
+        "in_main_history": false
+      },
+      {
+        "path": "tests/test_alibz_acquire.py",
+        "bytes": 36408,
+        "sha256": "87fc0a09963042c4bde75c2a03eba9f5479103597aabf8ead62b707ce0f9c724",
+        "blob": "b78e8cfe77adc4cd7bd3a7cab8577840c012f04c",
+        "in_main_history": false
+      },
+      {
+        "path": "docs/alibz-architecture.md",
+        "bytes": 30728,
+        "sha256": "0c5b43eb0c969a5c2fb1918b729f3b385af80059535c3def544045a5f6ef4610",
+        "blob": "55270bf4b5d4b000af2a57b8dc8ee7cde2853fb5",
+        "in_main_history": false
+      }
+    ]
+  }
+]

@@ -343,9 +343,11 @@ Record actions: `added`, `missing` (confident prediction the data refused),
 - **Same stage only, no Saha** — stage I and II are calibrated independently;
   cross-stage coupling is the indexer's job.
 - **Wavelength-frame dependence** — `shift_nm` defaults to 0 and `tol_nm` is
-  60 pm, but db wavelengths are vacuum while spectra are air (0.11–0.24 nm
-  offset). Correctness depends on the caller passing the right `shift_nm` (the
-  notebook does, via `estimate_wavelength_shift`).
+  60 pm. `Database` converts the stored Ritz vacuum wavelengths to the
+  instrument convention when it loads them: standard air at and above 200 nm,
+  vacuum below 200 nm. Correctness still depends on the caller passing the
+  residual instrument shift in the right coordinate frame (the notebook does,
+  via `estimate_wavelength_shift`).
 
 ---
 

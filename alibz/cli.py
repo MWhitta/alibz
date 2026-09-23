@@ -7,6 +7,7 @@ status and upper limits), and ``fit_inspection.ipynb`` into it.  See
 """
 
 import argparse
+import json
 import os
 import sys
 
@@ -61,6 +62,23 @@ def main(argv=None) -> int:
     p.add_argument("--draws", type=_positive_int, default=DEFAULT_DRAWS,
                    help="amplitude-resampling draws for the uncertainty "
                         f"(default {DEFAULT_DRAWS})")
+    p.add_argument("--physical-triage", choices=("off", "report", "prune"),
+                   default="off", help="experimental physical priors before "
+                   "pass-1 indexing; report records suggestions, prune applies "
+                   "them provisionally (default off)")
+    p.add_argument("--gas-wavelength-calibration", choices=("off", "report", "apply"),
+                   default="apply", help="independent Ar I/O I wavelength references; "
+                   "apply only within supported regions (default apply)")
+    p.add_argument("--wavelength-registration",
+                   choices=("off", "report", "ambient", "apply_element"),
+                   default="ambient", help="line-shape-aware registration "
+                   "(alibz.wavelength_registration): ambient applies the "
+                   "Ar/O/N/H registration to the NIR when >= 3 lines agree and "
+                   "records the element registrations; apply_element also "
+                   "applies element registrations that pass quality (default ambient)")
+    p.add_argument("--subpixel", choices=("gaussian", "parabolic"), default="gaussian",
+                   help="sub-pixel line-centre method for the registration and the "
+                   "per-peak refinement diagnostics (default gaussian)")
     p.add_argument("--timeout", type=_positive_int, default=DEFAULT_TIMEOUT_S,
                    help="per-spectrum timeout in seconds "
                         f"(default {DEFAULT_TIMEOUT_S})")
@@ -135,12 +153,32 @@ def main(argv=None) -> int:
         stimulated_emission=args.stimulated_emission,
         search=args.search, gp_seed=args.gp_seed,
         weighted_solve=args.weighted_solve,
+        physical_triage=args.physical_triage,
+        gas_wavelength_calibration=args.gas_wavelength_calibration,
+        wavelength_registration=args.wavelength_registration,
+        subpixel=args.subpixel,
         stage_consistency_weight=args.stage_consistency_weight,
         provenance=not args.no_provenance,
         strict_provenance=args.strict_provenance,
         exclude=(args.out, DETECTIONS_NAME),
     )
     n_ok = sum(1 for r in rows if r["status"] == "ok")
+    gas_path = os.path.join(data_dir, "background_gases.json")
+    with open(gas_path, "w") as fh:
+        json.dump({r["file"]: r.get("background_gases", {}) for r in rows},
+                  fh, indent=2, allow_nan=False)
+        fh.write("\n")
+    calibration_path = os.path.join(data_dir, "wavelength_calibration.json")
+    with open(calibration_path, "w") as fh:
+        json.dump({r["file"]: r.get("wavelength_calibration", {}) for r in rows},
+                  fh, indent=2, allow_nan=False)
+        fh.write("\n")
+    if args.physical_triage != "off":
+        triage_path = os.path.join(data_dir, "physical_triage.json")
+        with open(triage_path, "w") as fh:
+            json.dump({r["file"]: r.get("physical_triage") for r in rows},
+                      fh, indent=2, allow_nan=False)
+            fh.write("\n")
 
     csv_path = os.path.join(data_dir, args.out)
     elements = write_summary_csv(rows, csv_path)
@@ -162,6 +200,7 @@ def main(argv=None) -> int:
                 data_dir, dbpath, pattern=args.pattern, summary_name=args.out,
                 n_calls=args.n_calls,
                 stimulated_emission=args.stimulated_emission,
+                gas_wavelength_calibration=args.gas_wavelength_calibration,
             )
             write_inspection_notebook(nb, nb_path)
             print(f"wrote {nb_path}")

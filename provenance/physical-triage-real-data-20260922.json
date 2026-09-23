@@ -1,0 +1,260 @@
+{
+  "schema_version": "physical-triage-real-data-v1",
+  "created_at": "2026-09-22",
+  "purpose": "Pinned real LIBS spectra for blind physical-element-triage benchmarks.",
+  "truth_policy": {
+    "eligible_for_recall": "Only elements supported by a sample identity or composition source independent of alibz/indexer output are scored as expected positives.",
+    "false_positives": "An unlabelled element is not a false positive unless the source independently certifies it absent or below a stated threshold.",
+    "excluded_as_truth": [
+      "alibz indexer compositions and detections",
+      "labels inferred from spectral peaks",
+      "filenames without an independent composition record"
+    ]
+  },
+  "gate": {
+    "diverse_independently_labelled_matrices_available": false,
+    "reason": "The only locally available sample with a well-supported composition label is nominal 99.98% Fe metal; no independently labelled non-Fe matrix was found.",
+    "broad_validation_status": "fail"
+  },
+  "datasets": [
+    {
+      "id": "z300-fe-aesar-9998-20260922",
+      "kind": "real_z300_libs",
+      "sample_label": "Fe Aesar 99.98%",
+      "truth": {
+        "strength": "well_supported_nominal_label",
+        "independently_measured_in_repo": false,
+        "expected_positive_elements": ["Fe"],
+        "certified_negative_elements": [],
+        "context_only_elements": ["Ar", "H", "O", "N"],
+        "notes": "The acquisition ledger and contemporaneous reports consistently identify an Aesar 99.98% Fe target. No vendor certificate or certified trace-element assay is archived, so only Fe presence is scored. Ambient and trace detections are not composition truth."
+      },
+      "evidence": [
+        {
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/ledger.json",
+          "sha256": "31062f933f84c32da9ac2df19aa929ee6c37fe2df23df98de841ecc5cd779537",
+          "role": "Acquisition ledger: sample identity, run ids, timing, locations, shot counts."
+        },
+        {
+          "path": "reports/2026-09-22-fe-calibration-plasma-analysis.md",
+          "sha256": "c2fe4a90e90c246fe673647f2ec07c53e6aeccfe9f6fb9024a1691e3505a1c0c",
+          "role": "Contemporaneous data characterization and provenance."
+        },
+        {
+          "path": "reports/2026-09-22-first-raster-study-analysis.md",
+          "role": "Independent contemporaneous account of the fresh-raster subset and acquisition conditions."
+        }
+      ],
+      "repo_local_archive": {
+        "path": "provenance/physical-triage-real-data-20260922.npz",
+        "sha256": "c8d04ab5b650a5f911b56dc8e0586b8aaff207bbe6c573ec5857bbe319a766b8",
+        "run_means": 26,
+        "arrays": ["wavelength_nm", "intensity_counts", "run_ids", "metadata_json"],
+        "method": "Deterministic compressed NPZ of each native average.csv axis and intensity; metadata_json pins each source average SHA-256 and acquisition metadata.",
+        "replay_limitation": "This preserves the 26 run means used for triage benchmarking. Recomputing means or replaying shot-level analyses still requires the 252 raw shot CSVs."
+      },
+      "loader": {
+        "format": "csv",
+        "delimiter": ",",
+        "skip_rows": 1,
+        "columns": ["wavelength_nm", "intensity_counts"],
+        "recommended": "numpy.loadtxt(path, delimiter=',', skiprows=1)",
+        "use_each_native_grid_without_resampling": true
+      },
+      "grid": {
+        "family": "native-api-7914",
+        "rows": 7914,
+        "nominal_span_nm": [186.0521, 961.0],
+        "coverage_intervals_nm": [[186.0521, 947.9357], [960.1828, 961.0]],
+        "known_gap_nm": [947.9357, 960.1828],
+        "warning": "The terminal 960.18-961.00 nm interval contains 2066 unusually dense samples and should normally be excluded from peak benchmarking. Wavelength endpoints vary by 0.003 nm between the oldest and later runs."
+      },
+      "alignment_for_audit_only": {
+        "convention": "observed = database_air + shift",
+        "reported_segment_shifts_pm": {"UV": -119, "VIS": -154, "NIR": -154},
+        "benchmark_rule": "Do not inject these Fe-derived shifts into blind peak extraction or triage; estimate wavelength correction without using the Fe truth label."
+      },
+      "samples": [
+        {
+          "id": "fe-reused-depth-run0",
+          "split": "nuisance",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-e825d9f567204c5cbc6fc33c9c16bbf7/average.csv",
+          "sha256": "b4cbdeda2d91201a326bf4ef8e6d76006a55bab791f2218c96d915a14458f44b",
+          "run_id": "run-e825d9f567204c5cbc6fc33c9c16bbf7",
+          "ledger_index": 0,
+          "shots_averaged": 10,
+          "location_xyz": [134.0, 76.0, 70.0],
+          "delay": 10,
+          "period": 25,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0551, 961.0],
+          "notes": "Heavily reused spot; suitable for nuisance/stability checks, not a statistically independent material."
+        },
+        {
+          "id": "fe-fresh-5-25",
+          "split": "representative",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-07c25af6dd9b4fa6bc801e18a40661a4/average.csv",
+          "sha256": "9fc2d32a2c0279a9898c601ab295dd76f7bc59a5053ec8945089aada2ed1a281",
+          "run_id": "run-07c25af6dd9b4fa6bc801e18a40661a4",
+          "ledger_index": 17,
+          "shots_averaged": 10,
+          "location_xyz": [158.0, 76.0, 70.0],
+          "delay": 5,
+          "period": 25,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-fresh-5-10",
+          "split": "representative",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-6cd149cca8d648469e3486cf60f5ee5c/average.csv",
+          "sha256": "48a2cd1484a35bbbc942dbf912ebea1fc392f0fcb708f47fe94151be56396dfa",
+          "run_id": "run-6cd149cca8d648469e3486cf60f5ee5c",
+          "ledger_index": 18,
+          "shots_averaged": 10,
+          "location_xyz": [158.0, 100.0, 70.0],
+          "delay": 5,
+          "period": 10,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-fresh-10-10",
+          "split": "representative",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-2e03f73db1f441939ff7bf2480d75e0d/average.csv",
+          "sha256": "e413ef2079ce082ef441284d2ffed2c5284461ccac4305cd0daa75a244de1363",
+          "run_id": "run-2e03f73db1f441939ff7bf2480d75e0d",
+          "ledger_index": 19,
+          "shots_averaged": 9,
+          "location_xyz": [134.0, 100.0, 70.0],
+          "delay": 10,
+          "period": 10,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-fresh-5-50",
+          "split": "representative",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-6ce8e9b3945f4429997104a9b1fa22f9/average.csv",
+          "sha256": "bbeffb5c590c869ec56bc101e89881f6359c9983fdb4849aa64e23a879a62970",
+          "run_id": "run-6ce8e9b3945f4429997104a9b1fa22f9",
+          "ledger_index": 20,
+          "shots_averaged": 10,
+          "location_xyz": [134.0, 124.0, 70.0],
+          "delay": 5,
+          "period": 50,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-fresh-10-50",
+          "split": "representative",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-468a150cbd4a458a8fa0fda3b09432dc/average.csv",
+          "sha256": "05e0f83ff88cc82e8ef08c52ca6a521f6811383af2e4ffb92356ed96b7a3e8e0",
+          "run_id": "run-468a150cbd4a458a8fa0fda3b09432dc",
+          "ledger_index": 21,
+          "shots_averaged": 10,
+          "location_xyz": [158.0, 124.0, 70.0],
+          "delay": 10,
+          "period": 50,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-verification-20-50-1000",
+          "split": "held_out",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-01105eaef0044dca87fb08bfdea5b107/average.csv",
+          "sha256": "f353c7a39bfebe77bc03c999de8047b462fd65af4920443a802e1a5168e58d2f",
+          "run_id": "run-01105eaef0044dca87fb08bfdea5b107",
+          "ledger_index": 23,
+          "shots_averaged": 8,
+          "location_xyz": [134.0, 96.0, 70.0],
+          "delay": 20,
+          "period": 50,
+          "pulse_period": 1000,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-verification-20-50-100",
+          "split": "held_out",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-90143c6b30884618ade5aea2f14819b8/average.csv",
+          "sha256": "747807669b4880df52a8d4bc26727258095b221464e6c4d17f0b7531c19c442d",
+          "run_id": "run-90143c6b30884618ade5aea2f14819b8",
+          "ledger_index": 24,
+          "shots_averaged": 10,
+          "location_xyz": [134.0, 96.0, 70.0],
+          "delay": 20,
+          "period": 50,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        },
+        {
+          "id": "fe-verification-20-10-100",
+          "split": "held_out",
+          "path": "/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq/run-74c9332760af4a1ab6f4a343c5e47c4f/average.csv",
+          "sha256": "9e6c1bf28027264c475f2c357cee605a3461c554e66bd772eb76738b19fe512a",
+          "run_id": "run-74c9332760af4a1ab6f4a343c5e47c4f",
+          "ledger_index": 25,
+          "shots_averaged": 10,
+          "location_xyz": [134.0, 96.0, 70.0],
+          "delay": 20,
+          "period": 10,
+          "pulse_period": 100,
+          "rows": 7914,
+          "wavelength_span_nm": [186.0521, 961.0]
+        }
+      ],
+      "limitations": [
+        "All spectra are from one physical Fe target, so runs are technical replicates rather than independent material replicates.",
+        "The held-out runs share one location and differ in acquisition settings; they test robustness, not generalization across composition.",
+        "The nominal 99.98% value is not backed by an archived certificate or assay in this workspace.",
+        "Raw paths are in a transient scratch directory; the repo-local NPZ preserves run means, while shot-level replay still depends on scratch data.",
+        "Only averaged spectra are enumerated here; all 252 native shot CSVs remain under the same acquisition tree."
+      ]
+    }
+  ],
+  "exploratory_unlabelled": [
+    {
+      "paths": [
+        "data/remote_samples/REE_01.csv",
+        "data/remote_samples/REE_44.csv",
+        "data/remote_samples/argon_noAr.csv",
+        "data/remote_samples/scan9x9.csv",
+        "data/remote_samples/user_spec1.csv"
+      ],
+      "use": "Runtime, null-translation, and qualitative diagnostics only.",
+      "reason_not_scored": "No independent reference composition is present; reports/2026-09-21-stage-consistency-thermometer.md explicitly records this for user_spec1, scan9x9, and REE_44, and no stronger source was found for the other two. Names and prior indexer outputs are not truth."
+    },
+    {
+      "paths": ["data/ree_05nm.pkl", "data/ree_perturb.pkl", "data/ree_test.pkl", "data/ree_zeroed.pkl"],
+      "use": "None for composition recall.",
+      "reason_not_scored": "Derived PCA/peak-analysis pickle artifacts with no independent composition labels; unsafe and unnecessary as benchmark inputs when source CSVs exist."
+    },
+    {
+      "paths": ["tests/fixtures/z300_real_spectrum_trimmed.json"],
+      "use": "Ingestion-format tests only.",
+      "reason_not_scored": "A trimmed real-spectrum fixture with no independently supported sample composition."
+    },
+    {
+      "paths": [
+        "provenance/physical-triage-k-20260922/k_wide_line_profiles.csv",
+        "runs/mw2_112_profile/k_resonance_diagnostic_20260716/k_doublet_optical_depth.csv"
+      ],
+      "original_path": "runs/mw2_112_profile/k_resonance_diagnostic_20260716/k_wide_line_profiles.csv",
+      "sha256": {
+        "k_wide_line_profiles.csv": "35dc5ca86a9346775790aa25f11e34a8a0dd225c01f2438038d50f06063de280",
+        "k_doublet_optical_depth.csv": "c7bb06a28367897c4f08aaeb4b0ab895424a56388d1a6876e1c6f6e7399780d6"
+      },
+      "use": "Measured-data counterexample diagnostic for a strict optically thin K I 766.49/769.90 ratio gate.",
+      "reason_not_scored": "These are processed line measurements rather than independently labelled raw compositions. The provenance copy is byte-identical to original_path. Use k_wide_line_profiles.csv integrated areas, not the peak-height ratios in k_doublet_optical_depth.csv. With both areas positive and both SNR >= 5, the pinned expected reanalysis is n=928, area-ratio 5/50/95 percentiles 1.351270188/1.440606688/1.527383171, with 926/928 outside +/-20% of the thin ratio 2.006045. This falsifies a strict thin-ratio rejection rule but does not by itself prove K identity."
+    }
+  ]
+}

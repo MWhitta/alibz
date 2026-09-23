@@ -232,12 +232,17 @@ class SegmentShift:
                 f"{1000 * self.global_shift:+.1f} pm, n={self.n_matches})")
 
 
-def shift_at(shift, wl):
+def shift_at(shift, wl, *, frame="observed"):
     """Evaluate a scalar or :class:`SegmentShift` at wavelength(s) ``wl``.
 
     Every consumer of ``shift_nm`` should convert through this helper so
     plain floats (legacy, tests) and per-segment shifts both work.
+    Regional gas corrections additionally distinguish observed coordinates
+    from database coordinates. Use ``frame="database"`` when predicting an
+    observed line position from a database reference.
     """
+    if hasattr(shift, "at_in_frame"):
+        return shift.at_in_frame(wl, frame=frame)
     if hasattr(shift, "at"):
         return shift.at(wl)
     return shift

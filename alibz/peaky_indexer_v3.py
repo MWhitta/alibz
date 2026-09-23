@@ -634,6 +634,10 @@ class PeakyIndexerV3:
         sa_log_tau_bounds: Tuple[float, float] = (-2.0, 3.0),
         sa_doublets: bool = False,
         sa_stimulated_emission: bool = False,
+        physical_triage: str = "off",
+        triage_config=None,
+        triage_coverage=None,
+        triage_protected_elements: Sequence[str] = (),
     ):
         """Build the LineTable and sparse peak-line overlap matrix.
 
@@ -652,6 +656,14 @@ class PeakyIndexerV3:
         When only a subset of unmatched lines is retained, the penalty is
         reweighted by the total unmatched strong-line mass for that species.
 
+        ``physical_triage`` is experimental: ``report`` records physical
+        evidence without changing candidates, and ``prune`` provisionally
+        excludes unsupported candidates before overlap construction. It is
+        off by default because the real-data benchmark found no net speed
+        benefit. ``triage_coverage`` contains valid database-frame wavelength
+        intervals; unknown noise/optical-depth information cannot justify a
+        missing-companion veto. Evidence is saved in convergence_info.
+
         ``stark_width_weight > 0`` enables the Stark-width nₑ coupling: the
         outer objective is charged an amplitude-weighted misfit between the
         observed per-peak Lorentzian widths and
@@ -662,6 +674,9 @@ class PeakyIndexerV3:
         profiled analytically per trial (exposed as ``_last_gamma_inst``);
         the outer ``gamma`` parameter keeps its overlap-kernel role.
         """
+        if physical_triage not in {"off", "report", "prune"}:
+            raise ValueError("physical_triage must be 'off', 'report', or 'prune'")
+        self._triage_report = None
         self._shift_tolerance = float(shift_tolerance)
         self._init_relative_intensity = float(max(min_init_relative_intensity, 0.0))
         self._pseudo_obs_weight = float(max(pseudo_obs_weight, 0.0))
@@ -697,6 +712,56 @@ class PeakyIndexerV3:
             max_ion_stage=max_ion_stage,
             min_gA=min_gA,
         )
+
+        # Run before the large peak-line overlap matrix. Report mode records
+        # every suggestion without changing the existing candidate gates.
+        # Pruning is opt-in pending validation on independently labelled
+        # matrices; a missing peak is not a measured zero concentration.
+        if physical_triage != "off":
+            from alibz.triage import TriageConfig, triage_candidates
+            from dataclasses import replace
+            cfg = triage_config or TriageConfig()
+            cfg = replace(cfg, match_tolerance_nm=max(
+                cfg.match_tolerance_nm, float(shift_tolerance)),
+                max_ion_stage=max_ion_stage)
+            triage_sigma = self._amp_sigma
+            if triage_sigma is not None and (
+                    np.any(~np.isfinite(triage_sigma)) or np.any(triage_sigma <= 0)):
+                # The fitter can leave unavailable area errors as zero/NaN.
+                # Preserve wavelength evidence and abstain from noise-based
+                # contradictions rather than inventing finite uncertainties.
+                triage_sigma = None
+            with telemetry.stage("physical_triage"):
+                triage = triage_candidates(
+                    self.peak_array, self.db, config=cfg,
+                    wavelength_range=wl_range,
+                    coverage_intervals=triage_coverage,
+                    peak_sigma=triage_sigma,
+                    protected_elements=triage_protected_elements)
+            self._triage_report = triage.to_dict()
+            self._triage_report["mode"] = physical_triage
+            self._triage_report["peak_uncertainty_available"] = triage_sigma is not None
+            self._triage_report["species_before"] = self.line_table.n_species
+            self._triage_report["applied_exclusions"] = []
+            if physical_triage == "prune":
+                rejected = set(triage.rejected_elements)
+                # "Deferred" means unobservable in this supplied peak
+                # table, not chemically absent. Unknown coverage abstains.
+                rejected.update(
+                    el for el in getattr(triage, "deferred_elements", ())
+                    if "no_wavelength_support" in triage.element_evidence[el].reasons)
+                keep = np.array([sp.element not in rejected
+                                 for sp in self.line_table.species], dtype=bool)
+                # An empty recommendation abstains rather than erasing the
+                # whole inverse problem on an unusual or bad peak table.
+                if np.any(keep):
+                    self._triage_report["applied_exclusions"] = sorted({
+                        sp.element for sp, retained in zip(self.line_table.species, keep)
+                        if not retained})
+                    self.line_table.filter_species(keep)
+                else:
+                    self._triage_report["all_rejected_fallback"] = True
+            self._triage_report["species_after"] = self.line_table.n_species
 
         self.peak_line_map = self._build_observed_overlap_map()
         ladder = (PREFILTER_TEMPERATURES_K if prefilter_temperatures is None
@@ -1003,15 +1068,11 @@ class PeakyIndexerV3:
         """Return a boolean keep mask from species evidence metrics."""
         total_mass = np.asarray(evidence["total_mass"], dtype=float)
         strong_line_count = np.asarray(evidence["strong_line_count"], dtype=np.int32)
-        # A species must be supported by at least ``evidence_min_supported_lines``
-        # of its strong lines IN RANGE -- not ``min(that, lines in range)``.
-        # The old form made the rule vacuous for species with a single line
-        # in the table: Bi II (one line at 190.2 nm, in the off-model UV edge
-        # zone) matched one 38-count peak, and because its predicted
-        # emissivity there is tiny the solver needed ten times potassium's
-        # concentration to fit it -- reported as Bi = 0.8-1.0 of the sample
-        # (measured 2026-09-21 on a Profile Builder export and on scan9x9 /
-        # REE_44).  One coincidence can never establish an element.
+        # Require up to evidence_min_supported_lines strong lines, capped
+        # by what is in range. A genuinely narrow window can contain only
+        # one usable line. Passing this gate is candidate support, not a
+        # confirmed elemental identification; independent feature evidence
+        # and the initial-strength/detection gates supply further checks.
         required_support = np.minimum(self._evidence_min_supported_lines, strong_line_count)
         allowed_missing = np.minimum(self._evidence_max_missing_lines, strong_line_count)
         keep = total_mass > 0
@@ -2725,6 +2786,7 @@ class PeakyIndexerV3:
             concentrations, A, A_all=getattr(self, "_last_A_all", None))
 
         convergence_info = {
+            'physical_triage': getattr(self, '_triage_report', None),
             'stage_consistency_weight': self._stage_consistency_weight,
             'stage_tie_cost': tie_total,
             'stage_tie_by_element': {el: float(v) for el, v in
@@ -2808,6 +2870,10 @@ class PeakyIndexerV3:
         verbose: bool = True,
         search: str = "gp",
         random_state: int = 42,
+        physical_triage: str = "off",
+        triage_config=None,
+        triage_coverage=None,
+        triage_protected_elements: Sequence[str] = (),
     ) -> FitResult:
         """Execute the full v3 pipeline.
 
@@ -2857,6 +2923,10 @@ class PeakyIndexerV3:
             sa_log_tau_bounds=sa_log_tau_bounds,
             sa_doublets=sa_doublets,
             sa_stimulated_emission=sa_stimulated_emission,
+            physical_triage=physical_triage,
+            triage_config=triage_config,
+            triage_coverage=triage_coverage,
+            triage_protected_elements=triage_protected_elements,
         )
 
         lt = self.line_table

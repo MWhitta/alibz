@@ -134,7 +134,7 @@ def match_and_scale(peak_array, db, elements, kT_ev=DEFAULT_KT_EV,
                 if np.sum(s_s[near]) - s_j > 0.1 * s_j:
                     continue  # same-element multiplet contamination
                 d = np.abs(peaks[:, 1]
-                           - (wl_j + float(_shift_at(shift_nm, wl_j))))
+                           - (wl_j + float(_shift_at(shift_nm, wl_j, frame="database"))))
                 k = int(np.argmin(d))
                 if d[k] > tol_nm or peaks[k, 0] < min_ref_amp:
                     continue
@@ -173,7 +173,7 @@ def match_and_scale(peak_array, db, elements, kT_ev=DEFAULT_KT_EV,
                 # collapses the references onto one segment, and
                 # predicting into the other would be wrong by the step
                 "ref_segments": {
-                    _segment_of(w + float(_shift_at(shift_nm, w)),
+                    _segment_of(w + float(_shift_at(shift_nm, w, frame="database")),
                                 segment_edges)
                     for w in kept_wl},
             }
@@ -326,7 +326,7 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
             pred_str = info["scale"] * float(s_stage[j_str])
             if pred_str > extrapolation_factor * info["max_ref_area"]:
                 mu_str = float(wl_stage[j_str])
-                mu_str += float(_shift_at(shift_nm, mu_str))
+                mu_str += float(_shift_at(shift_nm, mu_str, frame="database"))
                 d_str = np.abs(peaks[:, 1] - mu_str)
                 k_str = int(np.argmin(d_str))
                 observed = (peaks[k_str, 0] if d_str[k_str] <= 2 * tol_nm
@@ -337,7 +337,7 @@ def seed_minor_lines(x, y, fit_dict, db, elements, kT_ev=DEFAULT_KT_EV,
         for wl_j, s_j in zip(wl_stage, s_stage):
             if float(wl_j) in matched:
                 continue
-            mu_pred = float(wl_j) + float(_shift_at(shift_nm, wl_j))
+            mu_pred = float(wl_j) + float(_shift_at(shift_nm, wl_j, frame="database"))
             if any(abs(mu_pred - c) <= h for c, h in exclude):
                 # asymmetric-merge zone: its core residual is deliberate
                 continue

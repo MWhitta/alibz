@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-09-22T23:38:07.459328+00:00",
+  "scope": "Physical triage and early neutral Ar/O diagnostics; local validation, no deployment",
+  "git_head": "7724eb7859dc865cd6e3195fc72e28896fc64790",
+  "worktree": "uncommitted changes; exact source hashes below",
+  "python": "3.13.5 (main, Jun 11 2025, 15:36:57) [Clang 17.0.0 (clang-1700.0.13.3)]",
+  "packages": {
+    "numpy": "2.4.4",
+    "scipy": "1.17.1",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.8.0",
+    "scikit-optimize": "0.10.2",
+    "pytest": "9.0.2"
+  },
+  "tests": {
+    "full": {
+      "result": "501 passed, 4 skipped, 1 warning, 71 subtests passed in 264.16s (0:04:24)",
+      "exit_code": 0,
+      "command": "MPLCONFIGDIR=/private/tmp/alibz-mpl OPENBLAS_NUM_THREADS=1 .venv/bin/python -m pytest -q"
+    },
+    "focused": {
+      "result": "46 passed in 4.46s",
+      "exit_code": 0
+    }
+  },
+  "benchmarks": {
+    "real": {
+      "samples": 26,
+      "gate": {
+        "broad_validation_status": "fail",
+        "candidate_reduction_observed": false,
+        "diverse_matrix_requirement_met": false,
+        "expected_positive_retention": 0.0,
+        "independently_labelled_material_groups": 1,
+        "median_candidate_build_speedup": 0.25110091308598353,
+        "median_speed_benefit_observed": false,
+        "no_labelled_positive_loss": false,
+        "requirements": [
+          "retain every supported positive",
+          "reduce candidates beyond existing gates",
+          "median candidate-build speedup above 1x",
+          "at least three independently labelled material matrices"
+        ]
+      }
+    },
+    "production": {
+      "samples": 3,
+      "gate": {
+        "broad_validation_status": "fail",
+        "candidate_reduction_observed": false,
+        "diverse_matrix_requirement_met": false,
+        "expected_positive_retention": 0.0,
+        "independently_labelled_material_groups": 1,
+        "median_candidate_build_speedup": 0.26473570554956677,
+        "median_speed_benefit_observed": false,
+        "no_labelled_positive_loss": false,
+        "requirements": [
+          "retain every supported positive",
+          "reduce candidates beyond existing gates",
+          "median candidate-build speedup above 1x",
+          "at least three independently labelled material matrices"
+        ]
+      }
+    }
+  },
+  "decision": {
+    "general_triage_default": "off",
+    "early_gas_diagnostics": true,
+    "gas_sensitivity_independently_validated": false,
+    "legacy_fe_filter_failure": "diagnosed; unchanged"
+  },
+  "provider_switches": [],
+  "files": [
+    {
+      "path": "alibz/triage.py",
+      "bytes": 36123,
+      "sha256": "28635529a37f47597ed46b71d411d7c11662fcca4b43821415b76ac04ca2967e"
+    },
+    {
+      "path": "alibz/gas_detection.py",
+      "bytes": 16570,
+      "sha256": "e59c1c7411c204751f891e34ef57e9883135be4d8b4f3776e521e0462c87ba70"
+    },
+    {
+      "path": "alibz/pipeline.py",
+      "bytes": 97586,
+      "sha256": "2b88a0d712ddb3351e36eebf37094522aa2b3011288b4b66fb4dc7807323074f"
+    },
+    {
+      "path": "alibz/peaky_indexer_v3.py",
+      "bytes": 132602,
+      "sha256": "3094a6f526b9da30670293efe896b68cb3bfcf1d68cfcdb19f8f0fb04f673b02"
+    },
+    {
+      "path": "alibz/cli.py",
+      "bytes": 9124,
+      "sha256": "668cc2a9f846bbaf6f675cedd50f9e20e1bd858fca8fed3c6f863f197997379e"
+    },
+    {
+      "path": "alibz/utils/absorption.py",
+      "bytes": 5468,
+      "sha256": "d7bcd43f861adff73c34ac57cd95c7f53d49770d209561f69140c54a4a3d5507"
+    },
+    {
+      "path": "alibz/utils/database.py",
+      "bytes": 8602,
+      "sha256": "2302325e5e0329f11d3fc2789ca1d8f47294d34cb46372d00f4c216fbc45e15d"
+    },
+    {
+      "path": "alibz/utils/sahaboltzmann.py",
+      "bytes": 14925,
+      "sha256": "3c058c573bcab95324fcf6a52bb3bd0b371727edb1427745eb0cbcac3b827c99"
+    },
+    {
+      "path": "scripts/benchmark_physical_triage.py",
+      "bytes": 27489,
+      "sha256": "a16408bd722f96629a4461c6aac9b68dcdc3c7e94d1e0cae2a41aafe98e92a82"
+    },
+    {
+      "path": "scripts/plot_physical_triage_benchmark.py",
+      "bytes": 3382,
+      "sha256": "ec4ab624c380a62514062a28518231cd842e9cb557219133ad7780d6daec7705"
+    },
+    {
+      "path": "scripts/validate_physical_triage_pipeline.py",
+      "bytes": 3377,
+      "sha256": "39a2fbcaffdd5757d97919940fc6f1d9af9a9d8c009cf79a236f6f02bcf578c8"
+    },
+    {
+      "path": "tests/test_triage.py",
+      "bytes": 11909,
+      "sha256": "7b05449fbf0d3748d34cd1923aafdc3f0fd1658f8b1e3854fd694934bfe43fe3"
+    },
+    {
+      "path": "tests/test_gas_detection.py",
+      "bytes": 7273,
+      "sha256": "b298d5004f1100e834e235aa5365ff980823e1c5c250bc456d23769c8b997db4"
+    },
+    {
+      "path": "tests/test_triage_benchmark.py",
+      "bytes": 2764,
+      "sha256": "6c9c1cbe7968ccc1d2769fad3f4bcc1ebe96bc840b5ad03d61f9f9db41df50f2"
+    },
+    {
+      "path": "tests/test_triage_integration.py",
+      "bytes": 5380,
+      "sha256": "3caca50f075231323c0ae3ab7db683798cb3039973f7729460a20543f874ecb3"
+    },
+    {
+      "path": "db/no_lines26.pickle",
+      "bytes": 150,
+      "sha256": "36dafbc673f6e86a656d4302f0627ee35c83b6ff2167c555327bd8af5299fbd1"
+    },
+    {
+      "path": "db/el_lines92.pickle",
+      "bytes": 237928671,
+      "sha256": "964a8dba75d66dece70f275a70c203adb6a88d621b563657afdd7bea6a98e7f0"
+    },
+    {
+      "path": "db/ionization/ionization.pickle",
+      "bytes": 148589,
+      "sha256": "99688c056e56e024721e3e1c025b6ff2debcff4ee7efebb828b46aa51c8d790b"
+    },
+    {
+      "path": "db/abundance_92.csv",
+      "bytes": 827,
+      "sha256": "9412e093f18cd992772b43e990e2eeed8ab45d657e3d5450665009ad7ae5ba4f"
+    },
+    {
+      "path": "db/observed_lines_nist.tsv",
+      "bytes": 1123947,
+      "sha256": "2692a063757a88d0085c5d9254270f320a0f27f17428701cb700409876800306"
+    },
+    {
+      "path": "db/quantitative_lines_se_th_u.tsv",
+      "bytes": 318432,
+      "sha256": "862a2bda2e49c9245f279733a15692082dc2ac95f2f7deb156f9686320564513"
+    },
+    {
+      "path": "db/atomic_line_sources.json",
+      "bytes": 5713,
+      "sha256": "d6ddf1c58469ce670e074778072bb9a4bd719f76bb9d57dbc8b04a613434b733"
+    },
+    {
+      "path": "docs/physical_triage_priors.md",
+      "bytes": 18447,
+      "sha256": "a7475576e4787ca06519d5e4c00140045881ced5dc0063e4bc8f970f2265d9f9"
+    },
+    {
+      "path": "provenance/physical-triage-sources-20260922.json",
+      "bytes": 4782,
+      "sha256": "20ec1770f9131594214a11158c1c50d1a71fbf29a35d6ee3304f966854e613c2"
+    },
+    {
+      "path": "provenance/physical-triage-real-data-20260922.json",
+      "bytes": 13817,
+      "sha256": "2bdd46ec851f94e6346ec21cc9da012d12ce5ce2262ff8bdd570ce28e7bb3cbb"
+    },
+    {
+      "path": "provenance/physical-triage-real-data-20260922.npz",
+      "bytes": 1262617,
+      "sha256": "c8d04ab5b650a5f911b56dc8e0586b8aaff207bbe6c573ec5857bbe319a766b8"
+    },
+    {
+      "path": "provenance/physical-triage-k-20260922/k_wide_line_profiles.csv",
+      "bytes": 903799,
+      "sha256": "35dc5ca86a9346775790aa25f11e34a8a0dd225c01f2438038d50f06063de280"
+    },
+    {
+      "path": "reports/physical-triage-real-benchmark-20260922.json",
+      "bytes": 15450288,
+      "sha256": "c07f8f9f34ce4b24a0f8504d4cf7414d5860c283df5b169498b6c41cb546499c"
+    },
+    {
+      "path": "reports/physical-triage-production-benchmark-20260922.json",
+      "bytes": 1701109,
+      "sha256": "c7de2480c057f2eb38ed187f8d6a814dd5ffa2b46c45a1e9b0373f644f02ea08"
+    },
+    {
+      "path": "reports/physical-triage-pipeline-smoke-20260922.json",
+      "bytes": 254008,
+      "sha256": "f8553343e70812f0eccdc75160916d381657fe94ff24f7fa8379b43f7870aa45"
+    },
+    {
+      "path": "reports/figures/physical-triage-20260922.png",
+      "bytes": 103159,
+      "sha256": "b346eb5a44ff040e5dea21b14d029599fbdbfed130b3c63629d19af12b0979cf"
+    },
+    {
+      "path": "reports/2026-09-22-physical-triage.md",
+      "bytes": 10461,
+      "sha256": "143fa80f99fa22a55df9831776141df2a7bc8d773bb5714121f6bf838e1f21fe"
+    },
+    {
+      "path": "reports/2026-09-22-physical-triage-legacy-gate-diagnosis.md",
+      "bytes": 5307,
+      "sha256": "ac94edbdaea79ac82d59515095cdb3ab6c7c2c55b11002cc8f3ceb967b2bbdb4"
+    }
+  ]
+}

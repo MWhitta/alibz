@@ -382,3 +382,22 @@ pantheum-I HEAD** (24cb0f3), so no `acquire.py` hunk remains. Verified on
 `git worktree add --detach HEAD`: `git apply --check` clean, applied,
 `python3 -m pytest tests/test_alibz_acquire.py -q` = **76 passed, 37 subtests**.
 Worktree removed.
+
+## Correction (2026-09-23 reconciliation with the gas-calibration engine)
+
+The "Ambient (Ar I) NIR registration: trusted" bullet above overstates the
+basis. On 10-shot Fe run means the ambient NIR value rests on **one line**, Ar I
+696.543 nm (SNR ≈ 17, shift −0.188 nm, MAD 11 pm over 25 of 26 archived runs);
+772.4 and 801.5 nm agree (−0.12 / −0.17 nm) but are below or near the SNR gate,
+and the remaining Ar I anchors (706.7, 738.4, 763.5, 794.8, 811.5, 826.5,
+842.5 nm) match repeatable **iron** features 0.2–0.6 nm away (Fe II 763.19,
+794.51, 810.98, 842.06 nm and three unlisted features). In 5 of 53 runs the
+robust mode locked onto the 794.8 nm iron feature (−0.34 nm). The median
+−0.196 nm and the ±50 pm no-drift bound therefore describe the 696.5 nm line,
+not a multi-line registration (re-run with the composition gate: 46/53 runs,
+median −0.196 nm, MAD 9.5 pm; the gate removed the two outliers at +0.48 and
+−0.33 nm and nothing else); the pipeline default (`ambient`, ≥ 3 lines)
+correctly applies nothing to such data. `ambient_registration` now takes the
+sample composition as an anchor gate (removal only). Evidence, the per-anchor
+table and the binding rule between the two argon engines:
+`reports/2026-09-23-gas-registration-reconciliation.md`.

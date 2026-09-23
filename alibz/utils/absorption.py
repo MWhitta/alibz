@@ -2,10 +2,13 @@
 
 The optically thin assumption fails on ground-state resonance lines of
 major elements: measured on a Li-rich mineral, the K I 766.5/769.9
-doublet area ratio was 1.30 against the T-independent optically-thin
-value of 2.02 (shared upper levels), and Na D gave 1.51 vs 2.00 — a
+doublet area ratio was 1.30 against an approximately 2 optically-thin
+LTE value, and Na D gave 1.51 vs approximately 2.00 — a
 ~35% compression on exactly the lines that identify the alkalis.  A
 linear (thin) design matrix has no degree of freedom to absorb this.
+These resonance doublets share a lower level and have distinct
+fine-structure upper levels; their thin ratios depend weakly on temperature.
+They are not temperature-independent same-upper-level branching ratios.
 
 Model: homogeneous-slab escape factor.  The integrated absorption of a
 line is
@@ -70,7 +73,8 @@ def doublet_ratio(tau_weak, strength_ratio=2.0):
     """Predicted area ratio of a resonance doublet under self-absorption.
 
     The stronger member has ``tau = strength_ratio * tau_weak`` (shared
-    lower level, gA ratio = thin intensity ratio).  Returns
+    lower level; this convenience model approximates the absorption
+    strength ratio as the thin intensity ratio). Returns
     ``I_strong / I_weak``; -> ``strength_ratio`` as tau -> 0 and -> 1 as
     tau -> infinity.  Useful to invert a measured doublet ratio into an
     optical-depth estimate (K I 766.5/769.9 at 1.30 implies
@@ -98,8 +102,10 @@ def invert_doublet_tau(measured_ratio, thin_ratio, strength_ratio=None,
     can misallocate it (measured failure of the global model: fitted K
     doublet ratio 1.97 against 1.37 observed).
 
-    ``strength_ratio`` defaults to ``thin_ratio`` (shared upper-level
-    structure makes emission and absorption ratios equal).  Returns 0
+    ``strength_ratio`` defaults to ``thin_ratio`` as a close-wavelength
+    resonance-doublet approximation. For distinct upper levels, emission
+    and absorption ratios are not exactly equal; pass them separately
+    when computing their wavelength and Boltzmann factors. Returns 0
     when ``R >= R0`` (no measurable compression) and ``tau_max`` when the
     doublet is compressed beyond the model's saturated limit.
     """

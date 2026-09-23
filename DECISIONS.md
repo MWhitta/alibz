@@ -135,3 +135,30 @@ analyzer-clock=UTC, this study infers +3 h — neither verified against hardware
 Evidence and figures: `reports/2026-09-23-wavelength-registration.md`,
 `reports/registration-study-20260923.json`,
 `reports/figures/registration-20260923/`. No provider switch or hardware action.
+
+## 2026-09-23 — Two argon wavelength engines: both kept, one rule, neither applies to 10-shot Fe means
+
+Two sessions implemented the "Ar I / O I as separate wavelength calibrations"
+request in parallel: `gas_calibration` + `wavelength_calibration` (regional,
+native-maxima peak table, ≥ 3 consistent Ar groups, default `apply`) and
+`wavelength_registration` (line-shape-aware, Gaussian sub-pixel, per-segment,
+default `ambient` = NIR when ≥ 3 lines). Both are committed. Binding rule in
+`analyze_spectrum`: ambient registration may replace the NIR segment shift;
+the gas engine's regional calibration overrides inside its bracketed support
+when `calibrated`; `['gas_cross_check']` records their difference (20 pm
+single-line floor) and QC flags `ar-registration-disagreement` beyond 3 σ.
+
+Measured on the 26 pinned Fe run means: gas engine 0 calibrated (24 no
+evidence: no candidate at SNR ≥ 6), ambient registration one line per run
+(Ar I 696.5 nm, −0.188 nm, MAD 11 pm). Every other Ar I anchor (706, 738, 763,
+794, 811, 826, 842 nm) matches a repeatable IRON feature 0.2–0.6 nm away (Fe II
+763.19 / 794.51 / 810.98 / 842.06 nm); only 696.5, 772.4, 801.5 nm are argon
+(−0.17 ± 0.03 nm). Hence: (a) `ambient_registration` gains a composition anchor
+gate (removal only; the config path existed but was dead); a stricter isolation
+fraction was tried and REJECTED (removes 696.5, keeps 794); (b) the earlier
+"−0.18 nm trusted" statement is corrected to a single-line measurement; (c) both
+defaults stay because both only act when their gates pass, which they do not on
+this data; (d) an argon-rich registration acquisition (50–100 shots on Al/Cu/
+glass) is the prerequisite for a multi-line NIR registration. Two of the closed
+session's tests were stale against its own code and updated. Evidence:
+`reports/2026-09-23-gas-registration-reconciliation.md`.

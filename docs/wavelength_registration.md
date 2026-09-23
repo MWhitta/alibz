@@ -23,10 +23,20 @@ subtract the shift: that is `apply_registration(x, registration)`.
 
 ## The three estimators
 
-- **`ambient_registration(x, y, db)`** — composition-independent, from Ar I / O I
+- **`ambient_registration(x, y, db, composition=None)`** — from Ar I / O I
   (and optionally N I, Hα) present via the argon purge and ambient air. These
   live almost entirely in the NIR segment. Output: per-segment shift (and slope
   if ≥4 lines), a per-line table, the species detected, and a quality flag.
+  `composition` (or `config["composition"]`) lists the sample elements whose
+  strong lines gate the anchors: it only *removes* anchors a sample line could
+  be mistaken for, never supplies any. This matters in pure metals: on the
+  2026-09-22 Fe run means the Ar I 763/794/811/842 nm anchors each matched a
+  repeatable Fe II feature 0.2–0.6 nm from the argon registration, and only
+  696.5 (SNR ≈ 17), 772.4 and 801.5 nm were argon (−0.17 ± 0.03 nm). A 10-shot
+  Fe mean therefore yields a **one-line** NIR result ("weak", recorded, not
+  applied); ≥ 3 clean Ar lines need an argon-rich acquisition (50–100 shots on
+  a target without a NIR Fe II forest). See
+  `reports/2026-09-23-gas-registration-reconciliation.md`.
 - **`element_registration(x, y, db, composition)`** — DETERMINISTIC golden-line
   estimator. `golden_lines(db, composition, segment)` selects lines unambiguous
   *by construction* — a composition I/II line in the segment's top ~150 by
@@ -105,6 +115,18 @@ mode:
   single ~438.31 peak; the strongest-60 match fraction to each metal's own
   top-300 list is only 50–62 %).
 - **`report`** records everything, applies nothing; **`off`** computes nothing.
+
+**Relation to the gas-calibration engine.** `alibz.gas_calibration` (regional
+Ar I / O I offsets from a native-maxima peak table, `gas_wavelength_calibration`,
+default `apply`) runs in the same pipeline. Order: the ambient registration may
+replace the NIR segment shift first; the gas engine's regional calibration then
+overrides *inside its bracketed anchor support* when it reaches `calibrated`
+(≥ 3 consistent Ar groups). Both are argon-based, so where both fire they must
+agree: `['gas_cross_check']` records the difference (20 pm single-line floor)
+and the summary QC adds `ar-registration-disagreement` beyond 3 σ. On 10-shot
+Fe means neither gate passes (gas engine: 0 of 26 calibrated; ambient: one line),
+so both only record. CLI: `--wavelength-registration`, `--subpixel`,
+`--gas-wavelength-calibration`.
 
 `['applied_segments']` logs which segments were changed. `PeakyIndexerV3` accepts
 the combined registration as a prior and reports its own anchor shift beside it

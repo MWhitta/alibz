@@ -44,7 +44,32 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-23 13:30 PDT wavelength registration COMMITTED (alibz 88cd8fb); UV/VIS registration unresolved
+# Current state — 2026-09-23 14:20 PDT gas calibration + physical triage (closed session) RECONCILED with wavelength registration; interlock deploy VERIFIED LIVE
+
+Interlock-refusal deploy: the wrapper refused (baseline moved) but the live
+files on Moissanite hash-match pantheum-I HEAD (contains bc5a319 + 1a8b255,
+703588e, 1a1bac3), installed 12:30 PDT, both services restarted 12:34. Nothing
+left to deploy.
+
+Committed together in alibz: the closed session's gas_calibration /
+wavelength_calibration / gas_detection / triage modules, tests, benchmarks,
+provenance and reports, plus the wavelength-registration pipeline integration
+(AnalysisConfig.wavelength_registration default "ambient", subpixel "gaussian",
+CLI flags). Reconciliation finding: on the 26 pinned 10-shot Fe run means the
+gas engine calibrated 0 (no Ar candidate at SNR >= 6) and the ambient
+registration accepted ONE line per run (Ar I 696.5 nm, -0.188 nm, MAD 11 pm);
+the Ar I 706/738/763/794/811/826/842 nm anchors match repeatable Fe II
+features 0.2-0.6 nm away, so the earlier "-0.18 nm trusted" claim is corrected
+to a single-line result. ambient_registration gained a composition anchor gate
+(removal only; study re-run 46/53 runs, median -0.196 nm); both engines are
+bound by one rule with a gas_cross_check record + QC flag; defaults kept (both
+abstain on this data). Two stale closed-session tests fixed. Full suite: 563
+passed, 4 skipped, 71 subtests. Needs an argon-rich registration acquisition
+(50-100 shots on Al/Cu/glass) for a multi-line NIR registration. Report:
+reports/2026-09-23-gas-registration-reconciliation.md. No provider switch,
+deployment or hardware action.
+
+## Earlier (2026-09-23 13:30 PDT) wavelength registration COMMITTED (alibz 88cd8fb); UV/VIS registration unresolved
 
 Delivered: alibz/wavelength_registration.py (ambient Ar/O/N/H NIR registration,
 golden-line + vote-mode element estimators recorded as diagnostics,

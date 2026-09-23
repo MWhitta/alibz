@@ -64,11 +64,53 @@ This writes:
 
 - `summary.csv`: one row per spectrum with fitted plasma parameters, detected-element fractions, per-element statistical uncertainties, and diagnostic flags
 - `detections.csv`: long-format per-sample/per-element detection status, line-support evidence, z-scores, and upper limits for non-detections or borderline elements
+- `background_gases.json`: early Ar I and O I feature evidence, including ambiguous or unavailable groups; `Ar_status` and `O_status` also appear in `summary.csv`
+- `wavelength_calibration.json`: independent Ar I/O I wavelength offsets, uncertainties, anchor evidence, baseline correction, and exact regions where gas corrections were applied
 - `fit_inspection.ipynb`: an inspection notebook for one live spectrum, including fit plots, refinement decisions, seeded minor lines, and composition charts
 
 If notebook dependencies are not installed, either install the `notebook` extra or pass `--no-execute`.
 
 Self-absorption optical depths use the current default convention unless you pass `--stimulated-emission` to include the induced-emission factor.
+
+Ar and O are checked before the first composition fit using independent line
+groups, local noise and interference checks. An unresolved oxygen triplet is
+one group. Expected purge/ambient species still require measured evidence;
+atomic oxygen emission does not identify whether its source is gas or sample.
+These diagnostics do not subtract gas or change the meaning of fitted fractions.
+
+Ar I and O I also provide **independent wavelength calibrations**, estimated
+from the incoming spectrum before the mixed-element residual correction.
+Reliable gas offsets replace that correction only between supporting anchors
+in the same detector segment. Ar and O are reported separately; disagreements
+retain the baseline correction in the overlap. Offsets mean observed minus
+database wavelength, in nanometres. Raw wavelengths and the instrument's
+internal calibration are preserved. The historical `shift_*` summary columns
+retain the baseline estimate; separate `Ar_calibration_*` and `O_calibration_*`
+columns describe gas references.
+
+`--gas-wavelength-calibration apply` is the default. Use `report` to record
+independent estimates without applying them, or `off` to skip calibration.
+On the 2026-09-22 Fe run means (10 shots, argon purge) the engine calibrated
+0 of 26 spectra: the Ar I lines are too weak for its SNR ≥ 6 native-maxima
+gate and several anchors coincide with Fe II lines, so it records evidence and
+applies nothing. The line-shape-aware `--wavelength-registration ambient`
+(default) reads the same argon lines with a Gaussian sub-pixel fit and applies
+the NIR registration only when ≥ 3 lines agree (one line in a 10-shot Fe mean:
+recorded, not applied); the two are cross-checked in
+`analysis['wavelength_registration']['gas_cross_check']`. See
+[the reconciliation](reports/2026-09-23-gas-registration-reconciliation.md).
+Unresolved multiplets, weak evidence, and unsupported detector regions do not
+license a precise correction. See the
+[calibration evaluation](reports/2026-09-23-gas-wavelength-calibration.md).
+
+Experimental physical candidate triage can be inspected with
+`--physical-triage report`, which also writes `physical_triage.json`.
+`--physical-triage prune` applies provisional exclusions before pass-1 matrix
+construction; later passes can recover candidates. The default is `off`: the
+initial real-data benchmark found no final candidate reduction and higher cost.
+Gas sensitivity also needs independent positive/negative standards. See the
+[physical priors and validation](docs/physical_triage_priors.md) and the
+[real-data evaluation](reports/2026-09-22-physical-triage.md).
 
 ### Python API
 
@@ -114,6 +156,10 @@ print(result.stage_disagreement)           # LTE / stage-consistency diagnostic
 | `alibz.peaky_finder` | Peak detection, arPLS background removal, multi-Voigt fitting |
 | `alibz.refinement` | Blend vs self-absorption refinement for ambiguous peak features |
 | `alibz.minor_lines` | Prior-driven fitting of minor lines from established elements |
+| `alibz.gas_detection` | Early, database-grounded Ar I and O I group detection with noise and interference evidence |
+| `alibz.gas_calibration` | Independent Ar I/O I wavelength references from the incoming instrument axis |
+| `alibz.wavelength_calibration` | Regional application, baseline fallback, and independent-reference disagreement handling |
+| `alibz.triage` | Experimental physical candidate priors with explicit abstentions and reversible pruning |
 | `alibz.peaky_indexer_v3` | Experimental whole-pattern spectral indexer (Bayesian optimisation + NNLS); the only supported indexer |
 | `alibz.peaky_maker` | Forward spectral synthesis via Saha-Boltzmann |
 | `alibz.synthetic` | Deterministic explicit-stage synthetic spectra on arbitrary wavelength cells; no Saha ionization constraint |

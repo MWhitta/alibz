@@ -140,7 +140,9 @@ def paired_subpixel_residuals(x, y, db, composition, cfg):
 
 
 def analyse_run(x, y, db, element, subpixel_compare=True):
-    amb = wr.ambient_registration(x, y, db)
+    # the sample element gates the ambient anchors (removes Ar targets a sample
+    # line could be mistaken for); it never supplies anchors
+    amb = wr.ambient_registration(x, y, db, composition=[element])
     ele = wr.element_registration(x, y, db, [element])
     comb = wr.combined_registration(amb, ele)
     resid_gauss, resid_parab = [], []
