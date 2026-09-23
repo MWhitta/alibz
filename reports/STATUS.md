@@ -44,7 +44,17 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-22 17:20 PDT sequence mode LIVE; first V sequence stopped by a laser disarm (520); fix committed, deploy pending
+# Current state — 2026-09-22 17:45 PDT first replicated V study COMPLETE (27 batches, one click); interlock fix deploy pending
+
+Session opt-9d384296 ran the 3x3 grid with 3 replicates unattended (16:12-16:33
+PDT). Period dominates: 10 > 25 > 50 (0.485/0.460/0.414, replicate SD 0.021);
+delay 10 ~ 20 > 5 but delay is confounded with lap/crater depth. Best 10/10
+0.500 +- 0.010. Report reports/2026-09-22-vanadium-sequence-results.md.
+Frame drops persist (last batch 6/10). Deploy scripts/deploy-alibz-interlock-refusal.sh
+--apply (bc5a319: clean 520/521 handling + raster laps) now that no batch is
+active. Next: extend periods below 10, interleave replicates across laps.
+
+## Earlier today (17:20 PDT) sequence mode LIVE; first V sequence stopped by a laser disarm (520); fix committed, deploy pending
 
 Operator deployed 278d525 (live hashes match) and started session
 opt-4f3fbcba "V_pure_run1" (composition V, 3 repeats, 27 slots). Batch 1
@@ -652,3 +662,18 @@ Deployed by the operator 15:23:35 PDT (backup ~/pantheum-fire-fix-backup-2026092
 live hashes of the 5 code files match the local tree, 83 references live, both
 services active, /api/optimization serves existing sessions with derived
 composition fields. Source still UNCOMMITTED in pantheum-I. Complete.
+
+## Physical LIBS triage and early Ar/O — 2026-09-22
+
+Implemented physical-prior engine, default early Ar I/O I diagnostics, CLI/API
+outputs, optional report/prune pass-1 integration, and offline real-data replay.
+General pruning stays OFF: 26 nominal Fe means showed no final candidate
+reduction and ~4x candidate construction cost. New triage kept Fe 26/26;
+existing downstream filters removed it 26/26 in both modes. Diagnosed legacy
+missing-line gate; no legacy rule changed. Gas standards are still needed to
+validate detection sensitivity. Potassium measured-data reanalysis confirms
+strict thin-ratio vetoes would discard strong evidence (926/928 pairs).
+Report: 2026-09-22-physical-triage.md. Input and code pins under provenance/.
+Final focused tests: 46 passed; full suite: 501 passed, 4 skipped, 71 subtests
+passed. Report and validation provenance complete. No provider switch,
+deployment, or hardware action. Complete.
