@@ -44,7 +44,28 @@ No deployment performed yet. No provider switch.
 
 ## Earlier state (historical)
 
-# Current state — 2026-09-23 09:30 PDT wavelength registration + thermal-drift correction IN PROGRESS
+# Current state — 2026-09-23 13:30 PDT wavelength registration COMMITTED (alibz 88cd8fb); UV/VIS registration unresolved
+
+Delivered: alibz/wavelength_registration.py (ambient Ar/O/N/H NIR registration,
+golden-line + vote-mode element estimators recorded as diagnostics,
+vendor_calibration_shift, thermal_drift_model), alibz/utils/peakfit.py
+(Gaussian instrumental-profile sub-pixel fit: 0.035 px at SNR 20, unbiased,
+-15 % residual vs parabolic), registration study over 53 runs
+(reports/2026-09-23-wavelength-registration.md), pantheum provenance fields
+(acquire.py in 24cb0f3, tests ff7f401). Verdict: warm-up drift not supported
+where testable (NIR/Ar: -0.18 nm, ±50 pm from 4 min to 18 h after
+calibration); dominant mismatch = the pixel->nm polynomial (0.1-0.3 nm,
+wavelength-dependent; the 13:39 recal moved it +69/-94/-223 pm). UV/VIS
+element registration NOT validated: strongest pure-metal lines are optically
+thick/displaced (Fe I 438.35, V I 438 triplet) and forest matching aliases;
+needs a line lamp or certified reference. Pipeline integration
+(AnalysisConfig.wavelength_registration default "ambient") is in the working
+tree but NOT committed: interleaved with another session's uncommitted
+pipeline.py hunks (gas_calibration / physical_triage; owner unknown —
+asked the owner). tests/test_gas_calibration*.py (not ours) fail on a
+list/array TypeError. Interlock-refusal deploy still pending.
+
+## Earlier (2026-09-23 09:30 PDT) wavelength registration + thermal-drift correction IN PROGRESS
 
 Owner hypothesis: db mismatch = WL calibration done cold (~25 C) before the
 instrument warms to 35-40 C. Facts gathered: every shot record carries
