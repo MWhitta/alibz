@@ -83,7 +83,7 @@ and `../pantheum-I/DECISIONS.md`. The Opal database route is documented in
 |---|---|
 | `startLocation`/`endLocation`/`stepSize` | The **internal beam-steering stage** (max travel `[550,550,374]`), not the gantry. `stepSize` must be > 0 (0 → divide-by-zero, no reply). Vendor geometry above fires; start = end with step > 0 is *unverified*. One location per batch = `numlocations 1`. |
 | `pulsePeriod` (ms) | 100 (10 Hz) works; 20 (50 Hz) is the vendor maximum, *unverified*; **10 (100 Hz) is refused** ("Invalid laser config parameters"). `hardware.cfg` z300 default is 100. `cleaningPulsePeriod` 10 is silently clamped to 20. |
-| `intergrationDelay`/`intergrationPeriod` (vendor units) | Verified to store ten shots: delay 5/10 with period 10/25/50. **Period 100 stores ONE shot** (test "finishes" normally, `saved test`, no error). Delays 20 and 50 are in the current grid and *unverified*. |
+| `intergrationDelay`/`intergrationPeriod` (vendor units) | Verified to store ten shots: delay 5/10 with period 10/25/50. **Period 100 stores ONE shot** (test "finishes" normally, `saved test`, no error). Delays 0/1/5/10/20/50 with periods 1/10/25/50 all store 7–10 shots (V_pure_run2, 2026-09-23). **Measured behaviour (V, 2026-09-23):** line signal is flat with period 1→50 while a delay-independent detector fixed pattern grows with period (NIR baseline goes ~−240 counts at period 50), so period acts as a detector exposure longer than the plasma, not a plasma gate; delay does act on the plasma (V II falls −2%/unit, depth n.s.). Use the minimum period; see `cal/reports/2026-09-23-vanadium-timing-study.md`. |
 | `numShotsToAvg` | 1 → `numShotAvgFPGA 0` at 10 Hz. 50 Hz has vendor-side averaging rules ("Linear" shot grouping auto-set). |
 | `numlocations × numShotsPerLocation` | ≤ 600 (vendor UI rule). |
 | `argonpreflush` | 300 used throughout; the vendor UI validates ≥ 0. |
@@ -141,11 +141,27 @@ instrument was unreachable).
 
 ### Grid families (owner decision 2026-09-22: native API grid is the default)
 
-| family | samples | source | shift vs air db (2026-09-22) | status |
+| family | samples | source | shift vs air db | status |
 |---|---|---|---|---|
-| native API | 7,914 | `/data/shotspectrum` per-shot `wlCalibrations` (data_api, also the refetch path) | −154 pm | **default; the only grid for scientific comparison** |
-| Opal decode | 5,848 | FlatBuffers decode on Opal (`opal_database`), empirical pixel offset | −182 pm | fallback; registration differs from the API |
-| vendor resample | 23,250 | 1/30 nm cubic-spline export (`deferred` era) | −83 pm | legacy; smoothed peaks, correlated noise |
+| native API | 7,914 | `/data/shotspectrum` per-shot `wlCalibrations` (data_api, also the refetch path) | **≈ −0.25 px (tens of pm)** after the fix | **default; the only grid for scientific comparison** |
+| Opal decode | 5,848 | FlatBuffers decode on Opal (`opal_database`), empirical pixel offset | ≈ −0.25 px after the fix | fallback; registration differs from the API |
+| vendor resample | 23,250 | 1/30 nm cubic-spline export (`deferred` era) | −83 pm (offset-era) | legacy; smoothed peaks, correlated noise |
+
+**Axis-offset fix (2026-09-24).** The "shift vs air db" column above previously
+read −154 / −182 / −83 pm (2026-09-22); those were measured while every native
+API spectrum was ~18 px too blue (UV −1.6 / VIS −2.3 / NIR −3.3 nm;
+`reports/2026-09-23-native-axis-18px-offset.md`). After `PIXEL_OFFSET −18` and
+the in-place re-derive, the residual axis offset is **≈ −0.25 px (median; range
+−0.5…+0.25 px, ~tens of pm)**, confirmed independently by the manifest
+`axis_check` (Ar I NIR cross-correlation) and the ambient Ar I NIR registration.
+It is **not a single constant** — it is per-calibration (the 09:21 epoch ≈ 0 px,
+the 13:39 epoch ≈ −0.25 px) and varies run-to-run. On the corrected axis **all
+Ar I NIR anchors (696.5, 706.7, 738.4, 750.4, 763.5, 772.4, 794.8, 801.5, 811.5,
+826.5, 842.5, 912.3 nm) register as genuine argon within ~±30 pm** — the
+offset-era "only 696.5/772.4/801.5 are argon; 763/794/811/842 are Fe II" reading
+(memory `ar-nir-registration-anchors`) is withdrawn. Warm-up drift is bounded to
+~1 pm/h (negligible); the within-segment VIS shift slope is ~0 and shared
+between Fe and V. See `reports/2026-09-24-wavelength-registration.md`.
 
 Anything produced by a fallback is re-fetched onto the API grid with
 `scripts/recover-alibz-awaiting-data.sh --refetch --run …` while the test is

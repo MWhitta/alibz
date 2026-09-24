@@ -1,5 +1,14 @@
 # Wavelength registration and the warm-up-drift hypothesis
 
+> **SUPERSEDED by `reports/2026-09-24-wavelength-registration.md`.** Every number
+> and verdict below was measured on the pre-2026-09-24 native axis, which was
+> ~18 px too blue (`reports/2026-09-23-native-axis-18px-offset.md`). After the
+> PIXEL_OFFSET −18 fix and in-place re-derive, the residual shift is only ~−0.25
+> px (tens of pm), ALL Ar I NIR anchors register as genuine argon (the
+> "only 696.5/772.4/801.5 are argon; 763/794/811/842 are Fe II" claim is
+> withdrawn), the within-segment VIS slope is ~0, and the post-registration
+> residual drops from ~185 pm to ~15 pm. See the 2026-09-24 report.
+
 2026-09-23. Specialist (Opus 4.8). Provider: Claude subscription (no switch).
 
 ## Owner's hypothesis

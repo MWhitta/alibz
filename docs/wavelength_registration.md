@@ -8,12 +8,16 @@ segment, can replace — the legacy mixed-element anchor shift in
 
 ## Why
 
-The Z300's pixel→nm calibration is done on a cold instrument (≈25 °C, right
-after power-up); samples are collected minutes later as the spectrometer warms
-toward 35–40 °C. Thermal expansion of the grating/detector moves lines by a
-*wavelength-dependent* amount (a scale change, not a constant offset). The
-legacy estimator captures only one median offset per detector segment. Left
-uncorrected, the mismatch reaches ±0.3 nm and silently mis-assigns lines.
+The dominant database-mismatch term on native Z300 data was a **~18 px axis
+offset** (every spectrum ~18 px too blue: UV −1.6 / VIS −2.3 / NIR −3.3 nm),
+fixed on 2026-09-24 (`PIXEL_OFFSET −18`; `reports/2026-09-23-native-axis-18px-offset.md`).
+After the fix the residual is only **≈ −0.25 px (tens of pm)** — per-calibration
+and run-to-run variable, not a fixed offset — so registration is now a fine
+correction on top of a correct axis, not a rescue of a broken one. The Z300's
+pixel→nm calibration is done on a cold instrument (≈25 °C) and samples collected
+as it warms; any thermal drift is bounded to ~1 pm/h (negligible). This module
+measures and, per segment, applies the small remaining shift so observed peaks
+match the right lines. See `reports/2026-09-24-wavelength-registration.md`.
 
 ## Convention
 
@@ -29,14 +33,14 @@ subtract the shift: that is `apply_registration(x, registration)`.
   if ≥4 lines), a per-line table, the species detected, and a quality flag.
   `composition` (or `config["composition"]`) lists the sample elements whose
   strong lines gate the anchors: it only *removes* anchors a sample line could
-  be mistaken for, never supplies any. This matters in pure metals: on the
-  2026-09-22 Fe run means the Ar I 763/794/811/842 nm anchors each matched a
-  repeatable Fe II feature 0.2–0.6 nm from the argon registration, and only
-  696.5 (SNR ≈ 17), 772.4 and 801.5 nm were argon (−0.17 ± 0.03 nm). A 10-shot
-  Fe mean therefore yields a **one-line** NIR result ("weak", recorded, not
-  applied); ≥ 3 clean Ar lines need an argon-rich acquisition (50–100 shots on
-  a target without a NIR Fe II forest). See
-  `reports/2026-09-23-gas-registration-reconciliation.md`.
+  be mistaken for, never supplies any. On the **corrected axis (2026-09-24)** the
+  full Ar I NIR anchor set (696.5, 706.7, 738.4, 750.4, 763.5, 772.4, 794.8,
+  801.5, 811.5, 826.5, 842.5, 912.3 nm) registers as genuine argon within
+  ~±30 pm on both Fe and V 10-shot means (10–12 clean lines/run), so the gate
+  rarely fires and the NIR segment passes its ≥3-line gate on ~100 % of runs.
+  (On the offset-era 18-px-blue data the 763/794/811/842 nm anchors coincided
+  with Fe II features 0.2–0.6 nm away and only 696.5/772.4/801.5 nm read as
+  argon — that reading is withdrawn.)
 - **`element_registration(x, y, db, composition)`** — DETERMINISTIC golden-line
   estimator. `golden_lines(db, composition, segment)` selects lines unambiguous
   *by construction* — a composition I/II line in the segment's top ~150 by
@@ -53,17 +57,17 @@ subtract the shift: that is `apply_registration(x, registration)`.
   offset where a segment registers; Ar as the NIR anchor; pooled fallback
   otherwise; a flag when the element and Ar NIR shifts differ by >2σ.
 
-### Offset is the instrument; the within-segment slope is database error
+### The per-segment offset is a shared instrument quantity
 
-Only the per-segment **offset** is a shared instrument quantity: Fe and V VIS
-offsets agree within 17 pm and V VIS is reproducible to 24 pm run-to-run. The
-within-segment slope does **not** transfer between elements (Fe VIS −5.8 vs
-V VIS +1.5 pm/nm; a Fe-fit Δλ(λ) applied to V leaves 597 pm), so it is dominated
-by per-element database wavelength errors and is recorded as a diagnostic, never
-applied. Golden-line registration therefore deploys an offset per segment; a
-true wavelength-dependent instrument function would need a lamp or a
-multi-element standard, not single-element metal forests (per-line db-error
-floor ~150–240 pm).
+On the corrected axis (2026-09-24) the per-segment **offset** transfers cleanly
+between metals: Fe→V VIS transfer residual is **40 pm** (was 597 pm on the old
+axis), VIS run-to-run SD is ≤ 12 pm (all segments now ≤ 30 pm), and the
+within-segment VIS slope is ~0 and identical for Fe and V (was Fe −5.8 vs
+V +1.5 pm/nm — an axis artefact). Only the offset (the Huber intercept) is
+applied; the fitted slope stays a diagnostic because the **NIR** per-line
+residual is still large for a pure metal (Fe NIR ~170 pm) — the strongest NIR
+lines are optically thick / displaced, which the axis fix does not change.
+UV registers only where ≥ 3 golden lines exist (Fe 3 / V 6 candidates).
 
 ## Sub-pixel centring
 
@@ -105,15 +109,18 @@ mode:
 
 - **`ambient`** (default) — apply only the composition-independent ambient
   (Ar/O/N/H) registration to the **NIR** segment; keep the legacy anchor shift
-  for UV/VIS. Element registration is recorded but not applied.
+  for UV/VIS. On the corrected axis this now applies a real ~−0.25 px NIR
+  correction on ~100 % of runs (it was effectively a no-op on the offset-era
+  one-line data). Element registration is recorded but not applied.
 - **`apply_element`** — additionally replace a segment's shift with the element
-  (golden) offset where that segment passes quality. **Element UV/VIS
-  registration is diagnostic until validated against a line lamp or a certified
-  reference: the strongest lines of a pure-metal plasma are optically thick and
-  displaced, so they are unsuitable as wavelength anchors** (Fe I 438.35 has no
-  maximum at its position; the V I 437.92/438.47/439.00 triplet collapses to a
-  single ~438.31 peak; the strongest-60 match fraction to each metal's own
-  top-300 list is only 50–62 %).
+  (golden) offset where that segment passes quality. On the corrected axis
+  (2026-09-24) **element VIS/UV registration is now validated** (VIS run-to-run
+  SD ≤ 12 pm, Fe→V VIS transfer 40 pm, flat shared slope; the offset-era
+  "optically-thick displaced anchors" objection was an axis artefact). The
+  pipeline default is kept at `ambient` rather than promoted to `apply_element`
+  only because changing the inversion's wavelength input pipeline-wide should be
+  gated on a dedicated inversion-accuracy benchmark, not on registration
+  self-consistency; the residual is small (~14 pm), so deferring costs little.
 - **`report`** records everything, applies nothing; **`off`** computes nothing.
 
 **Relation to the gas-calibration engine.** `alibz.gas_calibration` (regional
@@ -123,9 +130,11 @@ replace the NIR segment shift first; the gas engine's regional calibration then
 overrides *inside its bracketed anchor support* when it reaches `calibrated`
 (≥ 3 consistent Ar groups). Both are argon-based, so where both fire they must
 agree: `['gas_cross_check']` records the difference (20 pm single-line floor)
-and the summary QC adds `ar-registration-disagreement` beyond 3 σ. On 10-shot
-Fe means neither gate passes (gas engine: 0 of 26 calibrated; ambient: one line),
-so both only record. CLI: `--wavelength-registration`, `--subpixel`,
+and the summary QC adds `ar-registration-disagreement` beyond 3 σ. On the
+corrected axis both argon gates now pass on ~100 % of 10-shot means (gas engine:
+20/20 Fe, 87/87 V calibrated; ambient: 10–12 clean NIR lines/run), with the two
+argon estimates agreeing to a few tens of pm (gas −88 vs ambient −50 pm on V —
+watch the cross-check). CLI: `--wavelength-registration`, `--subpixel`,
 `--gas-wavelength-calibration`.
 
 `['applied_segments']` logs which segments were changed. `PeakyIndexerV3` accepts
@@ -133,6 +142,7 @@ the combined registration as a prior and reports its own anchor shift beside it
 with a disagreement flag (`wavelength_registration_report()`); matching is
 unchanged when none is supplied.
 
-See `reports/2026-09-23-wavelength-registration.md` for the measurement study
-and the verdict on the warm-up-drift hypothesis; regenerate it with
+See `reports/2026-09-24-wavelength-registration.md` for the current
+(corrected-axis) measurement study and the verdict on the warm-up-drift
+hypothesis (2026-09-23 is superseded); regenerate it with
 `scripts/registration_study.py`.

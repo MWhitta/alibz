@@ -1,5 +1,7 @@
 # Reconciling the two argon wavelength estimators — 2026-09-23
 
+> **SUPERSEDED (axis-offset) by `reports/2026-09-24-wavelength-registration.md`.** Measured on the pre-2026-09-24 native axis (~18 px too blue); on the corrected axis all Ar I NIR anchors register as genuine argon and Ar calibrates on ~100% of runs. See the 2026-09-24 report.
+
 Two sessions implemented the same request ("use Ar I and O I lines as separate
 wavelength calibrations") in parallel:
 

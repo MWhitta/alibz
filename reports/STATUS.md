@@ -1,3 +1,42 @@
+# 2026-09-24 step 3 COMPLETE (all 4 parts verified; NOT committed)
+
+Corrected local copy: /private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/1c78d231-c01b-47c0-8606-6590e292a2c0/scratchpad/corrected/
+(113 runs, 122 MB; ledger.json with session/sample/timing/site/rescored score).
+3a Fe plasma + line physics -> cal/reports/2026-09-24-fe-calibration-plasma-analysis.md, -line-matching-sa-broadening.md
+3b V timing -> cal/reports/2026-09-24-vanadium-timing-study.md
+3c wavelength registration + gas engines (may edit alibz engines/tests/docs) -> reports/2026-09-24-wavelength-registration.md
+3d ePSF rebuild + spline-vs-pixel accuracy on correct IDs -> cal/reports/2026-09-24-empirical-lsf.md
+Old reports get a "Superseded 2026-09-24" line; each new report has an Old-vs-corrected table.
+3a DONE + verified: residual shift Fe −22 pm / V −43 pm (coordinator Ar I check: V −41, Fe −30 pm; was −154);
+matched Fe 0.835->0.900, V 0.591->0.832; Fe I VIS T 9321->10805 K (5/26 resolved); "V extra 150 pm db
+offset" was an artefact; data now 187.78-950.7 nm, no interior gap. Old-vs-corrected tables present.
+3b DONE + verified: best cell d10/P1 1.343; shift −36 pm; fixed pattern identical old/corrected; run1 V II
+311.07 b_delay −0.0215±0.0047 (coordinator), depth n.s.; V I 411 flat. 417.94/415.97: agent 1.85, ePSF 2.10,
+coordinator peak-height median 2.40 (IQR 1.97-2.61) vs thin 2.05 -> near thin; the 0.75 "heavy SA" was
+the axis error; the τ value is estimator-dependent (±0.3 in ratio).
+3c DONE + verified: engine diff = docstring only (wavelength_registration.py); 71 registration/gas tests
+pass; residual per calibration from manifests: 09:21 epoch median 0.00 px (n=16), 13:39 recal −0.25 px
+(n=96). All Ar I NIR anchors are argon (±30 pm); post-registration residual 14 pm; drift ~1 pm/h;
+gas Ar calibrated 107/107; pipeline default "ambient" kept (now active). Memory ar-nir-registration-anchors rewritten.
+3d DONE + verified (validation JSON + tests 17 OK): pattern-offset check now ≈0 (UV −0.4/−0.55, VIS −0.1/−0.25,
+NIR −0.3/−0.45 px Fe/V). Peak location on correctly matched thin Fe lines (0 lines >1 px off):
+VIS ePSF 5.3 pm (RMS 10.1) vs spline 11.6-12.3, parabola 11.2, Gaussian pixel 10.2 -> ePSF wins;
+UV spline/parabola 4.7-4.8 pm vs ePSF 7.6-10.1 -> spline wins (12 runs, 15 lines; V agrees);
+NIR Ar I: ePSF wins/ties. V 417.94/415.97 = 2.00 [1.96, 2.10] (thin 2.05).
+Recommendation: hybrid estimator - ePSF in VIS/NIR, spline-root or native parabola in UV.
+
+# 2026-09-24 09:30 PDT: steps 1-2 LIVE; portal UI LIVE; branches committed, NOT pushed
+
+Committed on fix/z300-pixel-offset: pantheum-I fd73a4a, e8cbd09; alibz 70f1aa2, 99f4e39, f50f297.
+Push was blocked by the permission classifier; owner pushes. Portal UI live since 09:23:17
+(hashes == e8cbd09; services restarted 09:23:47). Step 2 applied 09:00-09:01 (report
+~/pantheum-rederive-apply-20260924T090138.json): 113 datasets re-derived; re-runs at 09:02 and 09:23
+found 113 already correct, 0 changes (idempotent). Verified scores: run-12577962 1.1695 (50 lines),
+run-eae9d54f 1.4668 (57). New bests: opt-c86274e9 d10/p1 1.343; opt-9d384296 d20/p10 1.295.
+14 runs without raw pixels remain (2 refetchable). NEXT: step 3 (redo cal/ + registration analyses
+on corrected data); open issues: 10 pre-existing UI test failures (display/camera power),
+recover-alibz-awaiting-data.py composition bug.
+
 # 2026-09-24 portal UI changes PREPARED (not deployed, not committed)
 
 pantheum-I web/alibz: Optimize Acquisition description -> "Find the signal-to-noise optimum delay and

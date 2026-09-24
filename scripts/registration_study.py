@@ -26,7 +26,7 @@ import argparse
 import glob
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
@@ -34,16 +34,17 @@ from alibz.utils.database import Database
 from alibz.pipeline import load_spectrum_csv
 from alibz import wavelength_registration as wr
 
-# --- calibration epochs (UTC), documented above ---------------------------
-# run-126d0c96 (first 2026-09-22 13:39-cal run) is at 16:41:37 UTC; the brief
-# places it ~4 min after calibration, so anchor cal-A at 16:37:37 UTC.
-CAL_A_EPOCH = datetime(2026, 9, 22, 16, 37, 37, tzinfo=timezone.utc)
-CAL_A_ID = "2026-09-22T13:39:21 (analyzer local)"
-# The 2026-09-21 calibration ("2:55:07 PM" local + ~3 h analyzer offset).
-CAL_B_EPOCH = datetime(2026, 9, 21, 17, 55, 7, tzinfo=timezone.utc)
-CAL_B_ID = "2026-09-21T14:55:07 (analyzer local)"
-# runs created before this UTC instant used the 2026-09-21 calibration
-CAL_A_FIRST_RUN_UTC = datetime(2026, 9, 22, 16, 41, 37, tzinfo=timezone.utc)
+# --- analyzer clock offset (UTC) -----------------------------------------
+# Each run's manifest now carries its own ``wl_calibration_time`` (ANALYZER
+# LOCAL time); the ledger ``created_at`` is UTC.  The analyzer clock is mis-set
+# ~+3 h vs UTC (inferred 2026-09-23 from the vendor recalibration timestamps),
+# so warm-up minutes = created_at_utc - (wl_calibration_time_local + 3 h).  The
+# absolute zero is uncertain by this offset, but the DRIFT SLOPE -- the actual
+# question -- is invariant to a constant per-epoch offset.  Calibration EPOCHS
+# are now read directly from the manifest (three present: 2026-09-22T09:21:50
+# pre-recal, 2026-09-22T13:39:21 post-recal, 2026-09-21T14:55:07), so no
+# hand-anchoring is needed.
+ANALYZER_UTC_OFFSET_H = 3.0
 
 # vendor calibration cubics (calibration.json base, currentwlcalibration.json)
 VENDOR_BASE = [[3.67951969E2, -7.78662478E-2, -5.99133112E-6, 4.94396034E-10],
@@ -61,17 +62,35 @@ def _parse(ts):
     return datetime.fromisoformat(ts)
 
 
-def load_runs(acq_dir, fe_ledger, v_ledger):
+def load_runs(acq_dir, ledger_path):
+    """Load Fe/V runs from the single corrected ledger + per-run manifest.
+
+    The corrected acquisition tree carries one ``ledger.json`` whose ``element``
+    field labels each run (Fe/V; a handful have no declared composition and are
+    skipped) and a per-run ``manifest.json`` with ``wl_calibration_time`` (the
+    calibration epoch) and ``axis_check.offset_px`` (the residual Ar I NIR
+    cross-correlation offset after the -18 px fix).
+    """
     runs = []
-    for path, element in ((fe_ledger, "Fe"), (v_ledger, "V")):
-        for rec in json.load(open(path)):
-            run = rec["run"]
-            shots = sorted(glob.glob(os.path.join(acq_dir, run, "shots", "shot-*.csv")))
-            if not shots:
-                continue
-            runs.append({"run": run, "element": element,
-                         "created_at": rec["created_at"], "n_shots": len(shots),
-                         "shots": shots})
+    for rec in json.load(open(ledger_path)):
+        run = rec["run"]
+        element = rec.get("element")
+        if element not in ("Fe", "V"):
+            continue
+        shots = sorted(glob.glob(os.path.join(acq_dir, run, "shots", "shot-*.csv")))
+        if not shots:
+            continue
+        man = {}
+        mp = os.path.join(acq_dir, run, "manifest.json")
+        if os.path.exists(mp):
+            man = json.load(open(mp))
+        ax = man.get("axis_check") or {}
+        runs.append({"run": run, "element": element,
+                     "created_at": rec["created_at"], "n_shots": len(shots),
+                     "shots": shots, "cal_time": man.get("wl_calibration_time"),
+                     "axis_offset_px": ax.get("offset_px"),
+                     "dispersion_nm_per_px": ax.get("dispersion_nm_per_px")})
+    runs.sort(key=lambda r: r["created_at"])
     return runs
 
 
@@ -81,11 +100,20 @@ def mean_spectrum(shots):
     return x, np.mean(np.asarray(ys), axis=0)
 
 
-def warmup_minutes(created_at):
-    t = _parse(created_at)
-    if t < CAL_A_FIRST_RUN_UTC:
-        return (t - CAL_B_EPOCH).total_seconds() / 60.0, CAL_B_ID
-    return (t - CAL_A_EPOCH).total_seconds() / 60.0, CAL_A_ID
+def warmup_minutes(created_at, cal_time):
+    """(minutes since calibration, calibration_id) for one run.
+
+    ``cal_time`` is the manifest ``wl_calibration_time`` (analyzer-local, naive);
+    add the analyzer-UTC offset to compare with the UTC ``created_at``.  The
+    calibration_id is the raw ``cal_time`` string, so distinct epochs never
+    merge.  Returns (nan, "unknown") when the calibration time is missing.
+    """
+    if not cal_time:
+        return float("nan"), "unknown"
+    cal = _parse(cal_time)
+    if cal.tzinfo is None:
+        cal = cal.replace(tzinfo=timezone.utc) + timedelta(hours=ANALYZER_UTC_OFFSET_H)
+    return (_parse(created_at) - cal).total_seconds() / 60.0, cal_time
 
 
 def _resid_pm(ele):
@@ -137,6 +165,71 @@ def paired_subpixel_residuals(x, y, db, composition, cfg):
         resg.extend(1000.0 * (g - np.median(g)))
         resp.extend(1000.0 * (p - np.median(p)))
     return resg, resp
+
+
+def _quick_peak_table(x, y):
+    """[amplitude, observed_center] native local maxima >= 5 sigma."""
+    from scipy.ndimage import percentile_filter
+    size = max(15, int(round(2.0 / float(np.median(np.diff(x))))))
+    resid = y - percentile_filter(y, 25, size=size)
+    noise = max(1.4826 * float(np.median(np.abs(resid - np.median(resid)))), 1e-9)
+    ismax = np.zeros(x.size, dtype=bool)
+    ismax[1:-1] = (y[1:-1] > y[:-2]) & (y[1:-1] >= y[2:])
+    idx = np.where(ismax & (resid >= 5.0 * noise))[0]
+    return (np.column_stack([y[idx], x[idx]]) if idx.size
+            else np.empty((0, 2)))
+
+
+def gas_evidence(x, y, db, element):
+    """Gas detection + calibration on one corrected run mean.
+
+    The Ar/O engines take the RAW instrument axis and observed-frame peaks;
+    detection needs a peak table for the interference (competitor) check.
+    """
+    from alibz.gas_detection import detect_background_gases
+    from alibz.gas_calibration import calibrate_background_gases
+    peaks = _quick_peak_table(x, y)
+    det = detect_background_gases(x, y, db, peak_array=peaks)
+    cal = calibrate_background_gases(x, y, db, peak_array=peaks)
+    out = {}
+    for sp in ("Ar", "O"):
+        d, c = det[sp], cal[sp]
+        out[sp] = {"detect_status": d["status"],
+                   "n_clean": int(d["n_clean_groups"]),
+                   "n_supported": int(d["n_supported_groups"]),
+                   "calib_status": c["status"],
+                   "offset_pm": (1000.0 * c["offset_nm"]
+                                 if c.get("offset_nm") is not None else None),
+                   "n_inliers": int(c["n_inliers"])}
+    return out, int(len(peaks))
+
+
+def gas_summary(records):
+    """Detection/false-positive and calibration-offset summary over all runs."""
+    out = {}
+    for element in ("Fe", "V"):
+        grp = [r for r in records if r["element"] == element and "gas" in r]
+        if not grp:
+            continue
+        row = {"n_runs": len(grp)}
+        for sp in ("Ar", "O"):
+            det = [r["gas"][sp]["detect_status"] for r in grp]
+            calst = [r["gas"][sp]["calib_status"] for r in grp]
+            offs = [r["gas"][sp]["offset_pm"] for r in grp
+                    if r["gas"][sp]["offset_pm"] is not None]
+            row[sp] = {
+                "detected": sum(s == "detected" for s in det),
+                "tentative": sum(s == "tentative" for s in det),
+                "no_evidence": sum(s in ("no_evidence", "out_of_range")
+                                   for s in det),
+                "calibrated": sum(s == "calibrated" for s in calst),
+                "offset_median_pm": (float(np.median(offs)) if offs else None),
+                "offset_mad_pm": (float(1.4826 * np.median(
+                    np.abs(np.asarray(offs) - np.median(offs))))
+                    if offs else None),
+                "n_offsets": len(offs)}
+        out[element] = row
+    return out
 
 
 def analyse_run(x, y, db, element, subpixel_compare=True):
@@ -201,21 +294,64 @@ def fe_v_transfer(records):
 
 def run_to_run_sd(records):
     """(3) Per-segment run-to-run SD of the element shift within each
-    (element, calibration epoch) group; target <= 30 pm per segment."""
+    (element, exact calibration epoch) group; target <= 30 pm per segment."""
     out = {}
-    for element in ("Fe", "V"):
-        for epoch in ("2026-09-22", "2026-09-21"):
-            grp = [r for r in records if r["element"] == element
-                   and epoch in r["calibration_id"]]
-            if len(grp) < 3:
-                continue
-            for name in wr.SEGMENT_NAMES:
-                vals = [1000 * r["segment_shifts"][name] for r in grp
-                        if r["segment_shifts"][name] is not None]
-                if len(vals) >= 3:
-                    out[f"{element}/{epoch[-5:]}/{name}"] = {
-                        "n": len(vals), "mean_pm": float(np.mean(vals)),
-                        "sd_pm": float(np.std(vals))}
+    groups = sorted({(r["element"], r["calibration_id"]) for r in records})
+    for element, cal in groups:
+        grp = [r for r in records if r["element"] == element
+               and r["calibration_id"] == cal]
+        if len(grp) < 3:
+            continue
+        for name in wr.SEGMENT_NAMES:
+            vals = [1000 * r["segment_shifts"][name] for r in grp
+                    if r["segment_shifts"][name] is not None]
+            if len(vals) >= 3:
+                out[f"{element}/{cal[5:16]}/{name}"] = {
+                    "n": len(vals), "mean_pm": float(np.mean(vals)),
+                    "sd_pm": float(np.std(vals))}
+    return out
+
+
+def ambient_nir_by_group(records):
+    """Per-(element, epoch) ambient Ar I NIR shift stats (pm)."""
+    out = {}
+    groups = sorted({(r["element"], r["calibration_id"]) for r in records})
+    for element, cal in groups:
+        vals = [1000 * r["ambient_nir_shift_nm"] for r in records
+                if r["element"] == element and r["calibration_id"] == cal
+                and r["ambient_nir_shift_nm"] is not None]
+        if vals:
+            v = np.asarray(vals)
+            out[f"{element}/{cal[5:16]}"] = {
+                "n": int(v.size), "median_pm": float(np.median(v)),
+                "mad_pm": float(1.4826 * np.median(np.abs(v - np.median(v)))),
+                "mean_pm": float(np.mean(v)), "sd_pm": float(np.std(v))}
+    return out
+
+
+def pre_post_recal(records):
+    """(pre vs post) Fe residual shift on the 09:21 (pre) vs 13:39 (post-recal)
+    calibrations, per segment (median pm).  Both are Fe at similar warm-up."""
+    pre = "2026-09-22T09:21:50"
+    post = "2026-09-22T13:39:21"
+    out = {}
+    for name in wr.SEGMENT_NAMES:
+        d = {}
+        for tag, cal in (("pre_0921", pre), ("post_1339", post)):
+            vals = [1000 * r["segment_shifts"][name] for r in records
+                    if r["element"] == "Fe" and r["calibration_id"] == cal
+                    and r["segment_shifts"][name] is not None]
+            anir = [1000 * r["ambient_nir_shift_nm"] for r in records
+                    if r["element"] == "Fe" and r["calibration_id"] == cal
+                    and r["ambient_nir_shift_nm"] is not None]
+            d[tag] = {"n": len(vals),
+                      "element_median_pm": float(np.median(vals)) if vals else None,
+                      "ambient_nir_median_pm": float(np.median(anir)) if anir else None}
+        if (d["pre_0921"]["element_median_pm"] is not None
+                and d["post_1339"]["element_median_pm"] is not None):
+            d["delta_element_pm"] = (d["post_1339"]["element_median_pm"]
+                                     - d["pre_0921"]["element_median_pm"])
+        out[name] = d
     return out
 
 
@@ -381,20 +517,22 @@ def make_figures(records, thermal, fig_dir, epoch_a_range=None):
 
 def main():
     ap = argparse.ArgumentParser()
+    # Corrected (-18 px) acquisition tree: single ledger.json with an element
+    # field and a per-run manifest carrying the calibration epoch + axis_check.
     default_acq = ("/private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/"
-                   "39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad")
+                   "1c78d231-c01b-47c0-8606-6590e292a2c0/scratchpad/corrected")
     ap.add_argument("--acq", default=os.path.join(default_acq, "acq"))
-    ap.add_argument("--fe-ledger", default=os.path.join(default_acq, "ledger.json"))
-    ap.add_argument("--v-ledger", default=os.path.join(default_acq, "ledger_v.json"))
-    ap.add_argument("--out", default="reports/registration-study-20260923.json")
-    ap.add_argument("--fig-dir", default="reports/figures/registration-20260923")
+    ap.add_argument("--ledger", default=os.path.join(default_acq, "ledger.json"))
+    ap.add_argument("--out", default="reports/registration-study-20260924.json")
+    ap.add_argument("--fig-dir", default="reports/figures/registration-20260924")
     ap.add_argument("--dbpath", default="db")
     ap.add_argument("--limit", type=int, default=None, help="first N runs (debug)")
     ap.add_argument("--no-subpixel", action="store_true", help="skip the slow paired sub-pixel comparison")
+    ap.add_argument("--no-gas", action="store_true", help="skip gas detection/calibration")
     args = ap.parse_args()
 
     db = Database(args.dbpath)
-    runs = load_runs(args.acq, args.fe_ledger, args.v_ledger)
+    runs = load_runs(args.acq, args.ledger)
     if args.limit:
         runs = runs[: args.limit]
     print(f"{len(runs)} runs")
@@ -403,10 +541,12 @@ def main():
     for i, run in enumerate(runs):
         x, y = mean_spectrum(run["shots"])
         result = analyse_run(x, y, db, run["element"], subpixel_compare=not args.no_subpixel)
-        wu, cal_id = warmup_minutes(run["created_at"])
+        wu, cal_id = warmup_minutes(run["created_at"], run.get("cal_time"))
         rec = {"run": run["run"], "element": run["element"],
                "created_at": run["created_at"], "n_shots": run["n_shots"],
                "warmup_min": wu, "calibration_id": cal_id,
+               "axis_offset_px": run.get("axis_offset_px"),
+               "dispersion_nm_per_px": run.get("dispersion_nm_per_px"),
                "segment_shifts": result["segment_shifts"],
                "segment_sigma": result["segment_sigma"],
                "segment_n": result["segment_n"],
@@ -414,9 +554,12 @@ def main():
                "ambient_species": result["ambient_species"],
                "nir_disagreement": result["nir_disagreement"],
                "result": result}
+        if not args.no_gas:
+            rec["gas"], rec["n_peaks"] = gas_evidence(x, y, db, run["element"])
         records.append(rec)
         print(f"  [{i+1}/{len(runs)}] {run['run'][:14]} {run['element']} "
-              f"wu={wu:6.1f}min UV/VIS/NIR="
+              f"wu={wu:6.1f}min cal={cal_id[5:16] if cal_id else '?'} "
+              f"ax={run.get('axis_offset_px')} UV/VIS/NIR="
               + "/".join(str(result["segment_n"][n]) for n in wr.SEGMENT_NAMES))
 
     def _thermal_records(subset):
@@ -425,18 +568,34 @@ def main():
                  "ambient_nir_shift_nm": r["ambient_nir_shift_nm"],
                  "calibration_id": r["calibration_id"]} for r in subset]
 
-    # Fit the drift WITHIN a single calibration epoch: runs from different
-    # calibrations have different fixed offsets, so pooling them across the
-    # ~15 h gap between epochs (3 old-cal runs at ~1330 min vs 50 at 4-414 min)
-    # would let the high-leverage old-cal points mask a real within-epoch
-    # drift.  Epoch A (2026-09-22 13:39 cal) is the only epoch with warm-up
-    # spread, so it is the primary drift result; the pooled fit is kept for
-    # transparency.
-    epoch_a = [r for r in records if "2026-09-22" in r["calibration_id"]] or records
-    thermal = wr.thermal_drift_model(_thermal_records(epoch_a))
-    thermal_pooled = wr.thermal_drift_model(_thermal_records(records))
-    epoch_a_range = (min(r["warmup_min"] for r in epoch_a),
-                     max(r["warmup_min"] for r in epoch_a))
+    # Fit the drift WITHIN one (element, calibration) group: different metals
+    # and different calibrations carry different fixed offsets, so pooling them
+    # would let a per-group offset masquerade as drift.  Each group is fit
+    # separately; the group with the widest warm-up spread and >= 5 runs is the
+    # PRIMARY drift result (here V/13:39: n=87, ~400-1730 min).
+    groups = sorted({(r["element"], r["calibration_id"]) for r in records})
+    thermal_by_group = {}
+    for element, cal in groups:
+        sub = [r for r in records if r["element"] == element
+               and r["calibration_id"] == cal]
+        wus = [r["warmup_min"] for r in sub if np.isfinite(r["warmup_min"])]
+        if len(sub) < 3 or not wus or (max(wus) - min(wus)) < 30.0:
+            continue
+        thermal_by_group[f"{element}/{cal[5:16]}"] = {
+            "n": len(sub), "warmup_range_min": [min(wus), max(wus)],
+            "model": wr.thermal_drift_model(_thermal_records(sub))}
+    # primary = widest warm-up spread
+    primary_key = max(thermal_by_group,
+                      key=lambda k: (thermal_by_group[k]["warmup_range_min"][1]
+                                     - thermal_by_group[k]["warmup_range_min"][0]),
+                      default=None)
+    if primary_key is None:
+        primary_key = f"{groups[0][0]}/{groups[0][1][5:16]}"
+        thermal_by_group[primary_key] = {
+            "n": len(records), "warmup_range_min": [0.0, 0.0],
+            "model": wr.thermal_drift_model(_thermal_records(records))}
+    thermal = thermal_by_group[primary_key]["model"]
+    epoch_a_range = tuple(thermal_by_group[primary_key]["warmup_range_min"])
     vendor = wr.vendor_calibration_shift(VENDOR_BASE, VENDOR_CURRENT, VENDOR_KNOTS)
     slopes = within_segment_slope_significance(records)
     residual = post_registration_residual(records)
@@ -445,6 +604,34 @@ def main():
     transfer = fe_v_transfer(records)
     golden_counts = {comp: {nm: len(wr.golden_lines(db, [comp], nm))
                             for nm in wr.SEGMENT_NAMES} for comp in ("Fe", "V")}
+    amb_by_group = ambient_nir_by_group(records)
+    prepost = pre_post_recal(records)
+    gas_sum = gas_summary(records) if not args.no_gas else {}
+
+    # residual axis offset: the manifest Ar I NIR cross-correlation (axis_check)
+    # vs the study's own ambient NIR shift converted to px.
+    ax_px = np.asarray([r["axis_offset_px"] for r in records
+                        if r["axis_offset_px"] is not None], dtype=float)
+    disp = np.asarray([r["dispersion_nm_per_px"] for r in records
+                       if r["dispersion_nm_per_px"] is not None], dtype=float)
+    disp_med = float(np.median(disp)) if disp.size else 0.179
+    amb_nir_px = [1000.0 * r["ambient_nir_shift_nm"] / (1000.0 * disp_med)
+                  for r in records if r["ambient_nir_shift_nm"] is not None]
+    residual_axis = {
+        "manifest_axis_check_offset_px": {
+            "n": int(ax_px.size),
+            "median": float(np.median(ax_px)) if ax_px.size else None,
+            "mean": float(np.mean(ax_px)) if ax_px.size else None,
+            "min": float(np.min(ax_px)) if ax_px.size else None,
+            "max": float(np.max(ax_px)) if ax_px.size else None},
+        "study_ambient_nir_shift_px": {
+            "n": len(amb_nir_px),
+            "median": float(np.median(amb_nir_px)) if amb_nir_px else None,
+            "mad": (float(1.4826 * np.median(np.abs(
+                np.asarray(amb_nir_px) - np.median(amb_nir_px))))
+                if amb_nir_px else None)},
+        "nir_dispersion_nm_per_px_median": disp_med,
+    }
 
     # parabolic vs Gaussian sub-pixel centring, same runs (measurable benefit)
     g = np.abs(np.concatenate([np.asarray(r["result"]["resid_gauss_pm"])
@@ -467,19 +654,30 @@ def main():
     for r in records:
         t = {k: v for k, v in r.items() if k != "result"}
         table.append(t)
+    epoch_counts = {}
+    for r in records:
+        epoch_counts[r["calibration_id"]] = epoch_counts.get(r["calibration_id"], 0) + 1
     summary = {
         "n_runs": len(records),
-        "calibration_epochs": {"cal_A": {"id": CAL_A_ID, "epoch_utc": CAL_A_EPOCH.isoformat()},
-                               "cal_B": {"id": CAL_B_ID, "epoch_utc": CAL_B_EPOCH.isoformat()}},
+        "analyzer_utc_offset_h": ANALYZER_UTC_OFFSET_H,
+        "calibration_epoch_counts": epoch_counts,
+        "residual_axis_offset": residual_axis,
         "per_run": table,
-        "thermal_drift_epoch_A": {name: dict(thermal["segments"][name])
+        "thermal_drift_primary_group": primary_key,
+        "thermal_drift_primary": {name: dict(thermal["segments"][name])
                                   for name in wr.SEGMENT_NAMES},
-        "thermal_drift_pooled_all_epochs": {name: dict(thermal_pooled["segments"][name])
-                                            for name in wr.SEGMENT_NAMES},
-        "thermal_resolved_epoch_A": thermal["resolved"],
-        "epoch_A_warmup_range_min": list(epoch_a_range),
-        "n_epoch_A": len(epoch_a), "n_epoch_B": len(records) - len(epoch_a),
+        "thermal_resolved_primary": thermal["resolved"],
+        "thermal_by_group": {k: {"n": v["n"],
+                                 "warmup_range_min": v["warmup_range_min"],
+                                 "segments": {name: dict(v["model"]["segments"][name])
+                                              for name in wr.SEGMENT_NAMES},
+                                 "resolved": v["model"]["resolved"]}
+                             for k, v in thermal_by_group.items()},
+        "primary_warmup_range_min": list(epoch_a_range),
         "run_to_run_sd": r2r,
+        "ambient_nir_by_group": amb_by_group,
+        "pre_post_recal": prepost,
+        "gas_summary": gas_sum,
         "fe_v_reconciliation": reconcile,
         "fe_to_v_transfer": transfer,
         "golden_line_counts": golden_counts,
@@ -494,20 +692,50 @@ def main():
     print("wrote", args.out)
 
     # console verdict digest
-    print(f"\n=== thermal drift, epoch A only (n={len(epoch_a)}, "
-          f"warm-up {epoch_a_range[0]:.0f}-{epoch_a_range[1]:.0f} min) ===")
+    print(f"\n=== residual axis offset (px) === manifest axis_check: "
+          f"median {residual_axis['manifest_axis_check_offset_px']['median']} "
+          f"({residual_axis['manifest_axis_check_offset_px']['min']}.."
+          f"{residual_axis['manifest_axis_check_offset_px']['max']}); "
+          f"study ambient NIR: median "
+          f"{residual_axis['study_ambient_nir_shift_px']['median']} px")
+    print(f"=== calibration epochs === {epoch_counts}")
+    print(f"\n=== thermal drift, PRIMARY group {primary_key} "
+          f"(warm-up {epoch_a_range[0]:.0f}-{epoch_a_range[1]:.0f} min) ===")
     for name in wr.SEGMENT_NAMES:
         f = thermal["segments"][name].get("vs_minutes")
         if f:
             print(f"  {name}: {1000*f['slope']*60:+.1f} pm/h "
                   f"(2sigma limit {thermal['segments'][name]['detection_limit_nm_per_hour']*1000:.1f} pm/h) "
                   f"resolved={thermal['segments'][name]['resolved']} n={f['n']}")
-    print("=== thermal drift, pooled across both epochs (masks drift) ===")
+    print("=== thermal drift, other groups ===")
+    for k, v in thermal_by_group.items():
+        if k == primary_key:
+            continue
+        for name in wr.SEGMENT_NAMES:
+            f = v["model"]["segments"][name].get("vs_minutes")
+            if f:
+                print(f"  {k}/{name}: {1000*f['slope']*60:+.1f} pm/h "
+                      f"resolved={v['model']['segments'][name]['resolved']} n={f['n']}")
+    print("\n=== pre vs post 13:39 recal (Fe, median pm) ===")
     for name in wr.SEGMENT_NAMES:
-        f = thermal_pooled["segments"][name].get("vs_minutes")
-        if f:
-            print(f"  {name}: {1000*f['slope']*60:+.1f} pm/h "
-                  f"resolved={thermal_pooled['segments'][name]['resolved']} n={f['n']}")
+        d = prepost[name]
+        print(f"  {name}: pre(09:21) elem {d['pre_0921']['element_median_pm']} "
+              f"nir {d['pre_0921']['ambient_nir_median_pm']} | "
+              f"post(13:39) elem {d['post_1339']['element_median_pm']} "
+              f"nir {d['post_1339']['ambient_nir_median_pm']} | "
+              f"delta_elem {d.get('delta_element_pm')}")
+    print("\n=== ambient Ar I NIR by group (pm) ===")
+    for k, v in amb_by_group.items():
+        print(f"  {k}: median {v['median_pm']:+.0f} MAD {v['mad_pm']:.0f} "
+              f"(n={v['n']})")
+    print("\n=== gas detection/calibration ===")
+    for el, v in gas_sum.items():
+        for sp in ("Ar", "O"):
+            s = v[sp]
+            print(f"  {el} {sp}: detected {s['detected']}/{v['n_runs']} "
+                  f"tentative {s['tentative']} none {s['no_evidence']} | "
+                  f"calibrated {s['calibrated']} offset median {s['offset_median_pm']} "
+                  f"MAD {s['offset_mad_pm']} pm (n={s['n_offsets']})")
     print("\n=== vendor base->current change (pm) ===")
     for name, s in vendor["segments"].items():
         print(f"  {name}: {1000*s['delta_nm_at_lo']:+.0f}..{1000*s['delta_nm_at_hi']:+.0f} "

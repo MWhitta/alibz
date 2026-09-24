@@ -80,9 +80,12 @@ _DEFAULTS = {
     "ambiguity_ratio": 3.0,       # 2nd candidate must be >=ratio x farther
     "prior_shift_nm": 0.0,
     # sample elements whose strong lines gate the AMBIENT anchors as
-    # competitors (a pure-Fe target has Fe II lines within 0.1-0.2 nm of the
-    # Ar I 763/794/811/842 nm anchors; without this gate they are matched as
-    # argon).  Normally passed as ambient_registration(..., composition=...)
+    # competitors: a sample line falling within the search window of an Ar/O
+    # anchor is a genuine ambiguity, so the anchor is removed (never supplied).
+    # On the CORRECTED -18 px axis (2026-09-24 study) all Ar I NIR anchors
+    # register as real argon within +-30 pm, so the gate rarely fires; it is
+    # retained as a conservative safeguard.  Passed as
+    # ambient_registration(..., composition=...).
     "composition": (),
     # element line selection
     "kT_eV": 8.617333262e-5 * 9000.0,   # Boltzmann weight temperature (9 kK)
@@ -554,13 +557,15 @@ def ambient_registration(x, y, db, *, composition=None, config=None) -> dict:
     Works from a ``shift_nm = 0`` prior with a +-0.5 nm search window.
 
     ``composition`` (or ``config["composition"]``) lists the sample elements
-    whose strong lines are added to the unambiguity gate.  This matters in
-    pure-metal targets: on the 2026-09-22 Fe run means the Ar I 706, 738,
-    763, 794, 811, 826 and 842 nm anchors each matched a repeatable feature
-    0.2-0.6 nm from the argon registration (Fe II 763.19, 794.51, 810.98,
-    842.06 nm and unlisted Fe features); only 696.5, 772.4 and 801.5 nm are
-    argon there.  The estimator stays composition-independent in the sense
-    that the composition only REMOVES anchors; it never supplies them.
+    whose strong lines are added to the unambiguity gate.  On the CORRECTED
+    -18 px axis (2026-09-24 re-run) the full Ar I NIR anchor set
+    (696.5, 706.7, 738.4, 750.4, 763.5, 772.4, 794.8, 801.5, 811.5, 826.5,
+    842.5, 912.3 nm) registers as genuine argon within ~+-30 pm on both Fe and
+    V run means, so the gate rarely removes an anchor -- unlike the offset-era
+    (~18 px too blue) data, where the 763/794/811/842 nm anchors coincided with
+    iron features 0.2-0.6 nm away and had to be gated out.  The estimator stays
+    composition-independent in the sense that the composition only REMOVES
+    anchors; it never supplies them.
     """
     x, y = _validate_spectrum(x, y)
     cfg = _config(config)
@@ -909,12 +914,14 @@ def element_registration(x, y, db, composition, *, config=None) -> dict:
         lam0 = float(np.median(lam)); t = lam - lam0
         span = float(np.ptp(lam))
         # Robust OFFSET (Huber intercept at the golden-line centroid) is the
-        # DEPLOYED correction: the Fe->V transfer test shows the within-segment
-        # SLOPE does NOT transfer between elements (Fe VIS -5.8 vs V VIS +1.5
-        # pm/nm on the identical axis), i.e. the slope is dominated by per-
-        # element database wavelength errors, not a shared instrument scale.
-        # So a is applied (a constant per segment); the fitted slope b is kept
-        # as a DIAGNOSTIC only and never applied.
+        # DEPLOYED correction.  On the CORRECTED -18 px axis (2026-09-24 study)
+        # the offset now transfers cleanly between metals (Fe->V VIS residual
+        # 40 pm vs 597 pm on the old axis; VIS run-to-run SD <= 12 pm) and the
+        # within-segment VIS slope is ~0 for both Fe and V (was Fe -5.8 vs
+        # V +1.5 pm/nm -- an axis artefact).  The offset (a) is still all that
+        # is applied: the NIR slope and per-line residual remain large for the
+        # optically thick strong lines of a pure metal (Fe NIR residual
+        # ~170 pm), so the fitted slope b is kept as a DIAGNOSTIC only.
         lin, res = _huber_polyfit(t, dl, 1) if len(matched) >= 4 \
             else (np.array([float(np.median(dl))]), dl - float(np.median(dl)))
         a = float(np.polyval(lin, 0.0)) if lin.size > 1 else float(lin[0])

@@ -1,5 +1,7 @@
 # Early Ar I and O I background-gas detector
 
+> **SUPERSEDED (axis-offset) by `reports/2026-09-24-wavelength-registration.md`.** Measured on the pre-2026-09-24 native axis (~18 px too blue); on the corrected axis all Ar I NIR anchors register as genuine argon and Ar calibrates on ~100% of runs. See the 2026-09-24 report.
+
 Date: 2026-09-22
 
 ## Delivered API

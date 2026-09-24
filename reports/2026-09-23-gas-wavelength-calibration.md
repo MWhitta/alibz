@@ -1,5 +1,7 @@
 # Independent Ar I and O I wavelength calibration
 
+> **SUPERSEDED (axis-offset) by `reports/2026-09-24-wavelength-registration.md`.** Measured on the pre-2026-09-24 native axis (~18 px too blue); on the corrected axis all Ar I NIR anchors register as genuine argon and Ar calibrates on ~100% of runs. See the 2026-09-24 report.
+
 Status: implemented and committed 2026-09-23 (reconciled by the coordinating
 session after the implementing session closed); real-data outcome in §Outcome.
 
