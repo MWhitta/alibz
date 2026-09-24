@@ -1,3 +1,5 @@
+> **Superseded 2026-09-24: built on the −18 px axis error; see cal/reports/2026-09-24-fe-calibration-plasma-analysis.md.**
+
 # Fe (Aesar 99.98%) Z300 LIBS calibration analysis: plasma and surface
 
 *Generated fe_plasma_analysis.py — deterministic rerun of `--data /private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/acq` `--ledger /private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/39a75126-564e-4be9-a01b-a385e7a2834d/scratchpad/ledger.json`.*
@@ -416,9 +418,9 @@ Repeated 10/25 condition (reused spot, native 7914 family, n=8 runs): continuum 
 
 ## Files
 
-- Script: `scripts/fe_plasma_analysis.py`
-- Figures: `reports/figures/fe-plasma-20260922/` (shift_model.png, mean_spectrum_labelled.png, depth_profiles.png, boltzmann.png, T_vs_params.png)
-- Report: `reports/2026-09-22-fe-calibration-plasma-analysis.md`
+- Script: `cal/scripts/fe_plasma_analysis.py`
+- Figures: `cal/figures/fe-plasma-20260922/` (shift_model.png, mean_spectrum_labelled.png, depth_profiles.png, boltzmann.png, T_vs_params.png)
+- Report: `cal/reports/2026-09-22-fe-calibration-plasma-analysis.md`
 
 ## Coordinator verification (main session, 2026-09-22 15:30 PDT)
 

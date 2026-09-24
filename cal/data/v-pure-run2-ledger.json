@@ -1,0 +1,1442 @@
+[
+ {
+  "run": "run-10f5a493af9043b5962650b4e49e2094",
+  "run_id": "run-10f5a493af9043b5962650b4e49e2094",
+  "session": "opt-35a72aa5409441828ced0e0635fc6539",
+  "delay": 0,
+  "period": 5,
+  "position": 2,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:04:35.483613+00:00",
+  "score": 1.1557800887131897,
+  "line_count": 49,
+  "shots_acq": 7,
+  "shots_stored": 7,
+  "lap": "extra"
+ },
+ {
+  "run": "seq-6f93cd949ab3",
+  "run_id": "seq-6f93cd949ab3",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 1,
+  "position": 0,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:08:25.376210+00:00",
+  "score": 1.1875318850148067,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "seq-969bcc229884",
+  "run_id": "seq-969bcc229884",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 1,
+  "position": 1,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:10:51.580004+00:00",
+  "score": 1.2355234599292424,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-2ce261904ca1454e8a090c12204e009c",
+  "run_id": "run-2ce261904ca1454e8a090c12204e009c",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 1,
+  "position": 2,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:12:14.187172+00:00",
+  "score": 1.1762061479406596,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-7d9ce38658474a1f8dc54acc273c9b4b",
+  "run_id": "run-7d9ce38658474a1f8dc54acc273c9b4b",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 10,
+  "position": 3,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:14:14.445124+00:00",
+  "score": 1.2502369922364671,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-2f32e7b1e8ca40168ad00153cad109c3",
+  "run_id": "run-2f32e7b1e8ca40168ad00153cad109c3",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 10,
+  "position": 4,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:14:56.267770+00:00",
+  "score": 1.211768453595829,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-922036aeecbf49aca1c3de1c8c37a995",
+  "run_id": "run-922036aeecbf49aca1c3de1c8c37a995",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 10,
+  "position": 5,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:16:28.146613+00:00",
+  "score": 1.1666340133135116,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-f9059913d6634fa1ae1bc8c47dbc043f",
+  "run_id": "run-f9059913d6634fa1ae1bc8c47dbc043f",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 25,
+  "position": 6,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:21:36.327035+00:00",
+  "score": 1.1793771371762942,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-05541c1e9d3643918bc56edf465643bb",
+  "run_id": "run-05541c1e9d3643918bc56edf465643bb",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 25,
+  "position": 7,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:22:34.698611+00:00",
+  "score": 1.1603546550039687,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "run-d56583a584d349efa6ad867d8780f02b",
+  "run_id": "run-d56583a584d349efa6ad867d8780f02b",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 25,
+  "position": 8,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:28:14.044607+00:00",
+  "score": 1.0815824396319675,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-d7f97073e86c4d6eb617a0ffe0d3971b",
+  "run_id": "run-d7f97073e86c4d6eb617a0ffe0d3971b",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 50,
+  "position": 9,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:38:41.048222+00:00",
+  "score": 1.0868925184750495,
+  "line_count": 46,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-1d22e2f633b44452a25d218c827bfcf5",
+  "run_id": "run-1d22e2f633b44452a25d218c827bfcf5",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 50,
+  "position": 10,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:39:14.782823+00:00",
+  "score": 1.062074725120555,
+  "line_count": 47,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-67b2433959364265b47f4ff15536de98",
+  "run_id": "run-67b2433959364265b47f4ff15536de98",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 1,
+  "period": 50,
+  "position": 11,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:40:22.505455+00:00",
+  "score": 1.0803022363033836,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "run-09f1642fb591474283bf32c0d1689cb4",
+  "run_id": "run-09f1642fb591474283bf32c0d1689cb4",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 1,
+  "position": 12,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:45:00.219975+00:00",
+  "score": 1.2380831551861222,
+  "line_count": 52,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-f89ec374e60b4be693f20a4337343e4b",
+  "run_id": "run-f89ec374e60b4be693f20a4337343e4b",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 1,
+  "position": 13,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:45:38.754755+00:00",
+  "score": 1.328183350362096,
+  "line_count": 55,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-1e18a9a4e5e344eb8a6186ad4c88119f",
+  "run_id": "run-1e18a9a4e5e344eb8a6186ad4c88119f",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 1,
+  "position": 14,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:46:37.593390+00:00",
+  "score": 1.254404725108334,
+  "line_count": 52,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "run-3ba8f6ad8eb54144a29b6497cf687471",
+  "run_id": "run-3ba8f6ad8eb54144a29b6497cf687471",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 10,
+  "position": 15,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:47:13.678548+00:00",
+  "score": 1.2507489578425492,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-cf94e9bd0da44af894d5462bd7dc8661",
+  "run_id": "run-cf94e9bd0da44af894d5462bd7dc8661",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 10,
+  "position": 16,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:50:47.599383+00:00",
+  "score": 1.2433429682739303,
+  "line_count": 53,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-351684b0d49644df84e90ae4c1504d79",
+  "run_id": "run-351684b0d49644df84e90ae4c1504d79",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 10,
+  "position": 17,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:56:43.880513+00:00",
+  "score": 1.1736787568669598,
+  "line_count": 51,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "run-34ef75e17ec748e99cc87487f8450d49",
+  "run_id": "run-34ef75e17ec748e99cc87487f8450d49",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 25,
+  "position": 18,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:57:52.432390+00:00",
+  "score": 1.173144303092325,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-975bb85c49a24e9784857209beec6777",
+  "run_id": "run-975bb85c49a24e9784857209beec6777",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 25,
+  "position": 19,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:58:34.777351+00:00",
+  "score": 1.227701236125518,
+  "line_count": 53,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-505605af061849d6bf34dc553c1fb141",
+  "run_id": "run-505605af061849d6bf34dc553c1fb141",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 25,
+  "position": 20,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:59:47.536954+00:00",
+  "score": 1.1062803493437452,
+  "line_count": 49,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "run-2394002b54a74396836d10a16b69053f",
+  "run_id": "run-2394002b54a74396836d10a16b69053f",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 50,
+  "position": 21,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:01:07.502643+00:00",
+  "score": 1.0471800949623247,
+  "line_count": 45,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-b6ae38f94ec34829bb833cc3d2aacfe0",
+  "run_id": "run-b6ae38f94ec34829bb833cc3d2aacfe0",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 50,
+  "position": 22,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:04:46.075392+00:00",
+  "score": 0.9775375967942427,
+  "line_count": 45,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "run-f12add7d2f5548efa64d10187c788ab6",
+  "run_id": "run-f12add7d2f5548efa64d10187c788ab6",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 5,
+  "period": 50,
+  "position": 23,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:06:06.428464+00:00",
+  "score": 1.0516079259484372,
+  "line_count": 45,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "run-1c97f55e731746d3869dbdbd9ff20add",
+  "run_id": "run-1c97f55e731746d3869dbdbd9ff20add",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 1,
+  "position": 24,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:33:03.858135+00:00",
+  "score": 1.277636161001597,
+  "line_count": 53,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-91deca37f0b64254a4aa7181f0492df2",
+  "run_id": "run-91deca37f0b64254a4aa7181f0492df2",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 1,
+  "position": 25,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:33:44.256556+00:00",
+  "score": 1.3427372419698214,
+  "line_count": 54,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 2
+ },
+ {
+  "run": "run-72f61362202744fa9e4f47e6232ff809",
+  "run_id": "run-72f61362202744fa9e4f47e6232ff809",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 1,
+  "position": 26,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:37:16.901302+00:00",
+  "score": 1.2667261943090675,
+  "line_count": 56,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-74f3b59ee0f247a99f9cdf1a3568b368",
+  "run_id": "run-74f3b59ee0f247a99f9cdf1a3568b368",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 10,
+  "position": 27,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:43:40.288005+00:00",
+  "score": 1.1685787446631117,
+  "line_count": 50,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 2
+ },
+ {
+  "run": "run-f4543c0ed7434131a91b0ecb9a97d759",
+  "run_id": "run-f4543c0ed7434131a91b0ecb9a97d759",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 10,
+  "position": 28,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:04:23.879080+00:00",
+  "score": 1.1854640623079278,
+  "line_count": 52,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-b1f84a6aafb94108affa81bddee8a88e",
+  "run_id": "run-b1f84a6aafb94108affa81bddee8a88e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 10,
+  "position": 29,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:07:25.933375+00:00",
+  "score": 1.2077691475315822,
+  "line_count": 51,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 2
+ },
+ {
+  "run": "run-1b20fff33f4740ad8270441464538179",
+  "run_id": "run-1b20fff33f4740ad8270441464538179",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 25,
+  "position": 30,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:13:21.359593+00:00",
+  "score": 1.188440321364044,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-919564c140e74bba9fa6ba3b3f83ede6",
+  "run_id": "run-919564c140e74bba9fa6ba3b3f83ede6",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 25,
+  "position": 31,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:14:21.382854+00:00",
+  "score": 1.2285359187642735,
+  "line_count": 52,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 2
+ },
+ {
+  "run": "run-4f6a92c929e1421d86dac1c92956bb2e",
+  "run_id": "run-4f6a92c929e1421d86dac1c92956bb2e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 25,
+  "position": 32,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:18:33.027244+00:00",
+  "score": 1.138963584493072,
+  "line_count": 52,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-3bc5dbceea1240f58a2427a619d06dcb",
+  "run_id": "run-3bc5dbceea1240f58a2427a619d06dcb",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 50,
+  "position": 33,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:30:36.721377+00:00",
+  "score": 1.1013982564150258,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "run-fec01dc03a3b47c6b5a8bb12d35284b5",
+  "run_id": "run-fec01dc03a3b47c6b5a8bb12d35284b5",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 50,
+  "position": 34,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:35:44.992024+00:00",
+  "score": 0.8926852587124674,
+  "line_count": 41,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 2
+ },
+ {
+  "run": "run-6c16d2e9f7924d20a3eecaf0404a782a",
+  "run_id": "run-6c16d2e9f7924d20a3eecaf0404a782a",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 10,
+  "period": 50,
+  "position": 35,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:36:27.101837+00:00",
+  "score": 1.1439083862439106,
+  "line_count": 48,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 2
+ },
+ {
+  "run": "run-7badac7703f943f1bcf0a727f5fe9dad",
+  "run_id": "run-7badac7703f943f1bcf0a727f5fe9dad",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 1,
+  "position": 36,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:48:42.306370+00:00",
+  "score": 1.1820992234799097,
+  "line_count": 54,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-ab5b0977f2f049f7970be4f2dbca3629",
+  "run_id": "run-ab5b0977f2f049f7970be4f2dbca3629",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 1,
+  "position": 37,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:50:03.677106+00:00",
+  "score": 1.1964627600787432,
+  "line_count": 50,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 3
+ },
+ {
+  "run": "run-47e5afc4ac114f92ba22a9a5d198f40e",
+  "run_id": "run-47e5afc4ac114f92ba22a9a5d198f40e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 1,
+  "position": 38,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:05:58.914059+00:00",
+  "score": 1.2184706521574975,
+  "line_count": 53,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-a7f4b5d65cdb4acdaba7eafe39d57c10",
+  "run_id": "run-a7f4b5d65cdb4acdaba7eafe39d57c10",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 10,
+  "position": 39,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:13:16.722417+00:00",
+  "score": 1.1492990499450855,
+  "line_count": 49,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 3
+ },
+ {
+  "run": "run-12577962575840059224ff63b1700b9e",
+  "run_id": "run-12577962575840059224ff63b1700b9e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 10,
+  "position": 40,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:27:34.770208+00:00",
+  "score": 1.169549823587917,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-af5485359ee44339a620c4c98d1b320a",
+  "run_id": "run-af5485359ee44339a620c4c98d1b320a",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 10,
+  "position": 41,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:32:11.815761+00:00",
+  "score": 1.2619763950943532,
+  "line_count": 54,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-1bf22c5fca8f44d79459f557fbd9652d",
+  "run_id": "run-1bf22c5fca8f44d79459f557fbd9652d",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 25,
+  "position": 42,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:40:21.118106+00:00",
+  "score": 1.1022420264718844,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-e0c234340e9b4f75bca4afd247ef81ac",
+  "run_id": "run-e0c234340e9b4f75bca4afd247ef81ac",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 25,
+  "position": 43,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:45:26.521154+00:00",
+  "score": 1.122001310189853,
+  "line_count": 49,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 3
+ },
+ {
+  "run": "run-98bcada8e2c8462491bde96f8e32554e",
+  "run_id": "run-98bcada8e2c8462491bde96f8e32554e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 25,
+  "position": 44,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:47:42.937224+00:00",
+  "score": 1.0997356838925747,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-7f6638932dea4656a5dbe759647232d7",
+  "run_id": "run-7f6638932dea4656a5dbe759647232d7",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 50,
+  "position": 45,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:48:44.551846+00:00",
+  "score": 0.9849715903017943,
+  "line_count": 45,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 3
+ },
+ {
+  "run": "run-ed5ea27a1285449f89b461d3291d3d1e",
+  "run_id": "run-ed5ea27a1285449f89b461d3291d3d1e",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 50,
+  "position": 46,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:51:39.525404+00:00",
+  "score": 0.9752548981897287,
+  "line_count": 45,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 3
+ },
+ {
+  "run": "run-2022ef231d974b03a0df4faa3485713a",
+  "run_id": "run-2022ef231d974b03a0df4faa3485713a",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 20,
+  "period": 50,
+  "position": 47,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:52:27.042636+00:00",
+  "score": 0.9867065653240052,
+  "line_count": 43,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 3
+ },
+ {
+  "run": "run-0765fbe3376d4f3eb45a1fdc1347aca5",
+  "run_id": "run-0765fbe3376d4f3eb45a1fdc1347aca5",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 1,
+  "position": 48,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:53:03.111579+00:00",
+  "score": 1.2477132405666544,
+  "line_count": 52,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 4
+ },
+ {
+  "run": "run-5e6d87821e154364bd7bfc0efbeecc1a",
+  "run_id": "run-5e6d87821e154364bd7bfc0efbeecc1a",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 1,
+  "position": 49,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:53:36.568505+00:00",
+  "score": 1.1927914843205356,
+  "line_count": 51,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 4
+ },
+ {
+  "run": "run-270f78ad0565487a937172938a78c32a",
+  "run_id": "run-270f78ad0565487a937172938a78c32a",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 1,
+  "position": 50,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:59:12.801320+00:00",
+  "score": 1.1606992943119872,
+  "line_count": 52,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 4
+ },
+ {
+  "run": "run-d6356a2f199740d5ab6ab4cfb864ff21",
+  "run_id": "run-d6356a2f199740d5ab6ab4cfb864ff21",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 10,
+  "position": 51,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:00:42.770288+00:00",
+  "score": 1.0884591387154163,
+  "line_count": 46,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 4
+ },
+ {
+  "run": "run-35711bedd7d34b388274cd2d1ef51bac",
+  "run_id": "run-35711bedd7d34b388274cd2d1ef51bac",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 10,
+  "position": 52,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:02:21.944646+00:00",
+  "score": 1.116182931525186,
+  "line_count": 47,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 4
+ },
+ {
+  "run": "run-92a2c0ddb4cc4e8887800216e980cbf5",
+  "run_id": "run-92a2c0ddb4cc4e8887800216e980cbf5",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 10,
+  "position": 53,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:03:43.555182+00:00",
+  "score": 1.0931774365242373,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 4
+ },
+ {
+  "run": "run-028533c6ca4045bba8902a4e7095916f",
+  "run_id": "run-028533c6ca4045bba8902a4e7095916f",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 25,
+  "position": 54,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:04:25.295361+00:00",
+  "score": 1.097153201713112,
+  "line_count": 48,
+  "shots_acq": 7,
+  "shots_stored": 7,
+  "lap": 4
+ },
+ {
+  "run": "run-438ba75825bd43abadd0a7ac43eb6fd1",
+  "run_id": "run-438ba75825bd43abadd0a7ac43eb6fd1",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 25,
+  "position": 55,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:24:04.524260+00:00",
+  "score": 0.8832324070655092,
+  "line_count": 43,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 4
+ },
+ {
+  "run": "run-e741919232f242b5930893982ab724b7",
+  "run_id": "run-e741919232f242b5930893982ab724b7",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 25,
+  "position": 56,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:25:46.264843+00:00",
+  "score": 1.0003135980929956,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 4
+ },
+ {
+  "run": "run-b5f14497f19f40ce895e8a28bc84c01d",
+  "run_id": "run-b5f14497f19f40ce895e8a28bc84c01d",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 50,
+  "position": 57,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:26:39.478067+00:00",
+  "score": 0.8161504538885028,
+  "line_count": 39,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 4
+ },
+ {
+  "run": "run-21b5341182f44af8b7e291a74cec2d7f",
+  "run_id": "run-21b5341182f44af8b7e291a74cec2d7f",
+  "session": "opt-c86274e9281b42af82727837edd297a0",
+  "delay": 50,
+  "period": 50,
+  "position": 58,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:27:34.561250+00:00",
+  "score": 0.8496570906446705,
+  "line_count": 43,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 4
+ }
+]

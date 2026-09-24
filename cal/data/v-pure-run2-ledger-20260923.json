@@ -1,0 +1,1622 @@
+[
+ {
+  "run": "seq-6f93cd949ab3",
+  "run_id": "seq-6f93cd949ab3",
+  "delay": 1,
+  "period": 1,
+  "position": 0,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:08:25.359628+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.5014475132252486,
+  "median_snr": 16.2798887861379,
+  "repeatability_cv": 0.24307646647298642,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "seq-969bcc229884",
+  "run_id": "seq-969bcc229884",
+  "delay": 1,
+  "period": 1,
+  "position": 1,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:10:51.563958+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5131644535307974,
+  "median_snr": 17.450074458717598,
+  "repeatability_cv": 0.2426254575208557,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-2ce261904ca1454e8a090c12204e009c",
+  "run_id": "run-2ce261904ca1454e8a090c12204e009c",
+  "delay": 1,
+  "period": 1,
+  "position": 2,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:12:14.170461+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5089296554111034,
+  "median_snr": 17.303951981519283,
+  "repeatability_cv": 0.24954762450228185,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-7d9ce38658474a1f8dc54acc273c9b4b",
+  "run_id": "run-7d9ce38658474a1f8dc54acc273c9b4b",
+  "delay": 1,
+  "period": 10,
+  "position": 3,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:14:14.433303+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5600970721706064,
+  "median_snr": 17.440293395521046,
+  "repeatability_cv": 0.19249862397346607,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-2f32e7b1e8ca40168ad00153cad109c3",
+  "run_id": "run-2f32e7b1e8ca40168ad00153cad109c3",
+  "delay": 1,
+  "period": 10,
+  "position": 4,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:14:55.149786+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.49465857886364606,
+  "median_snr": 14.58212716957469,
+  "repeatability_cv": 0.21440276963836938,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-922036aeecbf49aca1c3de1c8c37a995",
+  "run_id": "run-922036aeecbf49aca1c3de1c8c37a995",
+  "delay": 1,
+  "period": 10,
+  "position": 5,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:16:26.922470+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.49350468375857154,
+  "median_snr": 17.750627998454892,
+  "repeatability_cv": 0.2374195480366727,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-f9059913d6634fa1ae1bc8c47dbc043f",
+  "run_id": "run-f9059913d6634fa1ae1bc8c47dbc043f",
+  "delay": 1,
+  "period": 25,
+  "position": 6,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:21:33.641018+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.47072075398287355,
+  "median_snr": 14.571854463604236,
+  "repeatability_cv": 0.21509809710404856,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-05541c1e9d3643918bc56edf465643bb",
+  "run_id": "run-05541c1e9d3643918bc56edf465643bb",
+  "delay": 1,
+  "period": 25,
+  "position": 7,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:22:31.663078+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.514911164257737,
+  "median_snr": 16.441612258823454,
+  "repeatability_cv": 0.15669582876922306,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-d56583a584d349efa6ad867d8780f02b",
+  "run_id": "run-d56583a584d349efa6ad867d8780f02b",
+  "delay": 1,
+  "period": 25,
+  "position": 8,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:28:14.026496+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.46391922111679584,
+  "median_snr": 14.111030436513936,
+  "repeatability_cv": 0.21942249768568425,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-d7f97073e86c4d6eb617a0ffe0d3971b",
+  "run_id": "run-d7f97073e86c4d6eb617a0ffe0d3971b",
+  "delay": 1,
+  "period": 50,
+  "position": 9,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:38:41.036504+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.49586835223243114,
+  "median_snr": 13.259803177112708,
+  "repeatability_cv": 0.172319238271784,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-1d22e2f633b44452a25d218c827bfcf5",
+  "run_id": "run-1d22e2f633b44452a25d218c827bfcf5",
+  "delay": 1,
+  "period": 50,
+  "position": 10,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:39:14.773358+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.444251765532535,
+  "median_snr": 13.694714364134875,
+  "repeatability_cv": 0.19729099720808851,
+  "line_count": 19,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-67b2433959364265b47f4ff15536de98",
+  "run_id": "run-67b2433959364265b47f4ff15536de98",
+  "delay": 1,
+  "period": 50,
+  "position": 11,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:40:22.493885+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4445145332668204,
+  "median_snr": 14.631624482170652,
+  "repeatability_cv": 0.2241028665054523,
+  "line_count": 19,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 0
+ },
+ {
+  "run": "run-09f1642fb591474283bf32c0d1689cb4",
+  "run_id": "run-09f1642fb591474283bf32c0d1689cb4",
+  "delay": 5,
+  "period": 1,
+  "position": 12,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:44:59.100826+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5284751630839072,
+  "median_snr": 17.771869842802744,
+  "repeatability_cv": 0.27158112783708427,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-f89ec374e60b4be693f20a4337343e4b",
+  "run_id": "run-f89ec374e60b4be693f20a4337343e4b",
+  "delay": 5,
+  "period": 1,
+  "position": 13,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:45:37.695621+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.546988359527544,
+  "median_snr": 17.2952089481375,
+  "repeatability_cv": 0.2177678181323846,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-1e18a9a4e5e344eb8a6186ad4c88119f",
+  "run_id": "run-1e18a9a4e5e344eb8a6186ad4c88119f",
+  "delay": 5,
+  "period": 1,
+  "position": 14,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:46:37.582414+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.5401648898468068,
+  "median_snr": 20.846190982681275,
+  "repeatability_cv": 0.24893495891541256,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-3ba8f6ad8eb54144a29b6497cf687471",
+  "run_id": "run-3ba8f6ad8eb54144a29b6497cf687471",
+  "delay": 5,
+  "period": 10,
+  "position": 15,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:47:12.354684+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5221403805979143,
+  "median_snr": 15.622798239000815,
+  "repeatability_cv": 0.17757041007620186,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-cf94e9bd0da44af894d5462bd7dc8661",
+  "run_id": "run-cf94e9bd0da44af894d5462bd7dc8661",
+  "delay": 5,
+  "period": 10,
+  "position": 16,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:50:45.537218+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.508269899975361,
+  "median_snr": 18.313572301935864,
+  "repeatability_cv": 0.274277242938164,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-351684b0d49644df84e90ae4c1504d79",
+  "run_id": "run-351684b0d49644df84e90ae4c1504d79",
+  "delay": 5,
+  "period": 10,
+  "position": 17,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:56:42.458637+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.4837071331814031,
+  "median_snr": 18.409944480212758,
+  "repeatability_cv": 0.2773679452913461,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-34ef75e17ec748e99cc87487f8450d49",
+  "run_id": "run-34ef75e17ec748e99cc87487f8450d49",
+  "delay": 5,
+  "period": 25,
+  "position": 18,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:57:51.229396+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4962164691274477,
+  "median_snr": 17.359170583328105,
+  "repeatability_cv": 0.22179926756945492,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-975bb85c49a24e9784857209beec6777",
+  "run_id": "run-975bb85c49a24e9784857209beec6777",
+  "delay": 5,
+  "period": 25,
+  "position": 19,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:58:33.538424+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5384549360229861,
+  "median_snr": 18.171910788816277,
+  "repeatability_cv": 0.19985224235361904,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-505605af061849d6bf34dc553c1fb141",
+  "run_id": "run-505605af061849d6bf34dc553c1fb141",
+  "delay": 5,
+  "period": 25,
+  "position": 20,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:59:46.349568+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.4743437239491166,
+  "median_snr": 15.371761679545354,
+  "repeatability_cv": 0.22781832596265364,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-2394002b54a74396836d10a16b69053f",
+  "run_id": "run-2394002b54a74396836d10a16b69053f",
+  "delay": 5,
+  "period": 50,
+  "position": 21,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:01:06.273067+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4764985740581119,
+  "median_snr": 14.697590118550679,
+  "repeatability_cv": 0.20388048483920226,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-b6ae38f94ec34829bb833cc3d2aacfe0",
+  "run_id": "run-b6ae38f94ec34829bb833cc3d2aacfe0",
+  "delay": 5,
+  "period": 50,
+  "position": 22,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:04:43.099645+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4300463055340166,
+  "median_snr": 16.100503265970342,
+  "repeatability_cv": 0.23784979255396593,
+  "line_count": 18,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-f12add7d2f5548efa64d10187c788ab6",
+  "run_id": "run-f12add7d2f5548efa64d10187c788ab6",
+  "delay": 5,
+  "period": 50,
+  "position": 23,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:06:04.896365+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.42231279246109815,
+  "median_snr": 14.845010040793706,
+  "repeatability_cv": 0.22666244494253504,
+  "line_count": 18,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 1
+ },
+ {
+  "run": "run-1c97f55e731746d3869dbdbd9ff20add",
+  "run_id": "run-1c97f55e731746d3869dbdbd9ff20add",
+  "delay": 10,
+  "period": 1,
+  "position": 24,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:33:03.839197+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5326683941542247,
+  "median_snr": 16.357103660298808,
+  "repeatability_cv": 0.28367157762067563,
+  "line_count": 23,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-91deca37f0b64254a4aa7181f0492df2",
+  "run_id": "run-91deca37f0b64254a4aa7181f0492df2",
+  "delay": 10,
+  "period": 1,
+  "position": 25,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:33:42.548356+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.5560851604021466,
+  "median_snr": 15.925132337809256,
+  "repeatability_cv": 0.21875801554546162,
+  "line_count": 23,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-72f61362202744fa9e4f47e6232ff809",
+  "run_id": "run-72f61362202744fa9e4f47e6232ff809",
+  "delay": 10,
+  "period": 1,
+  "position": 26,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:37:15.769467+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5074872284658609,
+  "median_snr": 20.163240299465023,
+  "repeatability_cv": 0.31566488900674433,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-74f3b59ee0f247a99f9cdf1a3568b368",
+  "run_id": "run-74f3b59ee0f247a99f9cdf1a3568b368",
+  "delay": 10,
+  "period": 10,
+  "position": 27,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T18:43:38.791267+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.4580252196607935,
+  "median_snr": 16.4147791043601,
+  "repeatability_cv": 0.29965515401302467,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-f4543c0ed7434131a91b0ecb9a97d759",
+  "run_id": "run-f4543c0ed7434131a91b0ecb9a97d759",
+  "delay": 10,
+  "period": 10,
+  "position": 28,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:04:22.557335+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4612570051094744,
+  "median_snr": 15.121401729323118,
+  "repeatability_cv": 0.3184782025600891,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-b1f84a6aafb94108affa81bddee8a88e",
+  "run_id": "run-b1f84a6aafb94108affa81bddee8a88e",
+  "delay": 10,
+  "period": 10,
+  "position": 29,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:07:25.923822+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.48013243099564457,
+  "median_snr": 16.982401432468837,
+  "repeatability_cv": 0.25373117347092083,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-1b20fff33f4740ad8270441464538179",
+  "run_id": "run-1b20fff33f4740ad8270441464538179",
+  "delay": 10,
+  "period": 25,
+  "position": 30,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:13:20.239226+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.47279283455601495,
+  "median_snr": 15.397236168031107,
+  "repeatability_cv": 0.23253101475331717,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-919564c140e74bba9fa6ba3b3f83ede6",
+  "run_id": "run-919564c140e74bba9fa6ba3b3f83ede6",
+  "delay": 10,
+  "period": 25,
+  "position": 31,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:14:19.531713+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.46898920272755024,
+  "median_snr": 14.827615721757416,
+  "repeatability_cv": 0.16548011542014462,
+  "line_count": 19,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-4f6a92c929e1421d86dac1c92956bb2e",
+  "run_id": "run-4f6a92c929e1421d86dac1c92956bb2e",
+  "delay": 10,
+  "period": 25,
+  "position": 32,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:18:31.777655+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4766526082592609,
+  "median_snr": 13.895350775574396,
+  "repeatability_cv": 0.2986196156758696,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-3bc5dbceea1240f58a2427a619d06dcb",
+  "run_id": "run-3bc5dbceea1240f58a2427a619d06dcb",
+  "delay": 10,
+  "period": 50,
+  "position": 33,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:30:34.779075+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4619443004556859,
+  "median_snr": 14.917330367118549,
+  "repeatability_cv": 0.18567597934300636,
+  "line_count": 19,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-fec01dc03a3b47c6b5a8bb12d35284b5",
+  "run_id": "run-fec01dc03a3b47c6b5a8bb12d35284b5",
+  "delay": 10,
+  "period": 50,
+  "position": 34,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:35:43.851580+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.3833636293409921,
+  "median_snr": 14.657964216966084,
+  "repeatability_cv": 0.2707325759356818,
+  "line_count": 17,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-6c16d2e9f7924d20a3eecaf0404a782a",
+  "run_id": "run-6c16d2e9f7924d20a3eecaf0404a782a",
+  "delay": 10,
+  "period": 50,
+  "position": 35,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:36:25.918612+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.46135829485334146,
+  "median_snr": 14.243202906661887,
+  "repeatability_cv": 0.1686176796198148,
+  "line_count": 19,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 2
+ },
+ {
+  "run": "run-7badac7703f943f1bcf0a727f5fe9dad",
+  "run_id": "run-7badac7703f943f1bcf0a727f5fe9dad",
+  "delay": 20,
+  "period": 1,
+  "position": 36,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:48:40.366275+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4562298267304075,
+  "median_snr": 14.357310981085448,
+  "repeatability_cv": 0.3720930012573268,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-ab5b0977f2f049f7970be4f2dbca3629",
+  "run_id": "run-ab5b0977f2f049f7970be4f2dbca3629",
+  "delay": 20,
+  "period": 1,
+  "position": 37,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T19:50:02.045671+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.49981276157027715,
+  "median_snr": 14.160332500291885,
+  "repeatability_cv": 0.24652952312006707,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-47e5afc4ac114f92ba22a9a5d198f40e",
+  "run_id": "run-47e5afc4ac114f92ba22a9a5d198f40e",
+  "delay": 20,
+  "period": 1,
+  "position": 38,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:05:56.963101+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.44172015386249436,
+  "median_snr": 13.633684855938807,
+  "repeatability_cv": 0.3288449010043442,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-a7f4b5d65cdb4acdaba7eafe39d57c10",
+  "run_id": "run-a7f4b5d65cdb4acdaba7eafe39d57c10",
+  "delay": 20,
+  "period": 10,
+  "position": 39,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:13:14.680513+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.4858110861953479,
+  "median_snr": 15.52037889654973,
+  "repeatability_cv": 0.26284703831228245,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-12577962575840059224ff63b1700b9e",
+  "run_id": "run-12577962575840059224ff63b1700b9e",
+  "delay": 20,
+  "period": 10,
+  "position": 40,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:27:32.966649+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.46127198959546695,
+  "median_snr": 14.2424370915633,
+  "repeatability_cv": 0.2918479085714045,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-af5485359ee44339a620c4c98d1b320a",
+  "run_id": "run-af5485359ee44339a620c4c98d1b320a",
+  "delay": 20,
+  "period": 10,
+  "position": 41,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:32:10.408654+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.5145679417943415,
+  "median_snr": 15.926141596181019,
+  "repeatability_cv": 0.2598535508926193,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-1bf22c5fca8f44d79459f557fbd9652d",
+  "run_id": "run-1bf22c5fca8f44d79459f557fbd9652d",
+  "delay": 20,
+  "period": 25,
+  "position": 42,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:40:21.104206+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4653631915579557,
+  "median_snr": 13.634350101446948,
+  "repeatability_cv": 0.2613535597602415,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-e0c234340e9b4f75bca4afd247ef81ac",
+  "run_id": "run-e0c234340e9b4f75bca4afd247ef81ac",
+  "delay": 20,
+  "period": 25,
+  "position": 43,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:45:25.133200+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.46770307363236097,
+  "median_snr": 13.545294366092307,
+  "repeatability_cv": 0.252188204898147,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-98bcada8e2c8462491bde96f8e32554e",
+  "run_id": "run-98bcada8e2c8462491bde96f8e32554e",
+  "delay": 20,
+  "period": 25,
+  "position": 44,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:47:41.658059+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4507795896772391,
+  "median_snr": 15.818881169758306,
+  "repeatability_cv": 0.3044540868368365,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-7f6638932dea4656a5dbe759647232d7",
+  "run_id": "run-7f6638932dea4656a5dbe759647232d7",
+  "delay": 20,
+  "period": 50,
+  "position": 45,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:48:43.263519+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.4226012340362094,
+  "median_snr": 15.996989562254909,
+  "repeatability_cv": 0.25696342776721676,
+  "line_count": 18,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-ed5ea27a1285449f89b461d3291d3d1e",
+  "run_id": "run-ed5ea27a1285449f89b461d3291d3d1e",
+  "delay": 20,
+  "period": 50,
+  "position": 46,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:51:37.958895+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.38801382226047165,
+  "median_snr": 14.710315097439326,
+  "repeatability_cv": 0.3309694225964251,
+  "line_count": 18,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-2022ef231d974b03a0df4faa3485713a",
+  "run_id": "run-2022ef231d974b03a0df4faa3485713a",
+  "delay": 20,
+  "period": 50,
+  "position": 47,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:52:26.005147+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.42178422512586583,
+  "median_snr": 15.848893388180317,
+  "repeatability_cv": 0.2555079167732097,
+  "line_count": 18,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 3
+ },
+ {
+  "run": "run-0765fbe3376d4f3eb45a1fdc1347aca5",
+  "run_id": "run-0765fbe3376d4f3eb45a1fdc1347aca5",
+  "delay": 50,
+  "period": 1,
+  "position": 48,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:53:01.624635+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.45850172119890853,
+  "median_snr": 14.043755428112789,
+  "repeatability_cv": 0.35498368191802115,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-5e6d87821e154364bd7bfc0efbeecc1a",
+  "run_id": "run-5e6d87821e154364bd7bfc0efbeecc1a",
+  "delay": 50,
+  "period": 1,
+  "position": 49,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:53:36.555757+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.5076524562265713,
+  "median_snr": 17.822956830272762,
+  "repeatability_cv": 0.324965254514312,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-270f78ad0565487a937172938a78c32a",
+  "run_id": "run-270f78ad0565487a937172938a78c32a",
+  "delay": 50,
+  "period": 1,
+  "position": 50,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T20:59:12.790071+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4568906954332834,
+  "median_snr": 15.828710525165047,
+  "repeatability_cv": 0.4803638021014644,
+  "line_count": 23,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-d6356a2f199740d5ab6ab4cfb864ff21",
+  "run_id": "run-d6356a2f199740d5ab6ab4cfb864ff21",
+  "delay": 50,
+  "period": 10,
+  "position": 51,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:00:41.371857+00:00",
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "score": 0.4328673184098221,
+  "median_snr": 12.9223026402119,
+  "repeatability_cv": 0.3308382587352754,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-35711bedd7d34b388274cd2d1ef51bac",
+  "run_id": "run-35711bedd7d34b388274cd2d1ef51bac",
+  "delay": 50,
+  "period": 10,
+  "position": 52,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:02:21.927099+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.46054774756190936,
+  "median_snr": 14.016156948428614,
+  "repeatability_cv": 0.3480503388882281,
+  "line_count": 22,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-92a2c0ddb4cc4e8887800216e980cbf5",
+  "run_id": "run-92a2c0ddb4cc4e8887800216e980cbf5",
+  "delay": 50,
+  "period": 10,
+  "position": 53,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:03:42.326932+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.4487608588748281,
+  "median_snr": 14.831510714505217,
+  "repeatability_cv": 0.3463473737246149,
+  "line_count": 21,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-028533c6ca4045bba8902a4e7095916f",
+  "run_id": "run-028533c6ca4045bba8902a4e7095916f",
+  "delay": 50,
+  "period": 25,
+  "position": 54,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:04:24.135596+00:00",
+  "shots_acq": 7,
+  "shots_stored": 7,
+  "score": 0.43464896988964685,
+  "median_snr": 14.127670955338132,
+  "repeatability_cv": 0.30206872317396,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-438ba75825bd43abadd0a7ac43eb6fd1",
+  "run_id": "run-438ba75825bd43abadd0a7ac43eb6fd1",
+  "delay": 50,
+  "period": 25,
+  "position": 55,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:24:03.283519+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.3088305311324419,
+  "median_snr": 13.054973315344379,
+  "repeatability_cv": 0.42633582679209564,
+  "line_count": 16,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-e741919232f242b5930893982ab724b7",
+  "run_id": "run-e741919232f242b5930893982ab724b7",
+  "delay": 50,
+  "period": 25,
+  "position": 56,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:25:45.098392+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.40800084127423525,
+  "median_snr": 14.322661883744525,
+  "repeatability_cv": 0.39365158991762805,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-b5f14497f19f40ce895e8a28bc84c01d",
+  "run_id": "run-b5f14497f19f40ce895e8a28bc84c01d",
+  "delay": 50,
+  "period": 50,
+  "position": 57,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:26:38.382909+00:00",
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "score": 0.3194633653768687,
+  "median_snr": 14.613628718198783,
+  "repeatability_cv": 0.3441213387438598,
+  "line_count": 15,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-21b5341182f44af8b7e291a74cec2d7f",
+  "run_id": "run-21b5341182f44af8b7e291a74cec2d7f",
+  "delay": 50,
+  "period": 50,
+  "position": 58,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T21:27:33.081774+00:00",
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "score": 0.3315978138380918,
+  "median_snr": 13.621848561102636,
+  "repeatability_cv": 0.34827833344642073,
+  "line_count": 16,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": 4
+ },
+ {
+  "run": "run-10f5a493af9043b5962650b4e49e2094",
+  "run_id": "run-10f5a493af9043b5962650b4e49e2094",
+  "delay": 0,
+  "period": 5,
+  "position": 2,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-23T17:04:33.309034+00:00",
+  "shots_acq": 7,
+  "shots_stored": 7,
+  "score": 0.476832959896101,
+  "median_snr": 17.51648794610552,
+  "repeatability_cv": 0.2751939275073998,
+  "line_count": 20,
+  "flags": [
+   "preliminary_window_metrics",
+   "crater_evolution_confounded",
+   "atomic_uncertainties_unavailable",
+   "timing_units_unverified",
+   "saturation_limit_unknown"
+  ],
+  "lap": "extra"
+ }
+]

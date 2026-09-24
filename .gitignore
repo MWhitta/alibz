@@ -43,3 +43,6 @@ docs/moissanite_remote_setup.md
 output/
 .playwright-cli/
 reports/*backup*/
+
+# Small derived calibration artefacts (ledgers, ePSF shapes) are versioned; raw spectra stay out.
+!cal/data/

@@ -229,9 +229,9 @@ partial files**. No motion, laser, or acquisition command was ever issued.
 
 * `scripts/z300_fb_decode.py` — decode `all_fb` bundles to per-shot CSVs;
   `--compare` validates against a vendor export.
-* `scripts/fe_line_qc.py` — line-intensity purity/repeatability/cleanup QC;
+* `cal/scripts/fe_line_qc.py` — line-intensity purity/repeatability/cleanup QC;
   the path that does not depend on the inversion.
-* `scripts/fe_grid_qc.py` — the same three analyses driven off
+* `cal/scripts/fe_grid_qc.py` — the same three analyses driven off
   `summary.csv`/`detections.csv`, for when CF-LIBS does converge. Verified on
   a synthetic 15+16+16 fixture with a known injected surface layer; handles
   an unpaired partial rep.

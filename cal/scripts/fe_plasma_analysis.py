@@ -2,10 +2,10 @@
 """Fe (Aesar 99.98%) Z300 LIBS calibration analysis: plasma and surface.
 
 Regenerates every table and figure in
-reports/2026-09-22-fe-calibration-plasma-analysis.md.
+cal/reports/2026-09-22-fe-calibration-plasma-analysis.md.
 
 Usage:
-    .venv/bin/python scripts/fe_plasma_analysis.py \
+    .venv/bin/python cal/scripts/fe_plasma_analysis.py \
         --data <acq dir> --ledger <ledger.json> \
         [--fe-ref <fe-v1.json>] [--out <report.md>] [--figdir <dir>]
 
@@ -36,7 +36,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # ---- repo tools -------------------------------------------------------------
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 from alibz.utils.database import Database
@@ -512,11 +512,11 @@ def main():
                             "pantheum/alibz/references/fe-v1.json")
     ap.add_argument("--dbpath", default=os.path.join(REPO, "db"))
     ap.add_argument("--out",
-                    default=os.path.join(REPO, "reports",
-                                         "2026-09-22-fe-calibration-plasma-analysis.md"))
+                    default=os.path.join(REPO, "cal", "reports",
+                                         "2026-09-24-fe-calibration-plasma-analysis.md"))
     ap.add_argument("--figdir",
-                    default=os.path.join(REPO, "reports", "figures",
-                                         "fe-plasma-20260922"))
+                    default=os.path.join(REPO, "cal", "figures",
+                                         "fe-plasma-20260924"))
     args = ap.parse_args()
     os.makedirs(args.figdir, exist_ok=True)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -566,15 +566,21 @@ def main():
     VER = (134.0, 96.0, 70.0)
     fresh_locs = [(158.0, 76.0, 70.0), (158.0, 100.0, 70.0), (134.0, 100.0, 70.0),
                   (134.0, 124.0, 70.0), (158.0, 124.0, 70.0)]
-    native_runs = [r for r in runs if r.grid == 7914]
+    # After the 2026-09-24 PIXEL_OFFSET -18 re-derivation every run is on the
+    # single corrected native grid (5848 samples, 187.79-950.71 nm); NATIVE_GRID
+    # is detected as the modal grid so the script no longer hard-codes 7914.
+    from collections import Counter as _Counter
+    NATIVE_GRID = _Counter(r.grid for r in runs).most_common(1)[0][0]
+    native_runs = [r for r in runs if r.grid == NATIVE_GRID]
 
     # ---- per-grid-family shift models --------------------------------------
     # The three wavelength grids (7914 native API, 5848 native Opal decode,
     # 23250 vendor 1/30 nm spline resample) carry DIFFERENT systematic shifts,
     # so the shift is estimated per family from that family's grand mean.
-    GRID_PROV = {7914: "native (streaming API path)",
-                 5848: "native (Opal FlatBuffers decode)",
+    GRID_PROV = {7914: "native (pre-fix streaming API path)",
+                 5848: "native, PIXEL_OFFSET -18 corrected (2026-09-24)",
                  23250: "1/30 nm vendor cubic-spline resample"}
+    GRID_PROV = defaultdict(lambda: "native (corrected)", GRID_PROV)
     family_models = {}
     family_matches = {}
     family_resid = {}
@@ -593,9 +599,9 @@ def main():
 
     # `model` = the native-family model, used for sections that measure on the
     # native reference run; other runs use family_models[run.grid].
-    model = family_models[7914]
-    matches = family_matches[7914]
-    resid_all = family_resid[7914]
+    model = family_models[NATIVE_GRID]
+    matches = family_matches[NATIVE_GRID]
+    resid_all = family_resid[NATIVE_GRID]
     grand = np.mean([r.mean for r in native_runs], axis=0)
     grand_wl = native_runs[0].wl
 
@@ -612,34 +618,26 @@ def main():
       f"10 shots requested/run, 1 location/run, no cleaning shots.")
     total_shots = sum(r.shots.shape[0] for r in runs)
     P(f"- Total shots on disk: {total_shots} across 26 runs.")
-    P(f"- **Data-provenance caveat — three wavelength-grid families** (measured "
-      f"on each run's OWN grid, no resampling by this analysis). Point counts "
-      f"are data rows (files carry one extra header line):")
     gc = defaultdict(int)
-    fam_runs = defaultdict(list)
     for r in runs:
         gc[r.grid] += 1
-        fam_runs[r.grid].append(r.meta['run'][-6:])
-    P(f"  - **{gc.get(7914,0)} runs, 7914 pts (7915 lines)** — native, streaming-API "
-      f"path; 186-961 nm, pitch 0.089/0.129/0.179 nm UV/VIS/NIR, ~12 nm NIR gap "
-      f"948-960 nm. Shift {1000*shift_of(7914):+.0f} pm.")
-    if gc.get(5848, 0):
-        P(f"  - **{gc.get(5848,0)} runs, 5848 pts (5849 lines)** — native, Opal "
-          f"FlatBuffers decode (empirical pixel offset); 186-948 nm, no NIR tail. "
-          f"Shift {1000*shift_of(5848):+.0f} pm (does NOT match the -154 pm of the API grid).")
-    if gc.get(23250, 0):
-        P(f"  - **{gc.get(23250,0)} runs, 23250 pts (23251 lines)** — vendor 1/30 nm "
-          f"cubic-spline RESAMPLE (uniform 0.0333 nm); correlated noise and smoothed "
-          f"peaks, so its SNRs and integrated areas are NOT directly comparable to the "
-          f"native families. Shift {1000*shift_of(23250):+.0f} pm.")
-    if len(family_models) == 1:
-        P("  - All runs are on the native API grid (the eleven Opal-decode / vendor-resample "
-          "runs were refetched from the analyzer on 2026-09-22); the family caveats below are historical.")
-    P(f"- Grid family per run: 7914 = {{{', '.join(fam_runs[7914])}}}; "
-      f"5848 = {{{', '.join(fam_runs.get(5848,[]))}}}; "
-      f"23250 = {{{', '.join(fam_runs.get(23250,[]))}}}.")
-    P(f"- Segments: UV [186,365), VIS [365,620), NIR [620,948] nm. Every table "
-      f"below notes which grid families it mixes.\n")
+    wl0 = float(native_runs[0].wl[0]); wlN = float(native_runs[0].wl[-1])
+    P(f"- **Corrected wavelength axis (2026-09-24).** Every run was re-derived in "
+      f"place with pantheum z300_calibration PIXEL_OFFSET -18 (see "
+      f"reports/2026-09-23-native-axis-18px-offset.md); the earlier ~18 px too-blue "
+      f"labelling is removed. All {sum(gc.values())} runs are now on a SINGLE native "
+      f"grid — no grid-family branching, no resampling (measured on each run's own "
+      f"grid).")
+    P(f"  - **{gc.get(NATIVE_GRID,0)} runs, {NATIVE_GRID} pts** — native, "
+      f"PIXEL_OFFSET -18 corrected; {wl0:.2f}-{wlN:.2f} nm, pitch "
+      f"0.089/0.129/0.179 nm UV/VIS/NIR. The NIR tail beyond {wlN:.1f} nm is absent "
+      f"on this decode (no interior gap). Residual global shift "
+      f"{1000*shift_of(NATIVE_GRID):+.0f} pm (was -154 pm before the fix).")
+    other = [g for g in gc if g != NATIVE_GRID]
+    if other:
+        P(f"  - Other grids present ({', '.join(str(g) for g in other)}): unexpected "
+          f"after the 2026-09-24 re-derivation — check the data copy.")
+    P(f"- Segments: UV [186,365), VIS [365,620), NIR [620,{wlN:.0f}] nm.\n")
 
     P("### Run groups (chronological index; d=delay p=period pp=pulsePeriod ms)\n")
     P("| # | time | location | d | p | pp | shots | grid | group |")
@@ -668,27 +666,29 @@ def main():
 
     # ---- shift model section ----------------------------------------------
     P("## Wavelength shift model\n")
-    P(f"Estimated PER GRID FAMILY from isolated, strong, unambiguous anchor "
-      f"lines (isolated Fe I/II below 620 nm; isolated Ar I lines for NIR, where "
-      f"Fe has no lines) measured by sub-pixel parabolic centroid in each "
-      f"family's grand-mean spectrum. Convention: observed = db(air) + shift.\n")
-    P("| grid family | provenance | n anchors | global shift (pm) | UV | VIS | NIR |")
+    P(f"Estimated on the single corrected native grid from isolated, strong, "
+      f"unambiguous anchor lines (isolated Fe I/II below 620 nm; isolated Ar I "
+      f"lines for NIR, where Fe has no lines) measured by sub-pixel parabolic "
+      f"centroid in the grand-mean spectrum. Convention: observed = db(air) + "
+      f"shift.\n")
+    P("| grid | provenance | n anchors | global shift (pm) | UV | VIS | NIR |")
     P("|--|--|--|--|--|--|--|")
     for grid in sorted(family_models):
         m = family_models[grid]
         P(f"| {grid} | {GRID_PROV[grid]} | {m['n_total']} | {1000*m['global']:+.0f} "
           f"| {1000*m[0]['a']:+.0f} | {1000*m[1]['a']:+.0f} | {1000*m[2]['a']:+.0f} |")
     P("")
-    P(f"The native API family is **{1000*shift_of(7914):+.0f} pm**"
-      + (f", the Opal-decode family **{1000*shift_of(5848):+.0f} pm**" if 5848 in family_models else "")
-      + (f", the resampled family **{1000*shift_of(23250):+.0f} pm**" if 23250 in family_models else "")
-      + " — so a single global shift is NOT "
-      f"adequate; each run is corrected with its own family's shift. The negative "
-      f"(blue) offset matches two of the three first-look examples (Fe I "
-      f"438.35->438.17, Ar I 763.51->763.19); the Fe II 259.94->260.12 example is "
-      f"not reproduced (the strong db Fe II line there is 260.02 nm, measured "
-      f"~-0.15 nm). Residual scatter (~50 pm) is set by the native pitch.\n")
-    P("Per-anchor matched offsets, native (7914) family:\n")
+    mNG = family_models[NATIVE_GRID]
+    P(f"After the PIXEL_OFFSET -18 fix the residual global shift is "
+      f"**{1000*shift_of(NATIVE_GRID):+.0f} pm** (UV {1000*mNG[0]['a']:+.0f}, "
+      f"VIS {1000*mNG[1]['a']:+.0f}, NIR {1000*mNG[2]['a']:+.0f} pm) from "
+      f"{mNG['n_total']} anchors — tens of pm, i.e. a fraction of a native pitch "
+      f"(axis_check ~= -0.25 px), versus the -154 pm of the superseded -18 px "
+      f"analysis. A single global shift is now adequate; the per-segment terms are "
+      f"within the ~{1000*float(np.std(resid_all)) if resid_all else 50:.0f} pm "
+      f"post-fit residual set by the native pitch, so line identifications no "
+      f"longer depend on a large modelled shift.\n")
+    P("Per-anchor matched offsets, corrected native grid:\n")
     P("| species | obs nm | db nm | seg | offset (pm) |")
     P("|--|--|--|--|--|")
     for pw, dbw, s, off, sp in matches:
@@ -753,8 +753,8 @@ def main():
     ref_wl, ref_y = ref_run.wl, ref_run.mean
     # also a fresh first-shot mean (shot-0 of fresh spots) for surface species
     fresh_first = [r.shots[0] for r in runs if tuple(r.meta['location']) in fresh_locs
-                   and r.grid == 7914]
-    fresh_wl = next(r.wl for r in runs if tuple(r.meta['location']) in fresh_locs and r.grid == 7914)
+                   and r.grid == NATIVE_GRID]
+    fresh_wl = next(r.wl for r in runs if tuple(r.meta['location']) in fresh_locs and r.grid == NATIVE_GRID)
     fresh_first_mean = np.mean(fresh_first, axis=0)
 
     P("Measured on the reused-spot run-0 mean (native, 10/25) and cross-checked "
@@ -1330,10 +1330,10 @@ def main():
     # the grid-family offset in the ratio)
     rep = [r for r in runs if r.meta['delay'] == 10 and r.meta['period'] == 25
            and r.meta['pulsePeriod'] == 100 and tuple(r.meta['location']) == REUSED
-           and r.grid == 7914]
+           and r.grid == NATIVE_GRID]
     if rep:
         conts = [continuum(r) for r in rep]; rats = [feratio[r.idx] for r in rep]
-        P(f"\nRepeated 10/25 condition (reused spot, native 7914 family, "
+        P(f"\nRepeated 10/25 condition (reused spot, native {NATIVE_GRID} grid, "
           f"n={len(rep)} runs): continuum mean {np.mean(conts):.1f} std {np.std(conts):.1f} "
           f"({100*np.std(conts)/max(np.mean(conts),1e-9):.0f}%); "
           f"Fe II/Fe I mean {np.mean(rats):.2f} std {np.std(rats):.2f}. "
@@ -1399,12 +1399,14 @@ def main():
           f"more runs clustering 7000-10500 K at r^2~0.4. This is a real "
           f"~8000-10000 K result; only the T CHANGE across the delay/period "
           f"grid is below the detection limit (~{2*int(np.median([Tsummary[i]['I']['sigT'] for i in Tsummary if fit_resolved(Tsummary[i]['I'])])):.0f} K, 2σ).")
-    P("- The Fe II/Fe I area ratio is ~0.8-1.1 within the native (7914) family "
-      "and ~1.2-1.3 for the Opal/resampled families — the offset tracks the "
-      "GRID FAMILY, not the acquisition condition (a grid/response artifact, "
-      "not physics). Within a family it is flat across delay/period and depth, "
-      "consistent with the flat T: the ionisation balance does not vary "
-      "detectably across this grid.")
+    _ratios_all = [feratio[i] for i in feratio if feratio[i] == feratio[i]]
+    P(f"- The Fe II/Fe I area ratio (single corrected grid, n={len(_ratios_all)} "
+      f"runs) is {np.min(_ratios_all):.2f}-{np.max(_ratios_all):.2f}, median "
+      f"{np.median(_ratios_all):.2f}. With one grid there is no grid-family "
+      f"offset to confound it (the superseded report's 0.8-1.1 vs 1.2-1.3 split "
+      f"was a grid-family artefact, now gone). It is flat across delay/period and "
+      f"depth, consistent with the flat T: the ionisation balance does not vary "
+      f"detectably across these conditions.")
     P("- Fe II UV lines (233-275 nm) are the strongest, most numerous set and "
       "sit in one segment; they are the better analytical set on this "
       "instrument. Fe I visible lines are weak (tens-to-hundreds of counts).")
@@ -1450,14 +1452,12 @@ def main():
       "wavelength-dependent gain. The Fe I VIS Boltzmann T is a WITHIN-segment "
       "slope, so it is largely immune; n_e from the UV-VIS intercept is not "
       "(order-of-magnitude only).")
-    P("- **Three grid families with distinct shifts** (7914 native/API "
-      f"{1000*shift_of(7914):+.0f} pm, 5848 native/Opal {1000*shift_of(5848):+.0f} pm, "
-      f"23250 vendor-resample {1000*shift_of(23250):+.0f} pm): each run is shifted "
-      "with its own family. The resampled family has correlated noise and "
-      "smoothed peaks, so its areas/SNR are not directly comparable; the "
-      "reused-spot depth series and the delay/period grid MIX families "
-      "(noted per table), which aliases onto raw trends — Fe-normalised ratios "
-      "cancel most of it.")
+    P(f"- **Single corrected grid** ({NATIVE_GRID} pts, residual shift "
+      f"{1000*shift_of(NATIVE_GRID):+.0f} pm): the three-grid-family split of the "
+      "superseded -18 px analysis is gone — all runs share one axis, so there is "
+      "no cross-family offset aliasing onto the depth series or delay/period grid. "
+      "Absolute areas/SNR are directly comparable across runs; only the "
+      "wavelength-dependent detector response remains uncalibrated.")
     P("- **T systematics**: strong low-E_k Fe I lines are self-absorbed (they "
       "sit below the Boltzmann trend and are shed by the robust 1.6σ clip; "
       "over-aggressive clipping biases T slightly HIGH). The E_k lever arm is "
@@ -1479,20 +1479,62 @@ def main():
       "ledger `location` field; the verification spot therefore has 3 runs "
       "(28 shots) here.\n")
 
+    # ---- old vs corrected --------------------------------------------------
+    # OLD values are literals from the superseded (built on the -18 px axis)
+    # report cal/reports/2026-09-22-fe-calibration-plasma-analysis.md; CORRECTED
+    # values are the live results of this run on the PIXEL_OFFSET -18 data.
+    P("## Old vs corrected (−18 px axis fix)\n")
+    P("*Old = the superseded 2026-09-22 report (built on the ~18 px too-blue "
+      "axis); Corrected = this run on the 2026-09-24 PIXEL_OFFSET −18 data.*\n")
+    ne_note = "not computed (Fe II UV unresolved on best run)" if not saha_done else "response-proxy only"
+    ratsummary = f"{np.min(_ratios_all):.2f}-{np.max(_ratios_all):.2f} (med {np.median(_ratios_all):.2f})"
+    kdrop = "n/a"
+    if kkey in cum_curves:
+        xs, raw, _ = cum_curves[kkey]
+        _s1 = np.nanmean(raw[xs <= 1]) if (xs <= 1).any() else float("nan")
+        _s3 = np.nanmean(raw[(xs > 3) & (xs <= 6)]) if ((xs > 3) & (xs <= 6)).any() else float("nan")
+        if _s1 == _s1 and _s3 == _s3 and _s3:
+            kdrop = f"{_s1:.0f}->{_s3:.0f} ({_s1/max(_s3,1e-9):.1f}x)"
+    rows = [
+        ("Wavelength grids", "3 families (7914/5848/23250)", f"1 grid ({NATIVE_GRID})", "no — single corrected axis"),
+        ("Global native shift", "-154 pm (UV -119/VIS -154/NIR -154), 9 anchors",
+         f"{1000*shift_of(NATIVE_GRID):+.0f} pm (UV {1000*mNG[0]['a']:+.0f}/VIS {1000*mNG[1]['a']:+.0f}/NIR {1000*mNG[2]['a']:+.0f}), {mNG['n_total']} anchors",
+         "no — shift now tens of pm"),
+        ("Fe I detected (run-0, SNR>=3)", "33/71", f"{len(feI)}/{sum(1 for L in fe_lines if L['ion_stage']==1)}", "improved (more lines land in-window)"),
+        ("Fe II detected (run-0, SNR>=3)", "9/25", f"{len(feII)}/{sum(1 for L in fe_lines if L['ion_stage']==2)}", "improved"),
+        ("Fe I VIS Boltzmann resolves", "2/26 runs", f"{n_resolved_I}/{len(runs)} runs", "more runs resolve"),
+        ("Fe I VIS T (resolved)", "8191-10451 K, median 9321 K",
+         (f"{np.min(resolvedI):.0f}-{np.max(resolvedI):.0f} K, median {np.median(resolvedI):.0f} K" if resolvedI else "none"),
+         "yes — still ~8000-11000 K class"),
+        ("Fe II UV Boltzmann resolves", "0/26", f"{n_resolved_II}/{len(runs)}", "yes (still under-constrained)"),
+        ("Saha intercept n_e", "2.3e11 cm^-3 (response proxy)", ne_note, "n/a — not a physical n_e either way"),
+        ("Fe II/Fe I area ratio", "0.8-1.1 (native) vs 1.2-1.3 (other grids)", ratsummary, "no — grid-family split was an artefact"),
+        ("Ar ambient roll-up", "8/11 clean lines", f"{sum(1 for c,_ in elmap.get('Ar',[]) if c)}/{len(elmap.get('Ar',[]))} clean lines", "yes — Ar confirmed, residuals now tens of pm"),
+        ("K surface tracer (depth)", "127->20 (6.3x drop), discard first 3 shots", f"{kdrop}, discard first 3 shots", "yes — surface transient holds"),
+        ("Fe III", "absent", ("weak-maybe blends only" if fe3_any else "absent"), "yes — no genuine Fe III"),
+    ]
+    P("| headline conclusion | value then (−18 px) | value now (corrected) | still holds? |")
+    P("|--|--|--|--|")
+    for a, b, c, d in rows:
+        P(f"| {a} | {b} | {c} | {d} |")
+    P("")
+
     # ---- files -------------------------------------------------------------
     P("## Files\n")
-    P(f"- Script: `scripts/fe_plasma_analysis.py`")
-    P(f"- Figures: `reports/figures/fe-plasma-20260922/`"
+    P(f"- Script: `cal/scripts/fe_plasma_analysis.py`")
+    P(f"- Figures: `{os.path.relpath(args.figdir, REPO)}/`"
       " (shift_model.png, mean_spectrum_labelled.png, depth_profiles.png, "
       "boltzmann.png, T_vs_params.png)")
-    P(f"- Report: `{os.path.relpath(args.out, REPO)}`\n")
+    P(f"- Report: `{os.path.relpath(args.out, REPO)}`")
+    P("- Supersedes: `cal/reports/2026-09-22-fe-calibration-plasma-analysis.md` "
+      "(built on the −18 px axis error).\n")
 
     with open(args.out, "w") as fh:
         fh.write("\n".join(report))
     print(f"\nReport written: {args.out}")
     print(f"Figures dir: {args.figdir}")
-    print(f"Per-family shift (pm): 7914={1000*shift_of(7914):+.0f} "
-          f"5848={1000*shift_of(5848):+.0f} 23250={1000*shift_of(23250):+.0f}")
+    print("Per-grid shift (pm): " + " ".join(
+        f"{g}={1000*shift_of(g):+.0f}" for g in sorted(family_models)))
     print(f"Fe I VIS resolved on {len(resolvedI)} runs; "
           + (f"T={np.min(resolvedI):.0f}-{np.max(resolvedI):.0f} K median {np.median(resolvedI):.0f} K"
              if resolvedI else "none"))

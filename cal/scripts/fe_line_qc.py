@@ -21,7 +21,7 @@ absolute value is not, and nothing here should be read as a mass fraction.
 
 Usage::
 
-    python scripts/fe_line_qc.py SPECTRA_DIR --out-dir DIR \
+    python cal/scripts/fe_line_qc.py SPECTRA_DIR --out-dir DIR \
         --pattern 'rep*_pos*.csv'
 """
 

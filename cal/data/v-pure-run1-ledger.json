@@ -1,0 +1,650 @@
+[
+ {
+  "run": "seq-645563aa7ada",
+  "run_id": "seq-645563aa7ada",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 10,
+  "position": 0,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:15:07.874425+00:00",
+  "score": 1.1883091086044928,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-ab7e906c9cc4",
+  "run_id": "seq-ab7e906c9cc4",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 10,
+  "position": 1,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:15:43.421630+00:00",
+  "score": 1.2937293486138144,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "seq-5beff45e117a",
+  "run_id": "seq-5beff45e117a",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 10,
+  "position": 2,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:16:19.024283+00:00",
+  "score": 1.1814158008437776,
+  "line_count": 47,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "seq-1cec7bc3a680",
+  "run_id": "seq-1cec7bc3a680",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 25,
+  "position": 3,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:18:08.134005+00:00",
+  "score": 1.189087041641098,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-b0172cea0897",
+  "run_id": "seq-b0172cea0897",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 25,
+  "position": 4,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:18:43.008374+00:00",
+  "score": 1.1479515715377,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-1dd17e94ed79",
+  "run_id": "seq-1dd17e94ed79",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 25,
+  "position": 5,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:19:15.646795+00:00",
+  "score": 1.2215603205367624,
+  "line_count": 50,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-49c849f67629",
+  "run_id": "seq-49c849f67629",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 50,
+  "position": 6,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:19:49.421660+00:00",
+  "score": 1.0528071281363958,
+  "line_count": 45,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-16085d97e629",
+  "run_id": "seq-16085d97e629",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 50,
+  "position": 7,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:20:22.426926+00:00",
+  "score": 1.2146486372944167,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-8fac6f1bdeae",
+  "run_id": "seq-8fac6f1bdeae",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 5,
+  "period": 50,
+  "position": 8,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:20:56.547710+00:00",
+  "score": 1.1898908573520826,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-8482b690b62a",
+  "run_id": "seq-8482b690b62a",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 10,
+  "position": 9,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:21:30.813356+00:00",
+  "score": 1.1892175647591776,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "seq-40d5b20a076e",
+  "run_id": "seq-40d5b20a076e",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 10,
+  "position": 10,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:22:17.015804+00:00",
+  "score": 1.1946236491120419,
+  "line_count": 48,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 0
+ },
+ {
+  "run": "seq-6544c27e4f71",
+  "run_id": "seq-6544c27e4f71",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 10,
+  "position": 11,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:22:49.849930+00:00",
+  "score": 1.1897749020297845,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 0
+ },
+ {
+  "run": "seq-cb558e3f12f2",
+  "run_id": "seq-cb558e3f12f2",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 25,
+  "position": 12,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:23:22.459878+00:00",
+  "score": 1.1900450550235113,
+  "line_count": 48,
+  "shots_acq": 8,
+  "shots_stored": 8,
+  "lap": 1
+ },
+ {
+  "run": "seq-2a0ca27b445d",
+  "run_id": "seq-2a0ca27b445d",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 25,
+  "position": 13,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:23:56.435920+00:00",
+  "score": 1.170890742932863,
+  "line_count": 49,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-811c220e8429",
+  "run_id": "seq-811c220e8429",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 25,
+  "position": 14,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:24:32.404810+00:00",
+  "score": 1.2384625185006848,
+  "line_count": 50,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "seq-39162521f5e4",
+  "run_id": "seq-39162521f5e4",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 50,
+  "position": 15,
+  "site": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:25:07.423425+00:00",
+  "score": 1.0785763046855092,
+  "line_count": 44,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-7deb78eaaaea",
+  "run_id": "seq-7deb78eaaaea",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 50,
+  "position": 16,
+  "site": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:25:49.523573+00:00",
+  "score": 1.0742642797773116,
+  "line_count": 44,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-332e3fb4d6ca",
+  "run_id": "seq-332e3fb4d6ca",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 10,
+  "period": 50,
+  "position": 17,
+  "site": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:26:22.544377+00:00",
+  "score": 1.103953629278809,
+  "line_count": 44,
+  "shots_acq": 9,
+  "shots_stored": 9,
+  "lap": 1
+ },
+ {
+  "run": "seq-ebea6841cb2f",
+  "run_id": "seq-ebea6841cb2f",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 10,
+  "position": 18,
+  "site": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:26:59.867989+00:00",
+  "score": 1.2716770340745702,
+  "line_count": 51,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-f27890f1365b",
+  "run_id": "seq-f27890f1365b",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 10,
+  "position": 19,
+  "site": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   124.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:27:36.889988+00:00",
+  "score": 1.1263237272549398,
+  "line_count": 47,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-f077f0e5b0e4",
+  "run_id": "seq-f077f0e5b0e4",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 10,
+  "position": 20,
+  "site": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:28:11.933769+00:00",
+  "score": 1.2952754535807107,
+  "line_count": 51,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-b95c26c5e3d8",
+  "run_id": "seq-b95c26c5e3d8",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 25,
+  "position": 21,
+  "site": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:28:46.220660+00:00",
+  "score": 1.194489502441391,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-844f63c3af67",
+  "run_id": "seq-844f63c3af67",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 25,
+  "position": 22,
+  "site": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   182.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:29:22.782567+00:00",
+  "score": 1.213997947148456,
+  "line_count": 48,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-385603b3d50e",
+  "run_id": "seq-385603b3d50e",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 25,
+  "position": 23,
+  "site": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   206.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:29:55.963075+00:00",
+  "score": 1.134489813686105,
+  "line_count": 47,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 1
+ },
+ {
+  "run": "seq-2dcf7fa5ca1a",
+  "run_id": "seq-2dcf7fa5ca1a",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 50,
+  "position": 24,
+  "site": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   134.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:30:32.403985+00:00",
+  "score": 1.0898660324843061,
+  "line_count": 46,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "seq-0204c9fc6874",
+  "run_id": "seq-0204c9fc6874",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 50,
+  "position": 25,
+  "site": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   76.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:31:05.612835+00:00",
+  "score": 1.0856992496891398,
+  "line_count": 46,
+  "shots_acq": 10,
+  "shots_stored": 10,
+  "lap": 2
+ },
+ {
+  "run": "seq-1a80bdd3a2fd",
+  "run_id": "seq-1a80bdd3a2fd",
+  "session": "opt-9d3842968edf4818ba39046053846b28",
+  "delay": 20,
+  "period": 50,
+  "position": 26,
+  "site": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "location": [
+   158.0,
+   100.0,
+   70.0
+  ],
+  "created_at": "2026-09-22T23:31:40.246023+00:00",
+  "score": 1.1530838600792113,
+  "line_count": 49,
+  "shots_acq": 6,
+  "shots_stored": 6,
+  "lap": 2
+ }
+]

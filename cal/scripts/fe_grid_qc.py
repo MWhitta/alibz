@@ -36,7 +36,7 @@ from the spectra, so it is echoed into the output for checking.
 
 Usage::
 
-    python scripts/fe_grid_qc.py RUN_DIR --grid 4x4 --reps 3 \
+    python cal/scripts/fe_grid_qc.py RUN_DIR --grid 4x4 --reps 3 \
         --layout sequential --out-dir RUN_DIR/qc
 """
 
