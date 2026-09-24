@@ -10,5 +10,6 @@ scp -q "$HERE/recover-alibz-awaiting-data.py" moissanite:~/pantheum-recover-2026
 # Arguments pass through unchanged (quoted for the remote shell). Use
 # --all-awaiting or --run to select runs; --apply --enable-data-api alone only
 # switches the retrieval mode.
-args=$(printf '%q ' "$@")
+args=""
+(( $# )) && args=$(printf '%q ' "$@")
 ssh -o BatchMode=yes moissanite "cd ~/pantheum-I && python3 ~/pantheum-recover-20260922/recover.py $args"
