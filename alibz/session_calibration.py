@@ -40,7 +40,9 @@ def _quick_peak_table(x: np.ndarray, y_bgsub: np.ndarray) -> np.ndarray:
         y_bgsub, prominence=(4.0 * np.maximum(noise, 1e-12), None))
     if indices.size == 0:
         return np.empty((0, 4), dtype=float)
-    pitch = float(np.median(np.diff(x))) if x.size > 1 else 0.0
+    from alibz.utils.native_grid import segment_pitch_array
+    pitch_arr = (segment_pitch_array(x)[0] if x.size > 1
+                 else np.zeros_like(np.asarray(x, dtype=float)))
     centers = x[indices].astype(float).copy()
     valid = (indices > 0) & (indices < y_bgsub.size - 1)
     for out_i, idx in zip(np.flatnonzero(valid), indices[valid]):
@@ -48,7 +50,7 @@ def _quick_peak_table(x: np.ndarray, y_bgsub: np.ndarray) -> np.ndarray:
         denom = left - 2.0 * middle + right
         if abs(denom) > 1e-12:
             delta = 0.5 * (left - right) / denom
-            centers[out_i] += float(np.clip(delta, -1.0, 1.0)) * pitch
+            centers[out_i] += float(np.clip(delta, -1.0, 1.0)) * float(pitch_arr[idx])
     table = np.zeros((indices.size, 4), dtype=float)
     table[:, 0] = np.maximum(y_bgsub[indices], 0.0)
     table[:, 1] = centers

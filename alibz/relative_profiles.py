@@ -276,8 +276,9 @@ def measure_relative_features(
     fwhm = [float(value) if value is not None else DEFAULT_PROFILE_FWHM_NM[i]
             for i, value in enumerate(
                 calibration.get("profile_fwhm_nm", [None] * 3))]
-    pitch = float(np.median(np.diff(x)))
-    shot_line_power = float(np.sum(np.maximum(corrected, 0.0)) * pitch)
+    from alibz.utils.native_grid import segment_pitch_array
+    pitch_arr = segment_pitch_array(x)[0]  # per-segment nm/px (see native-grid audit B1)
+    shot_line_power = float(np.sum(np.maximum(corrected, 0.0) * pitch_arr))
 
     records = []
     for feature in features:

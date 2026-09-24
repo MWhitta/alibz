@@ -318,6 +318,9 @@ def _measure_feature(x, y, expected_obs, cfg, pitch=None, half_window=None):
         # Gaussian instrumental-profile fit at the peak sample; falls back to
         # parabolic if the fit fails.  Uses the raw y (not baseline-subtracted)
         # with its own local linear baseline.
+        # Registration keeps the proven point-Gaussian anchor centre: the ePSF
+        # NIR fit carries a sub-band-correlated bias that inflates the drift-fit
+        # residual (reports/2026-09-24-peak-location-wiring.md sec 6, V regressions).
         from alibz.utils.peakfit import gaussian_subpixel_center, instrument_sigma_px
         gf = gaussian_subpixel_center(
             x, y, j, sigma_px=instrument_sigma_px(float(xc[k])))
@@ -666,8 +669,9 @@ def _detect_peaks(x, y, cfg):
     """
     from scipy.ndimage import percentile_filter
     from alibz.utils.peakfit import gaussian_subpixel_center, instrument_sigma_px
+    from alibz.utils.native_grid import local_pitch_nm
     n = x.size
-    size = max(15, int(round(2.0 / float(np.median(np.diff(x))))))  # ~2 nm
+    size = max(15, int(round(2.0 / float(local_pitch_nm(x)))))  # ~2 nm
     base = percentile_filter(y, 25, size=size)
     resid = y - base
     noise = max(1.4826 * float(np.median(np.abs(resid - np.median(resid)))), 1e-9)
@@ -864,7 +868,8 @@ def element_registration(x, y, db, composition, *, config=None) -> dict:
     cfg = _config(config)
     composition = [str(e) for e in composition]
     from scipy.ndimage import percentile_filter
-    size = max(15, int(round(2.0 / float(np.median(np.diff(x))))))
+    from alibz.utils.native_grid import local_pitch_nm
+    size = max(15, int(round(2.0 / float(local_pitch_nm(x)))))
     resid = y - percentile_filter(y, 25, size=size)
 
     segments = {}

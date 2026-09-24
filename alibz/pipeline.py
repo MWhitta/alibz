@@ -629,14 +629,20 @@ def analyze_spectrum(
     # per-peak fit quality and blends.  See the report's "Limits" section.
     peak_refinement = None
     if subpixel == "gaussian" and rpeaks.size:
-        from alibz.utils.peakfit import refine_peaks
+        # Route through the per-segment dispatcher: Z300 native data uses the
+        # ePSF (VIS/NIR) / spline (UV) per the packaged flags; any other grid
+        # (uniform export, synthetic) delegates byte-identically to the
+        # Gaussian refine_peaks.  Still ADDITIVE: the physics inversion keeps
+        # the blind Voigt centres; this only records fit quality + the method.
+        from alibz.utils.peak_location import locate_records
         idxs = [int(np.argmin(np.abs(x - c))) for c in np.atleast_2d(rpeaks)[:, 1]]
-        recs = refine_peaks(x, y, idxs)
+        recs = locate_records(x, y, idxs)
         peak_refinement = {
-            "method": "gaussian", "version": "1.0",
+            "method": "auto", "version": "1.1",
             "sigma_px": [r.get("sigma_px") if r.get("ok") else None for r in recs],
             "chi2_nu": [r.get("chi2_nu") if r.get("ok") else None for r in recs],
             "blend": [bool(r.get("blend")) if r.get("ok") else None for r in recs],
+            "method_used": [r.get("method_used") if r.get("ok") else None for r in recs],
             "n_blends": int(sum(1 for r in recs if r.get("ok") and r.get("blend"))),
             "n_ok": int(sum(1 for r in recs if r.get("ok"))),
         }

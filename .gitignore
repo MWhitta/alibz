@@ -46,3 +46,5 @@ reports/*backup*/
 
 # Small derived calibration artefacts (ledgers, ePSF shapes) are versioned; raw spectra stay out.
 !cal/data/
+# Packaged instrument shapes shipped inside the alibz package (ePSF, detector).
+!alibz/data/

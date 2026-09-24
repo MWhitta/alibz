@@ -343,9 +343,12 @@ def test_pipeline_registration_on_off(db):
     assert dflt["wavelength_registration"]["mode"] == "ambient"
     assert all(s not in ("UV", "VIS")
                for s in dflt["wavelength_registration"]["applied_segments"])
-    # per-peak Gaussian diagnostics are attached additively
+    # per-peak sub-pixel diagnostics are attached additively; the peak-location
+    # dispatcher now labels the method "auto" (per-segment ePSF/spline on Z300
+    # native data, delegating to the Gaussian fit on this synthetic grid).
     assert rep["peak_refinement"] is not None
-    assert rep["peak_refinement"]["method"] == "gaussian"
+    assert rep["peak_refinement"]["method"] == "auto"
+    assert "method_used" in rep["peak_refinement"]
 
 
 def test_indexer_wavelength_registration_report(db):

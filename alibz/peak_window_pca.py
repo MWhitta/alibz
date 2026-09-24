@@ -275,7 +275,8 @@ def measure_broad_line(
     right = peak_index
     while right + 1 < residual.size and residual[right + 1] >= half_height:
         right += 1
-    pitch = float(np.median(np.diff(x)))
+    from alibz.utils.native_grid import local_pitch_nm
+    pitch = float(local_pitch_nm(x, peak_index))  # local segment pitch (audit B1)
     fwhm = float(x[right] - x[left] + pitch)
     centroid = float(np.sum((x - center_nm) * positive) / np.sum(positive))
     center_height = float(np.interp(center_nm, x, residual))

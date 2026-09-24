@@ -15,6 +15,7 @@ from sklearn.preprocessing import PowerTransformer
 
 from alibz.utils.dataloader import Data
 from alibz.utils.voigt import voigt_width as _voigt_width, multi_voigt as _multi_voigt
+from alibz.utils.native_grid import segment_pitch_array as _segment_pitch_array
 
 
 class PeakyFinder():
@@ -486,10 +487,14 @@ class PeakyFinder():
 
         if segment_edges is None:
             segment_edges = self.DEFAULT_SEGMENT_EDGES
-        if lam is None:
-            pitch = float(np.median(np.diff(x))) if x.size > 1 else 1.0
-            pitch = pitch if np.isfinite(pitch) and pitch > 0 else 1.0
-            lam = (float(smooth_nm) / pitch) ** 4
+        # ARPLS stiffness lam = (smooth_nm / pitch)**4 -- PER SEGMENT, because
+        # the native pitch differs per detector segment; a global pitch
+        # mis-scales the baseline smoothing length (audit B1).  ``lam_given``
+        # keeps an explicit caller-supplied lam.  On a uniform grid the
+        # per-segment pitch equals the global one, so this is byte-identical.
+        lam_given = lam
+        if lam_given is None:
+            pitch_arr, _ginc, _bg_native = _segment_pitch_array(x)
 
         # Dead detector edges (zero pads, constant clips) are excluded from
         # the fit and pinned to the data (bg == y, so y - bg == 0 there):
@@ -500,7 +505,13 @@ class PeakyFinder():
         for span in self._segment_spans(x, segment_edges):
             live = span & valid
             if np.count_nonzero(live) >= 5:
-                bg[live] = self._arpls(y[live], lam=lam, max_iter=max_iter)
+                if lam_given is None:
+                    p = float(np.median(pitch_arr[span])) if np.any(span) else 1.0
+                    p = p if np.isfinite(p) and p > 0 else 1.0
+                    seg_lam = (float(smooth_nm) / p) ** 4
+                else:
+                    seg_lam = lam_given
+                bg[live] = self._arpls(y[live], lam=seg_lam, max_iter=max_iter)
 
         if plot:
             plt.figure(figsize=(35, 5))
@@ -867,27 +878,39 @@ class PeakyFinder():
         dict
             Updated dictionary of fitted peak parameters.
         """
-        # step size
-        inc = np.median(np.diff(x))
+        # step size -- PER SEGMENT.  A single global median(diff(x)) is wrong
+        # by -26..-47 % in VIS/NIR on native data (the pitch differs per
+        # detector segment; cal/reports/2026-09-23-native-grid-method-audit.md
+        # A0).  ``pitch_arr`` is the per-sample local pitch; on a uniform grid
+        # every entry equals ``inc`` exactly, so this is byte-identical there.
+        pitch_arr, inc, _pf_native = _segment_pitch_array(x)
 
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
-        median_fwhm = np.median(fwhm_array) * inc
+        median_px_fwhm = float(np.median(fwhm_array))   # median line width [samples]
 
         min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
-        # Physical width cap.  The previous limit bounded sigma and gamma
-        # EACH at 5x the median FWHM, which still admits a COMBINED Voigt
-        # FWHM of ~16x median — the "pancake" components that swallow
-        # neighbouring small peaks (measured on MW2-112: a 2.4 nm blob at
-        # 671.7 nm absorbing the detected-but-lost 671.2/672.1 nm peaks,
-        # and 1.0-1.9 nm blobs under Ca H&K).  Cap each width channel so a
+
+        def _local_inc(idx):
+            v = float(pitch_arr[int(np.clip(idx, 0, pitch_arr.size - 1))])
+            return v if np.isfinite(v) and v > 0 else 1.0
+
+        def _cap_at(idx):
+            li = _local_inc(idx)
+            mf = median_px_fwhm * li
+            return self.FWHM_CAP_FACTOR * max(mf if np.isfinite(mf) else 0.0, li)
+        # Physical width cap (``_cap_at`` above, per peak).  The previous limit
+        # bounded sigma and gamma EACH at 5x the median FWHM, which still admits
+        # a COMBINED Voigt FWHM of ~16x median — the "pancake" components that
+        # swallow neighbouring small peaks (measured on MW2-112: a 2.4 nm blob
+        # at 671.7 nm absorbing the detected-but-lost 671.2/672.1 nm peaks, and
+        # 1.0-1.9 nm blobs under Ca H&K).  Cap each width channel so a
         # pure-Gaussian or pure-Lorentzian component stays within
         # FWHM_CAP_FACTOR x median.  Hydrogen Balmer lines are legitimately
         # nm-broad (Stark), so windows near them get H_CAP_RELAX x the cap.
-        fwhm_cap = self.FWHM_CAP_FACTOR * max(
-            median_fwhm if np.isfinite(median_fwhm) else 0.0, min_inc)
+        # The cap is now evaluated at the peak's LOCAL pitch (per segment).
 
         def build_voigt_guess(peak_idx: int, height: float, fwhm_width: float) -> np.ndarray:
-            return self._voigt_seed(x, peak_idx, height, fwhm_width, min_inc)
+            return self._voigt_seed(x, peak_idx, height, fwhm_width, _local_inc(peak_idx))
 
         peak_dictionary = {}
 
@@ -964,7 +987,7 @@ class PeakyFinder():
                             seed = build_voigt_guess(key, height, fwhm_fast)
                             # fast seeds skip the bounded refit, so apply the
                             # physical width cap directly to the seed
-                            capk = fwhm_cap * (self.H_CAP_RELAX
+                            capk = _cap_at(key) * (self.H_CAP_RELAX
                                                if any(abs(float(x[key]) - h) < 3.0
                                                       for h in self.H_BALMER_NM)
                                                else 1.0)
@@ -1002,7 +1025,7 @@ class PeakyFinder():
                     x0 = np.concatenate([seed for _, seed in entries])
 
                     right_bound_idx = min(max(int(node_right) - 1, int(node_left)), len(x) - 1)
-                    cap = fwhm_cap * (self.H_CAP_RELAX
+                    cap = _cap_at(int(p)) * (self.H_CAP_RELAX
                                       if any(abs(float(x[int(p)]) - h) < 3.0
                                              for h in self.H_BALMER_NM) else 1.0)
                     sigma_max = cap / 2.3548200450309493
@@ -1011,7 +1034,9 @@ class PeakyFinder():
                     upper_bounds = np.array(
                         [np.inf, x[right_bound_idx], sigma_max, gamma_max] * n_fit
                     )
-                    lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+                    # per-entry centre bound = that peak's LOCAL pitch
+                    entry_incs = np.array([_local_inc(k) for k, _ in entries])
+                    lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - entry_incs, x0[1::4] + entry_incs
                     # seeds must lie inside the (tighter) bounds
                     x0[2::4] = np.clip(x0[2::4], 0.0, sigma_max * 0.999)
                     x0[3::4] = np.clip(x0[3::4], 0.0, gamma_max * 0.999)
@@ -1041,14 +1066,22 @@ class PeakyFinder():
         return peak_dictionary
     
 
-    def _fwhm_cap(self, x, y, peak_indices):
-        """Width cap for window fits (see FWHM_CAP_FACTOR), in x-units."""
-        inc = np.median(np.diff(x))
-        min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
+    def _fwhm_cap(self, x, y, peak_indices, at=None):
+        """Width cap for window fits (see FWHM_CAP_FACTOR), in x-units.
+
+        With ``at`` (a sample index) the cap uses that peak's LOCAL segment
+        pitch; otherwise a representative pitch.  Byte-identical to the old
+        global-pitch cap on a uniform grid.  (The window fitters now evaluate
+        the cap per peak inline; this method is kept for callers/tests.)"""
+        pitch_arr, inc, _ = _segment_pitch_array(x)
+        if at is None:
+            li = float(np.median(pitch_arr))
+        else:
+            li = float(pitch_arr[int(np.clip(at, 0, pitch_arr.size - 1))])
+        li = li if np.isfinite(li) and li > 0 else 1.0
         _, fwhm_array, *_ = self.peak_parameter_guess(y, peak_indices)
-        median_fwhm = float(np.median(fwhm_array)) * inc
-        return self.FWHM_CAP_FACTOR * max(
-            median_fwhm if np.isfinite(median_fwhm) else 0.0, min_inc)
+        mf = float(np.median(fwhm_array)) * li
+        return self.FWHM_CAP_FACTOR * max(mf if np.isfinite(mf) else 0.0, li)
 
     def fit_shoulders(self, x, y, peak_indices, residuals, peak_dictionary, rng=5):
         """Fit peak shoulders by modelling the residuals.
@@ -1075,8 +1108,20 @@ class PeakyFinder():
             indices of newly fitted peaks.
         """
         
-        inc = np.median(np.diff(x))
-        fwhm_cap = self._fwhm_cap(x, y, peak_indices)
+        # per-segment pitch (byte-identical to the old global inc on a uniform
+        # grid); the width cap is evaluated at each peak's LOCAL pitch.
+        pitch_arr, inc, _sh_native = _segment_pitch_array(x)
+        _, _sh_fwhm_arr, *_ = self.peak_parameter_guess(y, peak_indices)
+        _sh_median_px = float(np.median(_sh_fwhm_arr))
+
+        def _local_inc(idx):
+            v = float(pitch_arr[int(np.clip(idx, 0, pitch_arr.size - 1))])
+            return v if np.isfinite(v) and v > 0 else 1.0
+
+        def _cap_at(idx):
+            li = _local_inc(idx)
+            mf = _sh_median_px * li
+            return self.FWHM_CAP_FACTOR * max(mf if np.isfinite(mf) else 0.0, li)
 
         # identify position of residuals that resemble, but don't coincide with, peaks
         residual_mean, residual_std = np.mean(residuals), np.std(residuals)
@@ -1129,8 +1174,8 @@ class PeakyFinder():
             # the previous dx bound let sigma/gamma grow to the FULL window
             # width (nm-scale beside strong lines), producing the pancake
             # components that absorb real neighbouring small peaks
-            dx = inc * (node_right - node_left)
-            cap = fwhm_cap * (self.H_CAP_RELAX
+            dx = _local_inc(int(p)) * (node_right - node_left)
+            cap = _cap_at(int(p)) * (self.H_CAP_RELAX
                               if any(abs(float(x[int(p)]) - h) < 3.0
                                      for h in self.H_BALMER_NM) else 1.0)
             sigma_max = min(cap / 2.3548200450309493, dx)
@@ -1152,7 +1197,6 @@ class PeakyFinder():
                     fwhm_ws = np.array([fwhm_ws])
                     hwhm_ws = np.array([hwhm_ws])
 
-                min_inc = inc if np.isfinite(inc) and inc > 0 else 1.0
                 for i, (full_max, fwhm, hwhm, pp) in enumerate(zip(fm_ws, fwhm_ws, hwhm_ws, window_shoulders)):
                     full_max = float(np.asarray(full_max).reshape(-1)[0])
                     fwhm = float(np.asarray(fwhm).reshape(-1)[0])
@@ -1163,13 +1207,15 @@ class PeakyFinder():
                         full_max = np.finfo(float).eps
                     if not np.isfinite(fwhm) or fwhm <= 0.0:
                         fwhm = max(fallback_fwhm, np.finfo(float).eps)
-                    x0[i] = self._voigt_seed(x, node_left + pp, full_max, fwhm, min_inc)
+                    x0[i] = self._voigt_seed(x, node_left + pp, full_max, fwhm,
+                                             _local_inc(node_left + pp))
                     
             x0 = np.ravel(x0) # flatten to pass to least squares fit
             x0[2::4] = np.clip(x0[2::4], 0.0, sigma_max * 0.999)
             x0[3::4] = np.clip(x0[3::4], 0.0, gamma_max * 0.999)
             upper_bounds[::4] = 5 * x0[::4]
-            lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+            _sh_incs = np.array([_local_inc(int(sh) + node_left) for sh in window_shoulders])
+            lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - _sh_incs, x0[1::4] + _sh_incs
             bounds = (lower_bounds, upper_bounds)
 
             fit_function = lambda x, p1: self.multi_voigt(x, known_parameters) + self.multi_voigt(x, p1)
@@ -1212,11 +1258,21 @@ class PeakyFinder():
         dict
             Updated peak parameters after the global fit.
         """
-        inc = np.median(np.diff(x))
+        pitch_arr, inc, _fa_native = _segment_pitch_array(x)
         idxs = np.array(list(peak_dictionary.keys()))
         if len(idxs) == 0:
             return peak_dictionary
-        fwhm_cap = self._fwhm_cap(x, y, idxs)
+        _, _fa_fwhm_arr, *_ = self.peak_parameter_guess(y, idxs)
+        _fa_median_px = float(np.median(_fa_fwhm_arr))
+
+        def _local_inc(idx):
+            v = float(pitch_arr[int(np.clip(idx, 0, pitch_arr.size - 1))])
+            return v if np.isfinite(v) and v > 0 else 1.0
+
+        def _cap_at(idx):
+            li = _local_inc(idx)
+            mf = _fa_median_px * li
+            return self.FWHM_CAP_FACTOR * max(mf if np.isfinite(mf) else 0.0, li)
 
         # Refit strongest peaks FIRST: weaker windows subtract the modelled
         # wings of peaks outside them, so the strong neighbours must already
@@ -1245,20 +1301,21 @@ class PeakyFinder():
             x0 = np.ravel(np.array([peak_dictionary[key] for key in known_peaks_inrange]))
             lower_bounds, upper_bounds = np.zeros_like(x0), np.inf * np.ones_like(x0)
 
-            lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - inc, x0[1::4] + inc
+            _fa_incs = np.array([_local_inc(int(k)) for k in known_peaks_inrange])
+            lower_bounds[1::4], upper_bounds[1::4] = x0[1::4] - _fa_incs, x0[1::4] + _fa_incs
             # A component wider than its own fit window is baseline, not a
             # line: unbounded widths here let windows sitting on residual
             # background humps blow up into 100+ nm pseudo-peaks (measured
             # on real data: a sigma=289 nm component carrying 89% of the
             # total fitted area, plus ~400 real components destroyed by
             # width blow-up before filtering).
-            window_span = max(float(x_window[-1] - x_window[0]), inc)
+            window_span = max(float(x_window[-1] - x_window[0]), _local_inc(int(idx)))
             # ... and tighter still: the physical width cap (see
             # FWHM_CAP_FACTOR).  The window span alone still admits nm-scale
             # "pancake" components beside strong lines that absorb real
             # neighbouring small peaks (measured: 2.4 nm at Li 671.7,
             # 1.0-1.9 nm under Ca H&K on MW2-112).
-            cap = fwhm_cap * (self.H_CAP_RELAX
+            cap = _cap_at(int(idx)) * (self.H_CAP_RELAX
                               if any(abs(float(x[int(idx)]) - h) < 3.0
                                      for h in self.H_BALMER_NM) else 1.0)
             sigma_max = min(cap / 2.3548200450309493, window_span)
@@ -1400,7 +1457,11 @@ class PeakyFinder():
                     print('fit all done')
 
         spectrum_dictionary = {}
-        inc = np.median(np.diff(x))
+        _fs_pitch_arr, inc, _fs_native = _segment_pitch_array(x)
+
+        def _local_inc(idx):
+            v = float(_fs_pitch_arr[int(np.clip(idx, 0, _fs_pitch_arr.size - 1))])
+            return v if np.isfinite(v) and v > 0 else 1.0
         peak_parameters = self._parameter_array(peak_dictionary)
         if peak_parameters.size == 0:
             median_fwhm = 0.0
@@ -1430,18 +1491,19 @@ class PeakyFinder():
         noise_local = self._noise_scale_local(y_bgsub, segment_indices=segment_indices)
         for key, value in peak_dictionary.items():
             min_height = self.MIN_HEIGHT_SIGMA * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
-            if value[2] < inc / 2:
+            key_inc = _local_inc(key)
+            if value[2] < key_inc / 2:
                 value[2] = 0
             if value[2] > 100 * median_fwhm:
                 value[0] = 0
-            if value[3] < inc / 2:
+            if value[3] < key_inc / 2:
                 value[3] = 0
             if value[3] > 100 * median_fwhm:
                 value[0] = 0
             if value[2]==value[3]==0:
                 value[0] = 0
             if value[0] > 0 and min_height > 0:
-                peak_value = voigt(0.0, max(value[2], inc / 2), max(value[3], inc / 2))
+                peak_value = voigt(0.0, max(value[2], key_inc / 2), max(value[3], key_inc / 2))
                 if value[0] * peak_value < min_height:
                     value[0] = 0
             if value[0] > 0:

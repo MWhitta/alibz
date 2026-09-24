@@ -837,3 +837,96 @@ def recover_native_grid(x, y, segment_edges=(365.0, 620.0), threshold=1e-10,
         segments=seg_info,
     )
     return x_native, y_native, info
+
+
+# ---------------------------------------------------------------------------
+# Per-segment local pitch (fixes the global-median-pitch defect)
+# ---------------------------------------------------------------------------
+#: SciAps detector segment edges [nm] (same as peaky_finder / peakfit).
+PITCH_SEGMENT_EDGES = (365.0, 620.0)
+#: Wavelength at/above which the dead 4th channel of old exports lives; its
+#: (zero) samples drag a global ``median(np.diff(x))`` low.  Excluded from the
+#: pitch statistics (corrected files stop at ~955 nm and are unaffected).
+DEAD_CHANNEL_NM = 955.0
+#: A grid is treated as *native* (per-segment pitch) only when its segment
+#: median pitches differ by more than this factor; otherwise it is uniform and
+#: the per-sample pitch is exactly the old global scalar (byte-identical).
+_PITCH_NONUNIFORM_RATIO = 1.05
+
+
+def segment_pitch_array(x, segment_edges=PITCH_SEGMENT_EDGES,
+                        dead_channel_nm=DEAD_CHANNEL_NM):
+    """Per-sample local pitch [nm/px], correcting the global-median defect.
+
+    The Z300 native grid has a different pitch in each detector segment
+    (UV ~0.086, VIS ~0.138, NIR ~0.190 nm) and an old dead 4th channel above
+    ~955 nm, so a single ``np.median(np.diff(x))`` is wrong by -26..-47 % in
+    VIS/NIR (cal/reports/2026-09-23-native-grid-method-audit.md A0/B1).
+
+    Returns ``(pitch, inc, is_native)`` where ``pitch`` is a per-sample array,
+    ``inc = np.median(np.diff(x))`` is the legacy global scalar, and
+    ``is_native`` says whether the per-segment pitches actually differ.
+
+    On a uniform or single-pitch grid (synthetic data, 1/30 nm vendor exports)
+    every entry of ``pitch`` equals ``inc`` **exactly**, so substituting
+    ``pitch[i]`` for the old ``inc`` is byte-identical there; only on a genuine
+    multi-pitch native grid does the per-segment value take effect.
+    """
+    x = np.asarray(x, dtype=float)
+    n = x.size
+    if n < 2:
+        return np.ones(n, dtype=float), 1.0, False
+    inc = float(np.median(np.diff(x)))
+    if not (np.isfinite(inc) and inc > 0):
+        inc = 1.0
+    pitch = np.full(n, inc, dtype=float)
+    if segment_edges is None:
+        return pitch, inc, False
+    live = np.isfinite(x)
+    if dead_channel_nm is not None:
+        live &= x < float(dead_channel_nm)
+    edges = [-np.inf, *sorted(float(e) for e in segment_edges), np.inf]
+    seg_meds = {}
+    seg_masks = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (x > lo) & (x <= hi)
+        seg_masks.append(m)
+        ml = m & live
+        if np.count_nonzero(ml) >= 3:
+            d = np.diff(x[ml])
+            d = d[d > 0]
+            if d.size:
+                seg_meds[len(seg_masks) - 1] = float(np.median(d))
+    present = list(seg_meds.values())
+    if len(present) < 2 or min(present) <= 0:
+        return pitch, inc, False
+    is_native = (max(present) / min(present)) > _PITCH_NONUNIFORM_RATIO
+    if not is_native:
+        return pitch, inc, False
+    for si, med in seg_meds.items():
+        pitch[seg_masks[si]] = med
+    # samples in a segment too sparse for its own estimate keep the nearest
+    # segment's pitch by falling through to inc; refine to the global if needed
+    return pitch, inc, True
+
+
+def local_pitch_nm(x, at=None, segment_edges=PITCH_SEGMENT_EDGES,
+                   dead_channel_nm=DEAD_CHANNEL_NM):
+    """Scalar local pitch [nm/px].
+
+    ``at`` is a sample index (int) or wavelength (float); with ``at=None`` the
+    legacy global ``np.median(np.diff(x))`` is returned.  On a uniform grid the
+    result equals the legacy scalar for any ``at``.
+    """
+    pitch, inc, is_native = segment_pitch_array(x, segment_edges, dead_channel_nm)
+    if at is None:
+        # representative pitch: the legacy global scalar on uniform grids
+        # (byte-identical), the dead-channel-excluded per-sample median on a
+        # native grid (so a "~N nm" window size is not dragged low).
+        return inc if not is_native else float(np.median(pitch))
+    x = np.asarray(x, dtype=float)
+    if isinstance(at, (int, np.integer)):
+        i = int(np.clip(at, 0, x.size - 1))
+    else:
+        i = int(np.clip(np.searchsorted(x, float(at)), 0, x.size - 1))
+    return float(pitch[i])

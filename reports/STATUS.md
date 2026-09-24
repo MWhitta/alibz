@@ -1,3 +1,25 @@
+# 2026-09-24: everything committed; per-segment peak-location wiring IN PROGRESS
+
+alibz fix/z300-pixel-offset: c55e9a6 (cal/ campaign + corrected re-analyses + epsf; .gitignore !cal/data/),
+368e772 (registration). pantheum-I: 9a42b3f (sequence keep-alive: motion poll + lease renewal),
+0005303 (ramanlab maps). Both trees clean. Nothing pushed (push needs owner).
+Wiring delegated (specialist): ePSF location in VIS/NIR, spline-root in UV via per-segment flags in a
+packaged shape file; per-segment pitch fix in peaky_finder etc.; A/B on 6 corrected runs; UV data plan.
+Report reports/2026-09-24-peak-location-wiring.md.
+Draft 1 delivered (uncommitted): alibz/data/epsf-z300-20260924.json (+.gitignore !alibz/data/),
+utils/epsf_shapes.py, utils/peak_location.py (is_z300_native gate; ePSF VIS/NIR, spline-root UV),
+native_grid.segment_pitch_array; global-pitch sites fixed; registration + pipeline peak_refinement routed.
+Agent: tests 601 -> 614 passed. A/B: Fe better on all 3; V mixed: NIR registration MAD 2.9 -> 11.8 pm on
+all 3 V runs (anchor set changed 6 -> 8), seq-645563 r2 0.26 -> 0.14. Sent back to isolate (same anchors;
+old / pitch-only / full) before shipping. Coordinator full-suite run in background.
+Coordinator full suite: 614 passed, 4 skipped. Isolation (reproduced, ar_isolate.py): NIR ePSF has sub-band
+seam bias (red on 696-772 nm); on V Ar anchors MAD gauss 5.5 < spline 7.9 < ePSF 8.8 pm -> registration
+reverted to gaussian_subpixel_center; seq-645563 r2 drop = pitch fix (+34% peaks), kept. DECISION:
+per-segment location_method VIS=epsf, NIR=gaussian, UV=spline (UV/NIR ePSF enable-by-file when validated).
+Shipped config verified (shape file UV spline / VIS epsf / NIR gaussian + NIR gating note; tests
+peak_location+registration+epsf 49 OK; agent full suite 614/4 skipped; NIR registration MAD <= HEAD on 6/6).
+Committed on fix/z300-pixel-offset.
+
 # 2026-09-24 step 3 COMPLETE (all 4 parts verified; NOT committed)
 
 Corrected local copy: /private/tmp/claude-501/-Users-mwhittaker-Projects-github-alibz/1c78d231-c01b-47c0-8606-6590e292a2c0/scratchpad/corrected/
