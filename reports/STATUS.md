@@ -1,3 +1,127 @@
+# 2026-09-24 portal UI changes PREPARED (not deployed, not committed)
+
+pantheum-I web/alibz: Optimize Acquisition description -> "Find the signal-to-noise optimum delay and
+acquisition period."; CONDITION FAULTS shows only active faults + ones cleared since page load (history
+drops on reload; active blocks never hidden); RUNS = 10 most recent, scrollable (.runs-scroll 420px,
+sticky header). tests/test_alibz_ui.cjs fault test updated (hidden-before-load + superseded cases).
+UI suite 48/58 pass both at HEAD and after: the 10 failures are PRE-EXISTING display/camera-power tests
+(open issue). Deploy: alibz scripts/deploy-alibz-portal-ui.sh (dry run OK, live == HEAD).
+Step 2 --apply (rederive) still pending with owner.
+
+# Current task — 2026-09-24 step 2 tool READY (dry-run verified); step 1 DEPLOYED by owner 08:34 PDT
+
+Live moissanite: z300_calibration/acquire/z300 hashes == fixed (449dfb49/d67efa0d/fb4e4f67); both alibz
+services restarted 08:34:23 PDT. Step 2 tool scripts/rederive-alibz-axis-offset.py (+.sh), tests 21 OK,
+dry run wrote nothing live (sqlite mtime 01:03). Inventory: 113 runs to re-derive (107 API + 6 Opal
+legacy), 14 no-raw (11 uncertain/3 failed; 2 refetchable), 107 batches / 9 sessions (2 closed: best
+only). Coordinator reproduced V_pure_run2 run-12577962 score 0.461 -> 1.170 (lines 21 -> 50/96) with
+fixed conversion + live metrics. Latent bug: recover-alibz-awaiting-data.py passes session element
+to _analyze (composition must be a list) - fix later. Owner runs dry run then --apply.
+Wrapper bug fixed: printf '%q ' with no args passed '' -> "unrecognized arguments" (also fixed in
+recover-alibz-awaiting-data.sh, unblock-alibz-session.sh). Coordinator re-ran dry run: exit 0,
+107 a + 6 b + 14 d, 9 sessions (2 closed), report ~/pantheum-rederive-dryrun-20260924T085738.json;
+live sqlite untouched (mtime 01:03).
+
+Step 1 committed on branches fix/z300-pixel-offset: pantheum-I fd73a4a (6 files), alibz 70f1aa2
+(5 files). Not yet deployed (owner runs scripts/deploy-alibz-pixel-offset.sh, then --apply).
+Step 2 delegated (specialist): scripts/rederive-alibz-axis-offset.py/.sh — inventory, re-derive
+from raw JSON / all.zip into NEW dataset ids (old kept), re-score all affected batches and sessions,
+refuses unless live z300_calibration.py == fixed hash 449dfb49…; dry run on live state only.
+Report reports/2026-09-24-rederive-axis-offset.md. Staged cal/ move still uncommitted.
+
+## Earlier state (historical)
+
+# Current task — 2026-09-24 step 1: Z300 pixel-offset fix PREPARED + VERIFIED (awaiting owner deploy)
+
+Owner: "only session, fix all issues; prep step 1". Specialist implementing in pantheum-I
+(z300_calibration PIXEL_OFFSET −18 + placeholder-channel exclusion + argon_axis_offset_px guard
+recorded as axis_check, fake server, real-data regression fixture) and alibz z300_opal_ingest
+(legacy ZIP/JSON also −18; offset was 0 there too, e.g. run-b95ffbb4 provenance pixel_offset 0.0).
+Deploy wrapper scripts/deploy-alibz-pixel-offset.sh (dry run only). Report
+reports/2026-09-24-pixel-offset-fix.md. No deploy, no commit.
+Coordinator verified: diff reviewed; pantheum-I full suite 979 OK (26 skip); targeted 103 OK;
+alibz test_z300_opal_ingest 84 OK; wrapper BEFORE hashes == live moissanite, AFTER == local files. Steps 2–3 (re-derive datasets
+from raw JSON, re-score, redo cal/registration analyses) pending.
+
+## Earlier state (historical)
+
+# Current task — 2026-09-23 ROOT CAUSE FOUND: native API wavelength axis off by ~18 px
+
+pantheum z300_calibration.pixels_to_wavelength omits PIXEL_OFFSET −18 (known and applied in
+scripts/z300_fb_decode.py). All API/native spectra are labelled ~18 px too blue (UV −1.6, VIS −2.3,
+NIR −3.3 nm): coordinator-verified (cross-correlation, Ar I pattern, V I triplet). Invalidates line-ID
+results on native data (scores, −154 pm shift, Ar anchors, registration/gas engines, cal line IDs,
+V 417/415 "SA"). Pixel-level findings stand. Evidence and fix: reports/2026-09-23-native-axis-18px-offset.md.
+ePSF build DONE (cal/reports/2026-09-23-empirical-lsf.md): VIS pass (5.0 pm), UV fail/inconclusive,
+NIR not shown; class widths real (0.06–0.28 px Lorentzian excess, shrinks with delay). Fix NOT applied:
+needs owner go (production + deploy + reprocessing).
+
+## Earlier state (historical)
+
+# Current task — 2026-09-23 empirical line-spread function (ePSF) build IN PROGRESS
+
+Owner approved: build the empirical line shape, keeping genuine physical differences separate
+(ion vs neutral, Stark vs delay, ground-state self-absorption). Delegated to judgment (Opus 5.5;
+escalated after two specialist verdicts failed verification). New files only: alibz/utils/epsf.py,
+tests/test_epsf.py, cal/scripts/build_epsf.py, cal/data/epsf-z300-20260923.json,
+cal/reports/2026-09-23-empirical-lsf.md. Acceptance: flat phase histogram (cal/scripts/
+peak_phase_uniformity.py), leave-line-out, Fe accuracy on validated thin lines with one common
+curve, Ar I 696.54/772.38/801.48, V 417/415 areas. No provider switch.
+
+## Earlier state (historical)
+
+# Current task — 2026-09-23 native-grid vs spline-export quality audit COMPLETE (fixes not yet made)
+
+Owner: data/analysis quality dropped after switching from the 1/30 nm resampled CSV to the
+native /data/shotspectrum grid; inspect for errors and missed opportunities. Leads found at
+scoping: grid families differ in wavelength map (native −154 pm vs vendor-resample −83 pm vs
+air db); native run means average by pixel index although per-shot NIR calibration moves
+2–3.5 px within a session; native scores not comparable to resampled (window tuning); 8+ Fe
+runs (2026-09-22) have both 23,250-row and native averages of the SAME analyzer test
+(Pantheum datasets table). Two specialists in flight:
+ A same-shot A/B -> reports/2026-09-23-native-vs-spline-ab.md
+ B estimator/method audit + simulations -> reports/2026-09-23-native-grid-method-audit.md
+A DONE + coordinator-verified: old 23,250 file = Pantheum LINEAR resample of the same native
+pixels (rel-RMS 2.6e-4), not the vendor spline; all shots in a run share one pixToNm. Native
+files carry a dead 4th channel: 2,066 samples at 960.18-961.0 nm (2,065 zeros) -> global
+median pitch 0.0955 vs 0.1277 nm. PRODUCTION peaky_finder uses global median pitch for width
+guesses/sigma floor/baseline lam (peaky_finder.py:490,871,1046,1078,1215,1403) -> wrong by
+up to 2x per segment on native. Passed to B to quantify.
+B DONE (cal/reports/2026-09-23-native-grid-method-audit.md, sim cal/scripts/native_grid_estimator_sim.py,
+coordinator re-ran: 10 s, exit 0): global-pitch mis-scale +8/-26/-47% UV/VIS/NIR in production
+Voigt seed/sigma floor/width cap; utils/voigt.py multi-profile point-sampled (+11-18% FWHM bias);
+indexer_v3:2371-2373 sigma/gamma floor 0.01 nm; cal-script parabola + argmax snap explain most of
+~50 pm shift scatter; V 417/415 = 0.75 is mostly real SA. Ranked fixes: trim dead channel,
+per-segment pitch, pixel-integrated Voigt, pixel-relative width bounds, refine_peaks in cal
+scripts, mask NIR gap; then end-to-end A/B analyze_spectrum (not yet run). Awaiting owner go.
+No provider switch.
+
+## Earlier state (historical)
+
+# Current task — 2026-09-23 calibration campaign moved to cal/; V timing study (V_pure_run2) analysis COMPLETE
+
+Fe and V standard studies moved (git mv, staged, not committed) to cal/{reports,figures,scripts};
+index cal/README.md. Script roots/defaults repointed; both analysis scripts import and parse.
+alibz/wavelength_registration.py docstring still cites scripts/fe_plasma_analysis (file has
+another session's uncommitted edits; left alone). New study: opt-c86274e9 V_pure_run2,
+delays 1/5/10/20/50 x periods 1/10/25/50 x 3 reps, 59/60 batches (50/50 rep3 not run;
+paused on gantry check), 10:08-14:27 PDT; + one 0/5 batch in opt-35a72aa5. CONFOUND: each
+delay row = one raster lap (delay == crater depth); each period = fixed 3-site set.
+Pantheum score means: period 1 best (d5/p1 0.538, d10/p1 0.532); d50 row lowest (lap 5).
+Analysis delegated (specialist) -> cal/scripts/v_timing_study.py,
+cal/reports/2026-09-23-vanadium-timing-study.md, ledger cal/data/v-pure-run2-ledger.json.
+Hypothesis under test: short gates reduce apparent optical thickness (T-mixing vs real opacity).
+Draft 1 delivered; coordinator verification (reports/2026-09-23-v-timing-verification.md) REFUTED
+its Q1/Q3 verdicts: period-scaled "continuum" is instrument fixed-pattern/dark (same at every delay,
+NIR goes negative); line signal flat with period => period ~ exposure >> plasma, not a gate; delay IS
+real timing (run1 V II -2.2%/unit at 4.5 sigma, depth n.s.); T-mixing signal = fixed-pattern bump at
+475.2 nm. Agent revised; draft 2 VERIFIED against coordinator checks (run1 V II b_delay
+-0.0202+-0.0045, 417/415 height ratio flat with period, falls with delay 0.75->0.56 OPEN).
+Report DONE: cal/reports/2026-09-23-vanadium-timing-study.md. Nothing committed.
+No provider switch.
+
+## Earlier state (historical)
+
 # Current state — 2026-09-22 10:05 PDT automatic Opal Z300 retrieval DEPLOYED
 
 Pantheum now uses acquire.retrieval=opal_database. After each acknowledged run,
