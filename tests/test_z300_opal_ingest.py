@@ -490,7 +490,7 @@ def test_legacy_exact_source_native_vendor_average_and_archive(config):
         assert "raw/all.fb" not in archive.namelist()
         assert manifest["provenance"]["source_blob"] == "/sdcard/libzdata/spectrum/ab/" + "ab" * 20
         assert manifest["provenance"]["source_format"] == "legacy-zip-gzip-json"
-        assert manifest["provenance"]["pixel_offset"] == 0
+        assert manifest["provenance"]["pixel_offset"] == -18
         assert manifest["provenance"]["average"] == "instrument-provided average on native axis"
         mean = np.loadtxt(io.BytesIO(archive.read("average.csv")), delimiter=",", skiprows=1)
         first = np.loadtxt(io.BytesIO(archive.read("shots/shot-0.csv")), delimiter=",", skiprows=1)
@@ -502,19 +502,22 @@ def test_legacy_exact_source_native_vendor_average_and_archive(config):
     assert producer.ingest(config, adb) == payload
 
 
-def test_legacy_calibration_matches_reference_scalar_pixel_zero_math():
+def test_legacy_calibration_matches_reference_offset_pixel_math():
     record = legacy_record()
     x, y = producer.legacy_spectrum(record)
     points = []
-    # Independent scalar calculation from z300_calibration._polyval and its
-    # closed clipping intervals, preserving the real fixture's coefficients.
+    # Independent scalar calculation from z300_calibration.pixels_to_wavelength
+    # and its closed clipping intervals, preserving the real fixture's
+    # coefficients, evaluated at the -18 px detector-column offset (the stored
+    # array starts 18 columns after the polynomial's origin -- same as the
+    # FlatBuffer path). The earlier offset-0 form was the wavelength-axis bug.
     for segment in range(3):
         coefficients = record["wlCalibrations"][segment]["pixToNm"]["coefficients"]
         for pixel, intensity in enumerate(record["pixels"][segment]):
             total, power = 0.0, 1.0
             for coefficient in coefficients:
                 total += coefficient * power
-                power *= pixel
+                power *= (pixel + decoder.PIXEL_OFFSET)
             if record["knots"][segment] <= total <= record["knots"][segment + 1]:
                 points.append((total, intensity))
     points.sort()

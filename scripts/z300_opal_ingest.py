@@ -55,7 +55,11 @@ MAX_PAYLOAD_BYTES = 256 * 1024 * 1024
 MAX_SHOTS = 1000
 MIN_STORED_SHOTS = 6
 PLACEHOLDER_CALIBRATION = np.array([961.0, -0.0004, 1e-12, 1e-12])
-LEGACY_REFERENCE_SHA256 = "8a6135d058f09c8de62542695c7a1ac923d577906fdc88b8db2e8ded89bd156d"
+# sha256 of the pantheum-I pantheum/alibz/z300_calibration.py module whose
+# pixels_to_wavelength math the legacy path reproduces. Updated 2026-09-24 when
+# both paths adopted the -18 px detector-column offset (was
+# 8a6135d0...bd156d, the pre-fix offset-0 module).
+LEGACY_REFERENCE_SHA256 = "449dfb4981ecfc993c07489b65ee8241b794dc87894e921be4d0371c16217beb"
 CALIBRATION_NOTE = (
     "Native stored detector samples; each shot's four cubic wavelength "
     "polynomials and segment edges are read from the bundle. Pixel offset "
@@ -69,9 +73,12 @@ CALIBRATION_NOTE = (
 )
 LEGACY_CALIBRATION_NOTE = (
     "Native stored detector samples from the exact legacy ZIP/gzip JSON bundle. "
-    "Cubic wavelength coefficients use raw zero-based pixel index (offset 0), "
-    "evaluated and clipped to closed knot intervals as pantheum/alibz/"
-    "z300_calibration.py pixels_to_wavelength (2026-09-12). Historical validation "
+    "Cubic wavelength coefficients are evaluated at the -18 px detector-column "
+    "offset (stored index + PIXEL_OFFSET), the same offset the FlatBuffer path "
+    "uses and now wired into pantheum/alibz/z300_calibration.py "
+    "pixels_to_wavelength (2026-09-24, reports/2026-09-23-native-axis-18px-offset.md); "
+    "the earlier offset-0 assumption labelled every line ~18 px too blue. "
+    "Evaluated and clipped to closed knot intervals. Historical validation "
     "checked overall knot-range endpoints, not certified absolute per-line "
     "wavelengths or same-acquisition intensity agreement. The known inactive "
     "fourth-channel placeholder is excluded by exact calibration/seam signature; "
@@ -458,11 +465,14 @@ def legacy_spectrum(record: dict) -> tuple[np.ndarray, np.ndarray]:
     if not (np.array_equal(coefficients[3], PLACEHOLDER_CALIBRATION)
             and np.array_equal(edges[3:], [960.0, 961.0])):
         raise IngestError("unrecognized fourth channel; native scientific interpretation requires review")
-    index = np.arange(decoder.PIXELS_PER_SEGMENT, dtype=float)
+    index = np.arange(decoder.PIXELS_PER_SEGMENT, dtype=float) + decoder.PIXEL_OFFSET
     waves, amplitudes = [], []
     for segment, calibration in enumerate(coefficients):
-        # Match z300_calibration._polyval's ascending power accumulation at p=0,
-        # including its closed knot intervals. The FlatBuffer's -18 is not used.
+        # Match z300_calibration.pixels_to_wavelength's ascending-power cubic,
+        # evaluated at the -18 px detector-column offset (decoder.PIXEL_OFFSET):
+        # the stored 2066-sample array starts 18 columns after the column the
+        # cubic is defined against, exactly as on the FlatBuffer path. Closed
+        # knot intervals are preserved.
         wavelength, power = np.zeros_like(index), np.ones_like(index)
         for coefficient in calibration:
             wavelength += coefficient * power
@@ -681,7 +691,7 @@ def ingest(config: Config, adb: Adb | None = None) -> Path:
                     "decoder_sha256": (file_hash(Path(decoder.__file__)) if source_format == "flatbuffer"
                                        else producer_hash),
                     "producer_sha256": producer_hash,
-                    "pixel_offset": decoder.PIXEL_OFFSET if source_format == "flatbuffer" else 0.0,
+                    "pixel_offset": decoder.PIXEL_OFFSET,
                     "calibration_note": CALIBRATION_NOTE if source_format == "flatbuffer" else LEGACY_CALIBRATION_NOTE,
                     "legacy_reference_sha256": LEGACY_REFERENCE_SHA256 if source_format != "flatbuffer" else None,
                     "included_segments": [0, 1, 2],
