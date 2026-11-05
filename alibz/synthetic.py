@@ -589,7 +589,14 @@ class SyntheticSpectrumGenerator:
         dbpath="db",
         instrument: Optional[InstrumentResponse] = None,
         atomic_uncertainty: Optional[AtomicStrengthUncertainty] = None,
+        partition_source: str = "lines",
     ):
+        if partition_source not in ("lines", "barklem2016"):
+            raise ValueError(f"partition_source must be 'lines' or 'barklem2016', got {partition_source!r}")
+        #: "lines" (default, line-sum) or "barklem2016" (tabulated U(T)),
+        #: matching ``SahaBoltzmann(partition_source=...)`` on the inverse side.
+        self.partition_source = partition_source
+        self._table_sb = None
         self.db = Database(dbpath)
         self.instrument = instrument or InstrumentResponse()
         self.atomic_uncertainty = atomic_uncertainty or AtomicStrengthUncertainty()
@@ -674,7 +681,10 @@ class SyntheticSpectrumGenerator:
 
     def _validate_component(self, component: PlasmaComponent, name: str):
         total = float(component.stage_abundance.sum())
-        if not np.isclose(total, 1.0, rtol=1e-8, atol=1e-12):
+        # 1e-6 relative: suite-S scenes built from Saha fractions of a
+        # normalised composition sum to 1 - 1e-8 in float arithmetic, which is
+        # physically meaningless and must not refuse the render.
+        if not np.isclose(total, 1.0, rtol=1e-6, atol=1e-9):
             raise ValueError(f"{name} stage abundances must sum to one, got {total:.12g}")
         unsupported_mass = component.stage_abundance[~self.support_mask].sum()
         if unsupported_mass > 0:
@@ -692,6 +702,18 @@ class SyntheticSpectrumGenerator:
         cached = self._partition_cache.get(key)
         if cached is not None:
             return cached
+        if self.partition_source == "barklem2016":
+            if self._table_sb is None:
+                from alibz.utils.sahaboltzmann import SahaBoltzmann
+                self._table_sb = SahaBoltzmann(str(self.db.dbpath), partition_source="barklem2016")
+            try:
+                tab = float(self._table_sb.stage_partition(
+                    self.db.elements[element_index], temperature, ion=stage)[0])
+            except ValueError:  # stage absent from the line database
+                tab = 0.0
+            if np.isfinite(tab) and tab > 0:
+                self._partition_cache[key] = tab
+                return tab
         lines = np.asarray(self.db.lines(self.db.elements[element_index]))
         levels = _stage_levels(lines, stage)
         if levels.size == 0:

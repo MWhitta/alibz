@@ -1,0 +1,1442 @@
+{
+  "variant": "w3p-nm",
+  "created": "2026-11-04T09:28:40",
+  "git_head": null,
+  "config": {
+    "outer_polish": "nelder-mead"
+  },
+  "render_config": {},
+  "settings": {
+    "n_calls": 8,
+    "draws": 2,
+    "seed": 11,
+    "panels": [
+      "synthetic",
+      "real",
+      "fe"
+    ],
+    "db": "db",
+    "workers": 10,
+    "timeout_s": 900,
+    "fe_pixel_offset": 18,
+    "wall_s": 755.9
+  },
+  "items": [
+    {
+      "panel": "synthetic",
+      "id": "binary_ca_mg",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 10222.32476733625,
+        "log_ne_rec": 16.633547903224816,
+        "r_squared": 0.7174713770785219,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 21620.865,
+        "majors_missed": [],
+        "n_majors_missed": 0,
+        "median_rel_err": 0.020460001048860227,
+        "max_rel_err": 0.024552001258632272,
+        "spurious_mass": 0.0,
+        "dominant_correct": 1.0,
+        "T_truth": 10000.0,
+        "log_ne_truth": 17.0,
+        "top5": {
+          "Ca": 0.60982,
+          "Mg": 0.39018
+        },
+        "runtime_s": 323.75,
+        "T_rel_err": 0.022232476733624936,
+        "abs_T_rel_err": 0.022232476733624936
+      },
+      "error": null
+    },
+    {
+      "panel": "synthetic",
+      "id": "silicate_4el",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 9211.094832318871,
+        "log_ne_rec": 16.582991376651023,
+        "r_squared": 0.6484411931832101,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 558.421,
+        "majors_missed": [],
+        "n_majors_missed": 0,
+        "median_rel_err": 0.35098988441767204,
+        "max_rel_err": 0.5562213921023468,
+        "spurious_mass": 0.0,
+        "dominant_correct": 1.0,
+        "T_truth": 10000.0,
+        "log_ne_truth": 17.0,
+        "top5": {
+          "Si": 0.45061,
+          "Fe": 0.31124,
+          "Ca": 0.16252,
+          "Mg": 0.07563
+        },
+        "runtime_s": 736.0,
+        "T_rel_err": -0.07889051676811287,
+        "abs_T_rel_err": 0.07889051676811287
+      },
+      "error": null
+    },
+    {
+      "panel": "synthetic",
+      "id": "feldspar_k_na",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 10885.206645307971,
+        "log_ne_rec": 17.297024550819067,
+        "r_squared": 0.827363660371942,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "majors_missed": [],
+        "n_majors_missed": 0,
+        "median_rel_err": 0.25860246784121244,
+        "max_rel_err": 0.38283159870346084,
+        "spurious_mass": 0.0,
+        "dominant_correct": 1.0,
+        "T_truth": 9000.0,
+        "log_ne_truth": 17.0,
+        "top5": {
+          "Si": 0.37562,
+          "K": 0.25369,
+          "Al": 0.23241,
+          "Na": 0.13828
+        },
+        "runtime_s": 369.78,
+        "T_rel_err": 0.20946740503421907,
+        "abs_T_rel_err": 0.20946740503421907
+      },
+      "error": null
+    },
+    {
+      "panel": "synthetic",
+      "id": "iron_rich_low_t",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 7127.288099606153,
+        "log_ne_rec": 16.581628059850118,
+        "r_squared": 0.9844263593029422,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 123.658,
+        "majors_missed": [],
+        "n_majors_missed": 0,
+        "median_rel_err": 0.015965095759177816,
+        "max_rel_err": 0.052455971883692,
+        "spurious_mass": 0.0,
+        "dominant_correct": 1.0,
+        "T_truth": 7000.0,
+        "log_ne_truth": 16.5,
+        "top5": {
+          "Fe": 0.60958,
+          "Ti": 0.20091,
+          "Ca": 0.18951
+        },
+        "runtime_s": 711.64,
+        "T_rel_err": 0.01818401422945044,
+        "abs_T_rel_err": 0.01818401422945044
+      },
+      "error": null
+    },
+    {
+      "panel": "synthetic",
+      "id": "binary_argon_ambient",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 9712.262704130262,
+        "log_ne_rec": 16.746437330823387,
+        "r_squared": 0.1858250560021989,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 28029.071,
+        "majors_missed": [],
+        "n_majors_missed": 0,
+        "median_rel_err": 0.17659363436212383,
+        "max_rel_err": 0.2119123612345486,
+        "spurious_mass": 0.0,
+        "dominant_correct": 1.0,
+        "T_truth": 10000.0,
+        "log_ne_truth": 17.0,
+        "top5": {
+          "Ca": 0.68476,
+          "Mg": 0.31524
+        },
+        "runtime_s": 340.1,
+        "T_rel_err": -0.028773729586973787,
+        "abs_T_rel_err": 0.028773729586973787
+      },
+      "error": null
+    },
+    {
+      "panel": "real",
+      "id": "REE_01",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 7653.296981751919,
+        "log_ne_rec": 17.029527969367496,
+        "r_squared": -0.2859553863024127,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 58.264,
+        "flags": [
+          "Mg:stage_spread",
+          "C:dominant-weak-shape",
+          "deepened(5)",
+          "deblended(3)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;dominant-weak-shape",
+        "median_stage_disagreement": 0.48870573177081095,
+        "max_stage_disagreement": 0.94669920891309,
+        "n_detected": 10,
+        "top5": {
+          "C": 0.94871,
+          "K": 0.02448,
+          "Al": 0.01391,
+          "Si": 0.00691,
+          "Ca": 0.0025
+        },
+        "runtime_s": 111.34
+      },
+      "error": null
+    },
+    {
+      "panel": "real",
+      "id": "REE_44",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 7050.871163040374,
+        "log_ne_rec": 16.62396637028096,
+        "r_squared": 0.6704849871108074,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 51279.888,
+        "flags": [
+          "Mg:stage_spread",
+          "Ba:stage_spread",
+          "deepened(75)",
+          "deblended(12)",
+          "sa-area-recovered(25)"
+        ],
+        "qc_status": "pass",
+        "qc_reasons": "",
+        "median_stage_disagreement": 0.46378181766372756,
+        "max_stage_disagreement": 0.9373666420708522,
+        "n_detected": 13,
+        "top5": {
+          "Si": 0.24942,
+          "Al": 0.21851,
+          "Fe": 0.19909,
+          "K": 0.14558,
+          "Ca": 0.0871
+        },
+        "runtime_s": 654.65
+      },
+      "error": null
+    },
+    {
+      "panel": "real",
+      "id": "argon_noAr",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 8424.165262164057,
+        "log_ne_rec": 17.493836284509413,
+        "r_squared": 0.25688473251709487,
+        "ne_bounds_source": "prior",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 50581.524,
+        "flags": [
+          "Mg:stage_spread",
+          "deepened(41)",
+          "deblended(12)",
+          "sa-area-recovered(26)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;global-only-wavelength-shift",
+        "median_stage_disagreement": 0.3874794267167043,
+        "max_stage_disagreement": 0.8765598388467123,
+        "n_detected": 9,
+        "top5": {
+          "Ca": 0.33369,
+          "K": 0.22823,
+          "C": 0.20636,
+          "Na": 0.15631,
+          "Al": 0.04826
+        },
+        "runtime_s": 194.33
+      },
+      "error": null
+    },
+    {
+      "panel": "real",
+      "id": "scan9x9",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 8584.597722754224,
+        "log_ne_rec": 17.030568397183146,
+        "r_squared": 0.8406748958447435,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": null,
+        "flags": [
+          "Be:stage_spread",
+          "Mg:stage_spread",
+          "Mn:stage_spread",
+          "Fe:stage_spread",
+          "deepened(64)",
+          "deblended(12)",
+          "sa-area-recovered(23)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;detector-response-fallback",
+        "median_stage_disagreement": 0.6484940699565696,
+        "max_stage_disagreement": 1.0,
+        "n_detected": 16,
+        "top5": {
+          "K": 0.24813,
+          "Al": 0.23037,
+          "Si": 0.17581,
+          "Na": 0.1509,
+          "Ca": 0.04231
+        },
+        "runtime_s": 599.42
+      },
+      "error": null
+    },
+    {
+      "panel": "real",
+      "id": "user_spec1",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 7529.0501662123515,
+        "log_ne_rec": 16.30774336873997,
+        "r_squared": 0.9191685955662114,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 9572893.186,
+        "flags": [
+          "Mg:stage_spread",
+          "K:dominant-weak-shape",
+          "deepened(18)",
+          "deblended(11)",
+          "sa-area-recovered(7)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;dominant-weak-shape;detector-response-fallback",
+        "median_stage_disagreement": 0.5039720766103913,
+        "max_stage_disagreement": 0.6967550998546304,
+        "n_detected": 10,
+        "top5": {
+          "K": 0.66822,
+          "Si": 0.17511,
+          "Rb": 0.07727,
+          "Al": 0.04267,
+          "Na": 0.0212
+        },
+        "runtime_s": 137.68
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-e825d9f567204c5cbc6fc33c9c16bbf7",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 20485.176584869623,
+        "log_ne_rec": 17.661124398070402,
+        "r_squared": 0.34575507304151043,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 22304.457,
+        "flags": [
+          "Fe:stage_spread",
+          "deepened(12)",
+          "deblended(7)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "warn",
+        "qc_reasons": "physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.8596467213749491,
+        "non_fe_mass": 0.14035327862505087,
+        "non_fe_above_0p5pct": {
+          "H": 0.1404
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": 0.9724466779906402,
+        "top5": {
+          "Fe": 0.85965,
+          "H": 0.14035
+        },
+        "n_samples": 5830,
+        "runtime_s": 67.74,
+        "abs_T_dev_10kK": 1.0485176584869622
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-a50ac639cc7747b4af81a677c8e99312",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 20764.496552955825,
+        "log_ne_rec": 17.100717247221613,
+        "r_squared": 0.27864974326080527,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 579.455,
+        "flags": [
+          "deepened(22)",
+          "deblended(2)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9155966618861267,
+        "non_fe_mass": 0.08440333811387335,
+        "non_fe_above_0p5pct": {
+          "H": 0.0844
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.9156,
+          "H": 0.0844
+        },
+        "n_samples": 5830,
+        "runtime_s": 66.94,
+        "abs_T_dev_10kK": 1.0764496552955825
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-eae9d54f22834928ae2f6af8d4a23779",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 22308.61821299361,
+        "log_ne_rec": 17.033112036732547,
+        "r_squared": 0.20998121015254,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "deepened(6)",
+          "deblended(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9636291996950317,
+        "non_fe_mass": 0.03637080030496831,
+        "non_fe_above_0p5pct": {
+          "H": 0.0364
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.96363,
+          "H": 0.03637
+        },
+        "n_samples": 5830,
+        "runtime_s": 57.94,
+        "abs_T_dev_10kK": 1.230861821299361
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-126d0c96e1584131a0f8d7e5fb065f1a",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 20450.75452367164,
+        "log_ne_rec": 17.31056349081998,
+        "r_squared": 0.325353291451995,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.002,
+        "flags": [
+          "basin-ambiguous(dBIC=0.002)",
+          "deblended(4)"
+        ],
+        "qc_status": "warn",
+        "qc_reasons": "physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.8700944196657869,
+        "non_fe_mass": 0.12990558033421307,
+        "non_fe_above_0p5pct": {
+          "H": 0.1299
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.87009,
+          "H": 0.12991
+        },
+        "n_samples": 5830,
+        "runtime_s": 76.59,
+        "abs_T_dev_10kK": 1.045075452367164
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-5291e643082343619a4973a1b67898db",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23905.408581559408,
+        "log_ne_rec": 17.58769547883052,
+        "r_squared": 0.26732484264523504,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 362894.558,
+        "flags": [
+          "C:dominant-weak-shape",
+          "deepened(2)",
+          "deblended(6)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;dominant-weak-shape;detector-response-fallback",
+        "fe_fraction": 0.07935740206252624,
+        "non_fe_mass": 0.9206425979374737,
+        "non_fe_above_0p5pct": {
+          "B": 0.1243,
+          "C": 0.7941
+        },
+        "n_non_fe": 2,
+        "n_detected": 4,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "C": 0.79414,
+          "B": 0.12426,
+          "Fe": 0.07936,
+          "H": 0.00225
+        },
+        "n_samples": 5830,
+        "runtime_s": 101.19,
+        "abs_T_dev_10kK": 1.3905408581559409
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-11d07e557f4743c290137c2dcdf6fdfc",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23185.20187586546,
+        "log_ne_rec": 17.338228465558934,
+        "r_squared": 0.25824873126052883,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "deepened(7)",
+          "deblended(4)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9501290739475398,
+        "non_fe_mass": 0.04987092605246024,
+        "non_fe_above_0p5pct": {
+          "H": 0.0499
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.95013,
+          "H": 0.04987
+        },
+        "n_samples": 5830,
+        "runtime_s": 82.23,
+        "abs_T_dev_10kK": 1.318520187586546
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-6e38b110215a43db86ba3d81273f67f3",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23789.04632674376,
+        "log_ne_rec": 17.611299915108503,
+        "r_squared": 0.3414322457472184,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 5112264.636,
+        "flags": [
+          "C:dominant-weak-shape",
+          "deblended(6)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;dominant-weak-shape;physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.10328457756322267,
+        "non_fe_mass": 0.8967154224367774,
+        "non_fe_above_0p5pct": {
+          "C": 0.8931
+        },
+        "n_non_fe": 1,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "C": 0.89313,
+          "Fe": 0.10328,
+          "H": 0.00358
+        },
+        "n_samples": 5830,
+        "runtime_s": 128.3,
+        "abs_T_dev_10kK": 1.378904632674376
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-c52b7f2159244dc2b7bf16a33dc5c346",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23962.339892248565,
+        "log_ne_rec": 17.49061604752869,
+        "r_squared": 0.5081372613766146,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 50.734,
+        "flags": [
+          "deepened(8)",
+          "deblended(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9685214374789515,
+        "non_fe_mass": 0.031478562521048525,
+        "non_fe_above_0p5pct": {
+          "H": 0.0315
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.96852,
+          "H": 0.03148
+        },
+        "n_samples": 5830,
+        "runtime_s": 86.48,
+        "abs_T_dev_10kK": 1.3962339892248565
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-b95ffbb4f6ac4fc6944e0cb9d9e26b61",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 20842.279808589155,
+        "log_ne_rec": 17.462495016438623,
+        "r_squared": 0.5127057105930822,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 11549.839,
+        "flags": [
+          "deepened(2)",
+          "deblended(1)"
+        ],
+        "qc_status": "warn",
+        "qc_reasons": "detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.8547377499625028,
+        "non_fe_mass": 0.14526225003749715,
+        "non_fe_above_0p5pct": {
+          "H": 0.1453
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.85474,
+          "H": 0.14526
+        },
+        "n_samples": 5830,
+        "runtime_s": 82.16,
+        "abs_T_dev_10kK": 1.0842279808589155
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-674f4feb6d2149c4bac365e395a4d327",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 25000.0,
+        "log_ne_rec": 16.921492917990243,
+        "r_squared": -0.7972837894672555,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "deblended(5)",
+          "sa-area-recovered(4)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;temperature-at-bound;electron-density-at-bound;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.0,
+        "non_fe_mass": 1.0,
+        "non_fe_above_0p5pct": {},
+        "n_non_fe": 0,
+        "n_detected": 0,
+        "fe_stage_disagreement": null,
+        "top5": {},
+        "n_samples": 5830,
+        "runtime_s": 94.24,
+        "abs_T_dev_10kK": 1.5
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-56a8de4a62864db0865c87c1d6b408b8",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 22695.130729675293,
+        "log_ne_rec": 17.62736274483937,
+        "r_squared": 0.3691410533516659,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 746791.942,
+        "flags": [
+          "Fe:stage_spread",
+          "C:dominant-weak-shape",
+          "deepened(20)",
+          "deblended(3)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;composition-collapse;dominant-weak-shape;physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.028899522912973714,
+        "non_fe_mass": 0.9711004770870263,
+        "non_fe_above_0p5pct": {
+          "C": 0.9691
+        },
+        "n_non_fe": 1,
+        "n_detected": 3,
+        "fe_stage_disagreement": 0.985685784757402,
+        "top5": {
+          "C": 0.96911,
+          "Fe": 0.0289,
+          "H": 0.00199
+        },
+        "n_samples": 5830,
+        "runtime_s": 155.69,
+        "abs_T_dev_10kK": 1.2695130729675292
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-da01e553ae6a4c91995aa2d403904fa2",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 21448.42529296875,
+        "log_ne_rec": 17.517818640489505,
+        "r_squared": 0.5823792935887451,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 1453845.28,
+        "flags": [
+          "Fe:stage_spread",
+          "P:dominant-weak-shape",
+          "deepened(3)",
+          "deblended(7)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;composition-collapse;dominant-weak-shape;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.007778110223687768,
+        "non_fe_mass": 0.9922218897763122,
+        "non_fe_above_0p5pct": {
+          "P": 0.9895
+        },
+        "n_non_fe": 1,
+        "n_detected": 4,
+        "fe_stage_disagreement": 0.9887808931537899,
+        "top5": {
+          "P": 0.98948,
+          "Fe": 0.00778,
+          "Cu": 0.00165,
+          "H": 0.00109
+        },
+        "n_samples": 5830,
+        "runtime_s": 108.55,
+        "abs_T_dev_10kK": 1.144842529296875
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-39998be9f14c479e8008efecec3bee25",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 25000.0,
+        "log_ne_rec": 17.00431169221517,
+        "r_squared": -0.6868736455711255,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;temperature-at-bound;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.0,
+        "non_fe_mass": 1.0,
+        "non_fe_above_0p5pct": {},
+        "n_non_fe": 0,
+        "n_detected": 0,
+        "fe_stage_disagreement": null,
+        "top5": {},
+        "n_samples": 5830,
+        "runtime_s": 86.99,
+        "abs_T_dev_10kK": 1.5
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-8264fabf6e4d4e61b05df90ef45cecb3",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 24369.506454467773,
+        "log_ne_rec": 17.714812938642485,
+        "r_squared": 0.17628690006194214,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 19578.03,
+        "flags": [
+          "Na:dominant-weak-shape",
+          "deepened(29)",
+          "deblended(6)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;composition-collapse;dominant-weak-shape;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.0645614667013088,
+        "non_fe_mass": 0.9354385332986912,
+        "non_fe_above_0p5pct": {
+          "Na": 0.9323
+        },
+        "n_non_fe": 1,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Na": 0.93234,
+          "Fe": 0.06456,
+          "H": 0.0031
+        },
+        "n_samples": 5830,
+        "runtime_s": 144.76,
+        "abs_T_dev_10kK": 1.4369506454467773
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-b17cc0430a5c41c097fcfde0ca73bbf4",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 22369.53125,
+        "log_ne_rec": 17.595219640246498,
+        "r_squared": 0.25325851448053216,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 1611446.222,
+        "flags": [
+          "deepened(6)",
+          "deblended(4)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9232656457761995,
+        "non_fe_mass": 0.07673435422380048,
+        "non_fe_above_0p5pct": {
+          "H": 0.0767
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.92327,
+          "H": 0.07673
+        },
+        "n_samples": 5830,
+        "runtime_s": 104.08,
+        "abs_T_dev_10kK": 1.236953125
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-d99401be15bb4ca19d5b59e0f61a57e5",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 21511.987665947527,
+        "log_ne_rec": 17.59003871199065,
+        "r_squared": 0.4791040142318269,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 54024.651,
+        "flags": [
+          "deepened(18)",
+          "deblended(4)"
+        ],
+        "qc_status": "warn",
+        "qc_reasons": "physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.882038476226776,
+        "non_fe_mass": 0.117961523773224,
+        "non_fe_above_0p5pct": {
+          "H": 0.118
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.88204,
+          "H": 0.11796
+        },
+        "n_samples": 5830,
+        "runtime_s": 127.69,
+        "abs_T_dev_10kK": 1.1511987665947527
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-bb777df5e62c4fc18c3e2c33cbb6c766",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 22461.51123046875,
+        "log_ne_rec": 17.524398060457756,
+        "r_squared": 0.5268262620075501,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 184956.524,
+        "flags": [
+          "Fe:stage_spread",
+          "deepened(3)",
+          "deblended(6)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.924121810468399,
+        "non_fe_mass": 0.07587818953160097,
+        "non_fe_above_0p5pct": {
+          "H": 0.0759
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": 0.9850644269788316,
+        "top5": {
+          "Fe": 0.92412,
+          "H": 0.07588
+        },
+        "n_samples": 5830,
+        "runtime_s": 73.01,
+        "abs_T_dev_10kK": 1.246151123046875
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-07c25af6dd9b4fa6bc801e18a40661a4",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 22310.32485961914,
+        "log_ne_rec": 17.481894952738692,
+        "r_squared": 0.34137597411249776,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "deepened(14)",
+          "deblended(2)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "composition-collapse;physical-pattern-r2;detector-response-fallback",
+        "fe_fraction": 0.9427782903441175,
+        "non_fe_mass": 0.05722170965588247,
+        "non_fe_above_0p5pct": {
+          "H": 0.0572
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.94278,
+          "H": 0.05722
+        },
+        "n_samples": 5830,
+        "runtime_s": 84.1,
+        "abs_T_dev_10kK": 1.2310324859619142
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-6cd149cca8d648469e3486cf60f5ee5c",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 24795.876176829188,
+        "log_ne_rec": 16.907329671336647,
+        "r_squared": 0.15740875944058008,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "B:dominant-weak-shape",
+          "basin-ambiguous(dBIC=0.0)",
+          "deepened(5)",
+          "deblended(7)",
+          "sa-area-recovered(7)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;dominant-weak-shape;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.2574330269528767,
+        "non_fe_mass": 0.7425669730471234,
+        "non_fe_above_0p5pct": {
+          "B": 0.7423
+        },
+        "n_non_fe": 1,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "B": 0.74231,
+          "Fe": 0.25743,
+          "H": 0.00025
+        },
+        "n_samples": 5830,
+        "runtime_s": 100.16,
+        "abs_T_dev_10kK": 1.4795876176829188
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-2e03f73db1f441939ff7bf2480d75e0d",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23392.854690551758,
+        "log_ne_rec": 17.80679160955811,
+        "r_squared": 0.32398112504371857,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 395286.926,
+        "flags": [
+          "Fe:stage_spread",
+          "C:dominant-weak-shape",
+          "deepened(7)",
+          "deblended(3)",
+          "sa-area-recovered(4)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "electron-density-at-bound;composition-collapse;dominant-weak-shape;physical-pattern-r2;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.07537590768389218,
+        "non_fe_mass": 0.9246240923161078,
+        "non_fe_above_0p5pct": {
+          "C": 0.9199
+        },
+        "n_non_fe": 1,
+        "n_detected": 3,
+        "fe_stage_disagreement": 0.9885705399951323,
+        "top5": {
+          "C": 0.91991,
+          "Fe": 0.07538,
+          "H": 0.00471
+        },
+        "n_samples": 5830,
+        "runtime_s": 106.34,
+        "abs_T_dev_10kK": 1.3392854690551759
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-6ce8e9b3945f4429997104a9b1fa22f9",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 24370.1171875,
+        "log_ne_rec": 17.668276019013394,
+        "r_squared": 0.13573375753544403,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 1695347.369,
+        "flags": [
+          "C:dominant-weak-shape",
+          "deblended(3)",
+          "sa-area-recovered(2)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;dominant-weak-shape;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.05443978854971321,
+        "non_fe_mass": 0.9455602114502868,
+        "non_fe_above_0p5pct": {
+          "B": 0.0567,
+          "C": 0.8888
+        },
+        "n_non_fe": 2,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "C": 0.88884,
+          "B": 0.05672,
+          "Fe": 0.05444
+        },
+        "n_samples": 5830,
+        "runtime_s": 96.21,
+        "abs_T_dev_10kK": 1.43701171875
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-468a150cbd4a458a8fa0fda3b09432dc",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 23036.736178398132,
+        "log_ne_rec": 17.627266755672228,
+        "r_squared": 0.26273545893692607,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 1674356.788,
+        "flags": [
+          "deepened(23)",
+          "deblended(5)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;detector-response-fallback",
+        "fe_fraction": 0.7914577732423549,
+        "non_fe_mass": 0.2085422267576451,
+        "non_fe_above_0p5pct": {
+          "H": 0.0537,
+          "Cu": 0.1548
+        },
+        "n_non_fe": 2,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.79146,
+          "Cu": 0.15483,
+          "H": 0.05371
+        },
+        "n_samples": 5830,
+        "runtime_s": 80.3,
+        "abs_T_dev_10kK": 1.3036736178398132
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-fd1e6d48a1034cd09e6780a94f43111b",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 21705.90305328369,
+        "log_ne_rec": 17.48362712665954,
+        "r_squared": 0.27667871547744827,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 106358.32,
+        "flags": [
+          "deepened(22)",
+          "deblended(2)",
+          "sa-area-recovered(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;electron-density-at-bound;detector-response-fallback",
+        "fe_fraction": 0.6488109604595302,
+        "non_fe_mass": 0.35118903954046976,
+        "non_fe_above_0p5pct": {
+          "H": 0.0664,
+          "Al": 0.2848
+        },
+        "n_non_fe": 2,
+        "n_detected": 3,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.64881,
+          "Al": 0.28477,
+          "H": 0.06642
+        },
+        "n_samples": 5830,
+        "runtime_s": 101.89,
+        "abs_T_dev_10kK": 1.170590305328369
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-01105eaef0044dca87fb08bfdea5b107",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 24133.021598204505,
+        "log_ne_rec": 16.834826187165106,
+        "r_squared": 0.14429210405383597,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": true,
+        "delta_bic_runner_up": 0.0,
+        "flags": [
+          "basin-ambiguous(dBIC=0.0)",
+          "deepened(9)",
+          "deblended(3)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;detector-response-fallback",
+        "fe_fraction": 0.9936240839265583,
+        "non_fe_mass": 0.006375916073441679,
+        "non_fe_above_0p5pct": {
+          "H": 0.0064
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.99362,
+          "H": 0.00638
+        },
+        "n_samples": 5830,
+        "runtime_s": 70.78,
+        "abs_T_dev_10kK": 1.4133021598204505
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-90143c6b30884618ade5aea2f14819b8",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 24012.553684192244,
+        "log_ne_rec": 17.00515627640725,
+        "r_squared": 0.20207005486505458,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 0.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 51.116,
+        "flags": [
+          "deepened(8)",
+          "deblended(1)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "physical-pattern-r2;composition-collapse;detector-response-fallback",
+        "fe_fraction": 0.9886586137263246,
+        "non_fe_mass": 0.011341386273675425,
+        "non_fe_above_0p5pct": {
+          "H": 0.0113
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": null,
+        "top5": {
+          "Fe": 0.98866,
+          "H": 0.01134
+        },
+        "n_samples": 5830,
+        "runtime_s": 60.91,
+        "abs_T_dev_10kK": 1.4012553684192244
+      },
+      "error": null
+    },
+    {
+      "panel": "fe",
+      "id": "run-74c9332760af4a1ab6f4a343c5e47c4f",
+      "status": "ok",
+      "metrics": {
+        "partition_extrapolated": true,
+        "T_rec": 21391.66191619588,
+        "log_ne_rec": 17.472537591874136,
+        "r_squared": 0.5139333842365577,
+        "ne_bounds_source": "halpha",
+        "ne_at_bound": 1.0,
+        "basin_ambiguous": false,
+        "delta_bic_runner_up": 388985.171,
+        "flags": [
+          "Fe:stage_spread",
+          "deepened(8)",
+          "deblended(4)"
+        ],
+        "qc_status": "fail",
+        "qc_reasons": "composition-collapse;detector-response-fallback;global-only-wavelength-shift",
+        "fe_fraction": 0.9014266647400114,
+        "non_fe_mass": 0.09857333525998857,
+        "non_fe_above_0p5pct": {
+          "H": 0.0986
+        },
+        "n_non_fe": 1,
+        "n_detected": 2,
+        "fe_stage_disagreement": 0.9895332772304212,
+        "top5": {
+          "Fe": 0.90143,
+          "H": 0.09857
+        },
+        "n_samples": 5830,
+        "runtime_s": 74.67,
+        "abs_T_dev_10kK": 1.139166191619588
+      },
+      "error": null
+    }
+  ],
+  "aggregate": {
+    "synthetic": {
+      "n_items": 5,
+      "n_ok": 5,
+      "n_error": 0,
+      "median_rel_err": {
+        "mean": 0.16452221668580927,
+        "median": 0.17659363436212383,
+        "n": 5
+      },
+      "spurious_mass": {
+        "mean": 0.0,
+        "median": 0.0,
+        "n": 5
+      },
+      "abs_T_rel_err": {
+        "mean": 0.07150962847047622,
+        "median": 0.028773729586973787,
+        "n": 5
+      },
+      "n_majors_missed": {
+        "mean": 0.0,
+        "median": 0.0,
+        "n": 5
+      },
+      "dominant_correct": {
+        "mean": 1.0,
+        "median": 1.0,
+        "n": 5
+      }
+    },
+    "real": {
+      "n_items": 5,
+      "n_ok": 5,
+      "n_error": 0,
+      "r_squared": {
+        "mean": 0.48025156494728893,
+        "median": 0.6704849871108074,
+        "n": 5
+      },
+      "median_stage_disagreement": {
+        "mean": 0.49848662454364073,
+        "median": 0.48870573177081095,
+        "n": 5
+      },
+      "n_detected": {
+        "mean": 11.6,
+        "median": 10.0,
+        "n": 5
+      },
+      "ne_at_bound": {
+        "mean": 0.8,
+        "median": 1.0,
+        "n": 5
+      }
+    },
+    "fe": {
+      "n_items": 26,
+      "n_ok": 26,
+      "n_error": 0,
+      "fe_fraction": {
+        "mean": 0.5788333609835139,
+        "median": 0.857192235668726,
+        "n": 26
+      },
+      "non_fe_mass": {
+        "mean": 0.4211666390164861,
+        "median": 0.142807764331274,
+        "n": 26
+      },
+      "n_non_fe": {
+        "mean": 1.0769230769230769,
+        "median": 1.0,
+        "n": 26
+      },
+      "abs_T_dev_10kK": {
+        "mean": 1.2834556320299986,
+        "median": 1.2865933454036713,
+        "n": 26
+      }
+    }
+  }
+}

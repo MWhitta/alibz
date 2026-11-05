@@ -1,0 +1,315 @@
+diff -ruN -x __pycache__ -x .pytest_cache /Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer_v3.py alibz/peaky_indexer_v3.py
+--- /Users/mwhittaker/Projects/github/alibz/alibz/peaky_indexer_v3.py	2026-11-04 08:44:27
++++ alibz/peaky_indexer_v3.py	2026-11-04 08:56:32
+@@ -1987,6 +1987,9 @@
+         # stage's predicted pattern, including the ones the relative gate
+         # below removes from the solve (see _stage_tie_cost)
+         self._last_A_all = A
++        # state of this design matrix, for the stage thermometer's optional
++        # two-temperature / LTE-gap evaluation (_stage_tie_cost)
++        self._last_state = (float(temperature), float(log_ne), line_weight_scale)
+         if A.size:
+             # Per-trial relative emissivity gate: a species whose strongest
+             # predicted contribution at THIS (T, ne) is below
+@@ -2420,6 +2423,8 @@
+         of elements is most nearly consistent with a single plasma; the
+         per-element terms are exposed for the report.
+         """
++        self._last_stage_offset_k = 0.0
++        self._last_lte_flagged = []
+         concentrations = np.asarray(concentrations, dtype=float)
+         A = np.asarray(A, dtype=float)
+         if A.size == 0 or concentrations.size == 0:
+@@ -2427,6 +2432,99 @@
+         A_all = A if A_all is None else np.asarray(A_all, dtype=float)
+         if A_all.shape != A.shape:
+             A_all = A
++        if self._stage_temperature_offset_max_k > 0.0 or self._lte_gap_flag:
++            return self._stage_tie_cost_options(concentrations, A, A_all)
++        return self._stage_tie_cost_core(concentrations, A, A_all)
++
++    # ------------------------------------------------------------------
++    # Optional thermometer refinements (wave 3 option C).  Both default
++    # OFF; the OFF path above calls the untouched core below.
++    # ------------------------------------------------------------------
++    def _species_delta_e(self) -> np.ndarray:
++        """Per-species LTE gap proxy dE_s [eV]: the smallest non-zero level
++        energy among the lower/upper levels of the species' table lines."""
++        lt = self.line_table
++        key = (lt.n_species, int(lt.Ek.size))
++        cache = getattr(self, "_delta_e_cache", None)
++        if cache is not None and cache[0] == key:
++            return cache[1]
++        de = np.zeros(lt.n_species, dtype=float)
++        for s in range(lt.n_species):
++            m = lt.species_idx == s
++            lev = np.concatenate([lt.Ei[m], lt.Ek[m]])
++            lev = lev[lev > 1e-6]
++            de[s] = float(lev.min()) if lev.size else 0.0
++        self._delta_e_cache = (key, de)
++        return de
++
++    @staticmethod
++    def _ne_crit(temperature: float, delta_e_ev) -> np.ndarray:
++        """McWhirter/Fujimoto critical density [cm^-3]."""
++        return 1.6e12 * np.sqrt(temperature) * np.asarray(delta_e_ev) ** 3
++
++    def _lte_flagged_mask(self, temperature: float, log_ne: float) -> np.ndarray:
++        crit = self._ne_crit(temperature, self._species_delta_e())
++        return (10.0 ** log_ne) < crit
++
++    def _stage_tie_cost_options(self, concentrations, A, A_all):
++        state = getattr(self, "_last_state", None)
++        flagged_el: set = set()
++        skip = None
++        if self._lte_gap_flag and state is not None:
++            mask = self._lte_flagged_mask(state[0], state[1])
++            sp = self.line_table.species
++            self._last_lte_flagged = [
++                f"{sp[i].element}_{sp[i].ion}" for i in np.flatnonzero(mask)]
++            skip = {sp[i].element for i in np.flatnonzero(mask)}
++        dmax = self._stage_temperature_offset_max_k
++        if dmax <= 0.0 or state is None:
++            return self._stage_tie_cost_core(
++                concentrations, A, A_all, skip_elements=skip)
++        T, log_ne, scale = state
++        lt = self.line_table
++        ion_cols = np.array([sp.ion >= 2 for sp in lt.species], dtype=bool)
++        cache: Dict[float, Tuple[float, Dict[str, float]]] = {}
++
++        def tied_at(delta: float):
++            delta = float(delta)
++            if delta in cache:
++                return cache[delta]
++            if delta == 0.0:
++                out = self._stage_tie_cost_core(
++                    concentrations, A, A_all, skip_elements=skip)
++            else:
++                lw = self._line_weights(T + delta, log_ne)
++                if scale is not None:
++                    lw = lw * scale
++                A_hot = self._build_design_matrix(lw)
++                A_tied = A_all.copy()
++                A_tied[:, ion_cols] = A_hot[:, ion_cols]
++                out = self._stage_tie_cost_core(
++                    concentrations, A, A_all, A_tied_all=A_tied,
++                    skip_elements=skip)
++            cache[delta] = out
++            return out
++
++        # 5-point grid on [0, dmax] + one parabolic refine (<= 6 evaluations)
++        grid = np.linspace(0.0, dmax, 5)
++        vals = np.array([tied_at(d)[0] for d in grid])
++        k = int(np.argmin(vals))
++        best = float(grid[k])
++        if 0 < k < 4:
++            x0, x1, x2 = grid[k - 1:k + 2]
++            y0, y1, y2 = vals[k - 1:k + 2]
++            den = (y0 - 2.0 * y1 + y2)
++            if den > 0.0:
++                xv = x1 - 0.5 * (x1 - x0) * (
++                    (y2 - y0) / den)
++                xv = float(min(max(xv, x0), x2))
++                if tied_at(xv)[0] < vals[k]:
++                    best = xv
++        self._last_stage_offset_k = best
++        return tied_at(best)
++
++    def _stage_tie_cost_core(self, concentrations, A, A_all,
++                             A_tied_all=None, skip_elements=None):
+         col_max = np.max(A_all, axis=0)
+         predicted_total = A @ concentrations
+         obs = np.asarray(self._obs_amp, dtype=float)
+@@ -2440,6 +2538,8 @@
+         per_element: Dict[str, float] = {}
+         total = 0.0
+         for element, s_indices in by_element.items():
++            if skip_elements and element in skip_elements:
++                continue
+             supported = [s for s in s_indices if col_max[s] > 1e-30]
+             if len(supported) < 2:
+                 continue
+@@ -2449,7 +2549,8 @@
+             a_st = A_all[:, supported]
+             own = A[:, supported] @ c_st
+             r_el = obs - (predicted_total - own)
+-            a_tied = np.sum(a_st, axis=1)
++            a_tied = np.sum(a_st if A_tied_all is None
++                            else A_tied_all[:, supported], axis=1)
+             if w is not None:
+                 r_el = r_el * w
+                 a_st = a_st * w[:, np.newaxis]
+@@ -3221,6 +3322,10 @@
+             'physical_triage': getattr(self, '_triage_report', None),
+             'stage_consistency_weight': self._stage_consistency_weight,
+             'stage_tie_cost': tie_total,
++            **({'stage_temperature_offset_k': float(self._last_stage_offset_k)}
++               if self._stage_temperature_offset_max_k > 0.0 else {}),
++            **({'lte_flagged_species': list(self._last_lte_flagged)}
++               if self._lte_gap_flag else {}),
+             'stage_tie_by_element': {el: float(v) for el, v in
+                                      sorted(tie_by_element.items())},
+             'gamma_inst': self._last_gamma_inst,
+diff -ruN -x __pycache__ -x .pytest_cache /Users/mwhittaker/Projects/github/alibz/scripts/fit_quality_panel.py scripts/fit_quality_panel.py
+--- /Users/mwhittaker/Projects/github/alibz/scripts/fit_quality_panel.py	2026-11-03 18:37:27
++++ scripts/fit_quality_panel.py	2026-11-04 08:59:27
+@@ -94,6 +94,11 @@
+         except Exception:
+             at = None
+     out["ne_at_bound"] = None if at is None else float(at)
++    ci = getattr(res, "convergence_info", None) or {}
++    if "stage_temperature_offset_k" in ci:
++        out["stage_temperature_offset_k"] = _f(ci["stage_temperature_offset_k"])
++    if "lte_flagged_species" in ci:
++        out["lte_flagged_species"] = sorted(ci["lte_flagged_species"])
+     bi = analysis.get("basin_info") or {}
+     out["basin_ambiguous"] = bi.get("basin_ambiguous")
+     out["delta_bic_runner_up"] = _f(bi.get("delta_bic_runner_up"))
+diff -ruN -x __pycache__ -x .pytest_cache /Users/mwhittaker/Projects/github/alibz/tests/test_stage_thermometer_options.py tests/test_stage_thermometer_options.py
+--- /Users/mwhittaker/Projects/github/alibz/tests/test_stage_thermometer_options.py	1969-12-31 16:00:00
++++ tests/test_stage_thermometer_options.py	2026-11-04 08:59:20
+@@ -0,0 +1,144 @@
++"""Wave-3 option C: bounded ion-stage temperature offset and LTE-gap flag
++in the stage-consistency thermometer (both default OFF)."""
++import numpy as np
++import pytest
++
++from alibz.peaky_indexer_v3 import PeakyIndexerV3
++from alibz.synthetic import SyntheticSpectrumGenerator
++from bench.synth_cases import make_scene, CASES
++from tests.test_oracle_roundtrip import _build, _instrument_fwhm_nm
++
++DBPATH = "db"
++
++# recorded on the MAIN tree (before this change): binary_ca_mg, conserve,
++# solve_at at the true state with the merged oracle
++_BASE_TOTAL = 447015.68272867054
++_BASE_PER = {'Mg': 447000.7670928985, 'Ca': 14.915635772049427}
++
++
++def _solved(case="binary_ca_mg", **opts):
++    spec, idx, (ms, mg) = _build(case, "conserve")
++    for k, v in opts.items():
++        setattr(idx, k, v)
++    res = idx.solve_at(spec["temperature_k"], spec["log_ne_cm3"], ms, mg)
++    return spec, idx, res
++
++
++def test_off_path_bit_identical_to_main_tree():
++    spec, idx, res = _solved()
++    tot, per = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                   A_all=idx._last_A_all)
++    assert tot == _BASE_TOTAL
++    assert per == _BASE_PER
++    # the core (original body) agrees exactly too
++    t2, p2 = idx._stage_tie_cost_core(res.concentrations, idx._last_A,
++                                      idx._last_A_all)
++    assert (t2, p2) == (tot, per)
++    assert 'stage_temperature_offset_k' not in res.convergence_info
++    assert 'lte_flagged_species' not in res.convergence_info
++
++
++def test_offset_on_single_T_oracle_is_small_and_not_worse():
++    spec, idx, res = _solved()
++    off, _ = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                 A_all=idx._last_A_all)
++    idx._stage_temperature_offset_max_k = 2000.0
++    on, _ = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                A_all=idx._last_A_all)
++    print("single-T: off", off, "on", on, "delta", idx._last_stage_offset_k)
++    assert idx._last_stage_offset_k <= 100.0
++    assert on <= off + 1e-9
++
++
++def _merge(tbl, gen):
++    wl = np.asarray(tbl["wavelength_nm"], float)
++    area = np.asarray(tbl["area_counts"], float)
++    sig = np.asarray(tbl["sigma_nm"], float)
++    gam = np.asarray(tbl["gamma_nm"], float)
++    o = np.argsort(wl, kind="mergesort")
++    wl, area, sig, gam = wl[o], area[o], sig[o], gam[o]
++    tol = np.maximum(1e-3, 0.25 * _instrument_fwhm_nm(gen, wl))
++    grp = np.cumsum(np.concatenate(
++        [[False], np.diff(wl) > np.maximum(tol[:-1], tol[1:])]))
++    n = int(grp[-1]) + 1
++    a = np.zeros(n); ws = np.zeros(n); sg = np.zeros(n); gm = np.zeros(n)
++    c = np.zeros(n); w0 = np.zeros(n); s0 = np.zeros(n); g0 = np.zeros(n)
++    np.add.at(a, grp, area); np.add.at(ws, grp, area * wl)
++    np.add.at(sg, grp, area * sig); np.add.at(gm, grp, area * gam)
++    np.add.at(c, grp, 1.0); np.add.at(w0, grp, wl)
++    np.add.at(s0, grp, sig); np.add.at(g0, grp, gam)
++    pos = a > 0
++    d = np.where(pos, a, 1.0)
++    peaks = np.column_stack([
++        a, np.where(pos, ws / d, w0 / c), np.where(pos, sg / d, s0 / c),
++        np.where(pos, gm / d, g0 / c)])
++    return peaks, (float(np.median(peaks[:, 2])), float(np.median(peaks[:, 3])))
++
++
++def test_offset_recovers_two_temperature_scene():
++    case = "binary_ca_mg"
++    spec = CASES[case]
++    T, ne, dT = spec["temperature_k"], spec["log_ne_cm3"], 1500.0
++    gen = SyntheticSpectrumGenerator(DBPATH)
++    cold = gen._component_lines(make_scene(
++        spec["composition"], T, ne, seed=0, dbpath=DBPATH).target)
++    hot = gen._component_lines(make_scene(
++        spec["composition"], T + dT, ne, seed=0, dbpath=DBPATH).target)
++    cm = np.asarray(cold["ion_stage"]) == 1
++    hm = np.asarray(hot["ion_stage"]) >= 2
++    tbl = {k: np.concatenate([np.asarray(cold[k])[cm], np.asarray(hot[k])[hm]])
++           for k in ("wavelength_nm", "area_counts", "sigma_nm", "gamma_nm")}
++    peaks, (ms, mg) = _merge(tbl, gen)
++    idx = PeakyIndexerV3(peaks, dbpath=DBPATH, temperature_init=T,
++                         ne_init=ne, overlap_mode="conserve")
++    keep = set(spec["composition"])
++    idx.db.analysis_excluded_elements = tuple(
++        e for e in idx.db.elements if e not in keep)
++    idx.build_candidate_matrix(sa_doublets=True)
++    res = idx.solve_at(T, ne, ms, mg)
++    off, _ = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                 A_all=idx._last_A_all)
++    idx._stage_temperature_offset_max_k = 3000.0
++    on, _ = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                A_all=idx._last_A_all)
++    print("two-T: off", off, "on", on, "delta", idx._last_stage_offset_k)
++    assert on < off
++    assert abs(idx._last_stage_offset_k - dT) <= 300.0
++
++
++def _full_table_indexer():
++    """Indexer with the UNFILTERED line table (gases included)."""
++    from alibz.peaky_indexer_v3 import LineTable
++    from tests.test_oracle_roundtrip import merged_oracle_peaks
++    spec, peaks, _ = merged_oracle_peaks("binary_ca_mg")
++    idx = PeakyIndexerV3(peaks, dbpath=DBPATH, temperature_init=10000.0,
++                         ne_init=17.0)
++    idx.line_table = LineTable(idx.db, idx.sb, (180.0, 960.0),
++                               max_ion_stage=2, min_gA=100.0)
++    return idx
++
++
++def test_lte_flag_argon_and_calcium():
++    idx = _full_table_indexer()
++    names = [(s.element, s.ion) for s in idx.line_table.species]
++    de = idx._species_delta_e()
++    a = names.index(("Ar", 1))
++    assert 11.0 < de[a] < 12.5
++    lo = idx._lte_flagged_mask(8000.0, 16.0)
++    hi = idx._lte_flagged_mask(8000.0, 17.5)
++    assert lo[a] and not hi[a]
++    for ion in (1, 2):
++        c = names.index(("Ca", ion))
++        for T in (6000.0, 8000.0):  # 12 kK: Ca I legitimately flagged at log ne 15
++            for ln in (15.0, 16.0, 17.0, 18.0):
++                assert not idx._lte_flagged_mask(T, ln)[c], (ion, T, ln)
++
++
++def test_lte_flag_skips_flagged_element_terms():
++    spec, idx, res = _solved("binary_ca_mg", _lte_gap_flag=True)
++    # force flag: at log ne = 12 everything is below critical
++    idx._last_state = (10000.0, 12.0, idx._last_state[2])
++    tot, per = idx._stage_tie_cost(res.concentrations, idx._last_A,
++                                   A_all=idx._last_A_all)
++    assert tot == 0.0 and per == {}
++    assert any(s.startswith("Ca_") for s in idx._last_lte_flagged)

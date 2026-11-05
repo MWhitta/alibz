@@ -47,6 +47,47 @@ from alibz import telemetry
 #: z = 2.2 (strongest predicted line 4 counts, below noise, zero peaks
 #: explained) while every real element — down to Mn 4.6, Be 6.8 — clears 4.
 ELEMENT_DETECT_Z_MIN = 3.0
+#: floor on the best-line z under FDR control (never admit below it)
+DETECTION_Z_FLOOR = 2.0
+
+
+def fdr_select(z_by_element, q, method="bh", z_floor=DETECTION_Z_FLOOR):
+    """Benjamini-Hochberg / Benjamini-Yekutieli selection over detection z.
+
+    One-sided p = 1 - Phi(z) per candidate; BH step-up at level ``q``
+    over the m candidates (``method='by'`` divides q by the harmonic sum
+    c(m) = sum 1/i, valid under arbitrary dependence).  An element is kept
+    iff its p is at or below the largest p_(k) <= k q / (m c) AND
+    z >= ``z_floor``.  Returns ``(keep:set, info:dict)`` with per-element
+    BH/BY-adjusted ``q_values``, ``threshold_z`` (z of the largest
+    accepted p, None if nothing is accepted) and ``m``.
+    """
+    from scipy.stats import norm
+    if method not in ("bh", "by"):
+        raise ValueError(f"unknown detection_fdr_method {method!r}")
+    els = list(z_by_element)
+    m = len(els)
+    if m == 0:
+        return set(), dict(q_values={}, threshold_z=None, m=0)
+    z = np.array([z_by_element[e] for e in els], dtype=float)
+    p = norm.sf(z)
+    cm = float(np.sum(1.0 / np.arange(1, m + 1))) if method == "by" else 1.0
+    order = np.argsort(p, kind="stable")
+    ps = p[order]
+    ranks = np.arange(1, m + 1)
+    adj_sorted = np.minimum.accumulate((ps * m * cm / ranks)[::-1])[::-1]
+    adj = np.empty(m)
+    adj[order] = np.minimum(adj_sorted, 1.0)
+    ok = ps <= ranks * float(q) / (m * cm)
+    p_thr = float(ps[np.max(np.nonzero(ok)[0])]) if np.any(ok) else None
+    keep = set()
+    if p_thr is not None:
+        for i, e in enumerate(els):
+            if p[i] <= p_thr and z[i] >= z_floor:
+                keep.add(e)
+    thr_z = float(norm.isf(p_thr)) if p_thr is not None else None
+    return keep, dict(q_values={e: float(adj[i]) for i, e in enumerate(els)},
+                      threshold_z=thr_z, m=m)
 
 #: multiplicative procedure-noise floor for the weighted concentration
 #: solve: sigma_eff^2 = sigma_GLS^2 + (PROCEDURE_NOISE_FRACTION * amp)^2.
@@ -102,6 +143,13 @@ RELATIVE_COLUMN_FLOOR = 1e-3
 #: exactly as much as the observed amplitudes; 0 disables the thermometer
 #: (historical behaviour: T set by within-stage Boltzmann ratios only).
 STAGE_CONSISTENCY_WEIGHT = 1.0
+
+#: Soft linear stage-coupling weight inside the inner NNLS concentration
+#: solve (see :meth:`PeakyIndexerV3._solve_concentrations_thin`).  Couples
+#: active ionization stages of the same element via harmonic column-norm
+#: precision weighting so per-stage concentrations do not split arbitrarily
+#: before aggregation.
+INNER_STAGE_COUPLING_WEIGHT = 0.15  # suggested value; OFF (0.0) unless `inner_stage_coupling_weight` is set
 
 class PhysicsComputationError(RuntimeError):
     """Raised when the physics layer required by the v3 indexer fails."""
@@ -414,6 +462,115 @@ class LineTable:
 # Main class
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# Opt-in inner-solve variants (sparsity="adaptive-lasso", robust_loss="huber")
+# ---------------------------------------------------------------------------
+HUBER_K = 1.345
+HUBER_MAX_ITER = 5
+HUBER_WEIGHT_TOL = 0.01
+LASSO_LAMBDA_MULTIPLIERS = (0.25, 0.5, 1.0, 2.0, 4.0)
+LASSO_GAMMA = 1.0
+LASSO_EPS_FRAC = 1e-3
+LASSO_BIC_SLACK = 2.0
+
+
+def _bic(rss: float, n: int, k: int) -> float:
+    return n * np.log(max(rss, 1e-300) / n) + k * np.log(n)
+
+
+def _adaptive_lasso_solve(A: np.ndarray, y: np.ndarray, n_data: int) -> np.ndarray:
+    """min_{c>=0} ||A c - y||^2 + lam * sum_s w_s c_s, lam chosen by BIC.
+
+    w_s = 1 / ((c_nnls_s / max c_nnls) + eps)^gamma (gamma = 1,
+    eps = 1e-3): the NNLS estimate normalised by its maximum so lam is
+    dimensionless in the amplitude scale.  Path lam = m * lam_ref,
+    m in {0.25, .5, 1, 2, 4}, lam_ref = median_j |a_j^T r_nnls| over all
+    columns (falls back to the mean of the non-zero |a_j^T r| when the
+    median is 0, i.e. most columns are active).  Each QP is solved by
+    L-BFGS-B (analytic gradient, bounds c >= 0) warm-started at NNLS.
+    BIC = n ln(RSS/n) + k ln n with n = data rows and k = number of
+    non-zero concentrations (the existing nonlinear-parameter count is a
+    constant and cancels).  The best-BIC solution is returned unless it is
+    more than 2 BIC units worse than NNLS, in which case NNLS is returned.
+    """
+    from scipy.optimize import minimize
+    c0, _ = nnls(A, y)
+    cmax = float(c0.max()) if c0.size else 0.0
+    if cmax <= 0.0:
+        return c0
+    r0 = y - A @ c0
+    g = np.abs(A.T @ r0)
+    lam_ref = float(np.median(g))
+    if lam_ref <= 0.0:
+        nz = g[g > 0]
+        lam_ref = float(np.mean(nz)) if nz.size else 0.0
+    if lam_ref <= 0.0:
+        return c0
+    w = 1.0 / (c0 / cmax + LASSO_EPS_FRAC) ** LASSO_GAMMA
+    AtA = A.T @ A
+    Aty = A.T @ y
+    yy = float(y @ y)
+
+    def make(lam):
+        def f(c):
+            Ac = AtA @ c
+            return (float(c @ Ac) - 2.0 * float(Aty @ c) + yy
+                    + lam * float(w @ c)), 2.0 * (Ac - Aty) + lam * w
+        return f
+
+    n = max(int(n_data), 2)
+    bic0 = _bic(float(r0 @ r0), n, int(np.count_nonzero(c0)))
+    best_c, best_bic = c0, np.inf
+    for m in LASSO_LAMBDA_MULTIPLIERS:
+        res = minimize(make(m * lam_ref), c0, jac=True, method="L-BFGS-B",
+                       bounds=[(0.0, None)] * c0.size,
+                       options={"maxiter": 500, "ftol": 1e-12, "gtol": 1e-10})
+        c = np.where(res.x < 1e-8 * cmax, 0.0, res.x)
+        r = y - A @ c
+        b = _bic(float(r @ r), n, int(np.count_nonzero(c)))
+        if b < best_bic:
+            best_c, best_bic = c, b
+    if best_bic > bic0 + LASSO_BIC_SLACK:
+        return c0
+    return best_c
+
+
+def _robust_sparse_solve(A_aug: np.ndarray, y_aug: np.ndarray, n_data: int,
+                         sparsity: Optional[str] = None,
+                         robust_loss: Optional[str] = None) -> np.ndarray:
+    """Inner solve with optional adaptive-lasso and Huber IRLS.
+
+    The first ``n_data`` rows are the (whitened) data rows; later rows are
+    evidence/pseudo rows and always keep weight 1.  Huber weights
+    w_i = min(1, k s / |r_i|), k = 1.345, s = MAD(r)/0.6745, applied as
+    sqrt(w_i) row scaling; at most 5 IRLS iterations or until the weights
+    change by < 1 %.  Sparse solve (if requested) runs inside each iteration.
+    """
+    def inner(A, y):
+        if sparsity == "adaptive-lasso":
+            return _adaptive_lasso_solve(A, y, n_data)
+        return nnls(A, y)[0]
+
+    c = inner(A_aug, y_aug)
+    if robust_loss != "huber":
+        return c
+    wts = np.ones(n_data)
+    for _ in range(HUBER_MAX_ITER):
+        r = (y_aug - A_aug @ c)[:n_data]
+        s = float(np.median(np.abs(r - np.median(r)))) / 0.6745
+        if s <= 0.0:
+            break
+        absr = np.maximum(np.abs(r), 1e-300)
+        w_new = np.minimum(1.0, HUBER_K * s / absr)
+        if np.max(np.abs(w_new - wts) / wts) < HUBER_WEIGHT_TOL:
+            break
+        wts = w_new
+        sw = np.ones(A_aug.shape[0])
+        sw[:n_data] = np.sqrt(wts)
+        c = inner(A_aug * sw[:, None], y_aug * sw)
+    return c
+
 class PeakyIndexerV3:
     """Whole-pattern spectral fitting indexer.
 
@@ -440,13 +597,24 @@ class PeakyIndexerV3:
         ne_init: float = 17.0,
         db=None,
         sb=None,
+        inner_stage_coupling_weight: float = 0.0,
         amp_sigma: Optional[np.ndarray] = None,
         amp_sigma_floor: float = 0.0,
         amp_sigma_poisson_gain: float = 0.0,
         weighted_solve: bool = False,
+        detection_fdr: Optional[float] = None,
+        detection_fdr_method: str = "bh",
+        detection_z_floor: float = DETECTION_Z_FLOOR,
+        sparsity: Optional[str] = None,
+        robust_loss: Optional[str] = None,
+        bo_settings: Optional[str] = None,
         ne_prior: Optional[Tuple[float, float]] = None,
         stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
         wavelength_registration: object = None,
+        overlap_mode: str = "legacy",
+        overlap_kernel: str = "median",
+        stage_temperature_offset_max_k: float = 0.0,
+        lte_gap_flag: bool = False,
     ):
         self.peak_array = np.asarray(peak_array, dtype=float)
         # Optional independent wavelength registration (a combined-registration
@@ -468,6 +636,10 @@ class PeakyIndexerV3:
         # for standalone use.
         self.db = db if db is not None else Database(dbpath)
         self.sb = sb if sb is not None else SahaBoltzmann(dbpath)
+        # Soft intra-element stage-coupling rows in the inner solve (bisected
+        # 2026-11-04 as an unflagged default-path change; now opt-in, scored on
+        # the fit-quality panel before any default flip).
+        self._inner_stage_coupling_weight = float(max(inner_stage_coupling_weight, 0.0))
 
         self.T_init = temperature_init
         self.ne_init = ne_init
@@ -562,6 +734,49 @@ class PeakyIndexerV3:
         # .91/.09), so per the M1.4 acceptance gate it must not ship as
         # default until the T-bias is diagnosed (line-level pulls).
         self._weighted_solve = bool(weighted_solve)
+        # Design-matrix overlap accounting (see _build_observed_overlap_map /
+        # _build_overlap_map / _apply_overlap_mode).  "legacy" is the historic
+        # (non-conserving) Voigt-height-ratio map; "conserve" and "nearest"
+        # stop a single database line being replicated across the several
+        # observed peaks it touches (the Ca-over/Mg-under bias documented in
+        # reports/2026-11-03-debug-composition-bias-at-truth.md).
+        if overlap_mode not in ("legacy", "conserve", "nearest"):
+            raise ValueError(f"unknown overlap_mode {overlap_mode!r}")
+        self._overlap_mode = overlap_mode
+        # Wave-3 model options (2026-11-04), all OFF by default and scored on
+        # the fit-quality panel (reports/2026-11-04-w3-*.md).  overlap_kernel:
+        # "median" (one shared search (σ,γ) for every peak, historic) |
+        # "peak" (per-peak fitted widths) | "peak+stark" (per-peak widths plus
+        # per-line Stark widths at the trial nₑ).  stage_temperature_offset_max_k
+        # > 0 lets the stage-tie thermometer use T_ion = T + δ, 0 ≤ δ ≤ max.
+        # lte_gap_flag drops species failing the McWhirter/Fujimoto gap criterion
+        # at the trial state from the stage-tie cost.
+        if overlap_kernel not in ("median", "peak", "peak+stark"):
+            raise ValueError(f"unknown overlap_kernel {overlap_kernel!r}")
+        self._overlap_kernel = overlap_kernel
+        self._stage_temperature_offset_max_k = float(
+            max(stage_temperature_offset_max_k, 0.0))
+        self._lte_gap_flag = bool(lte_gap_flag)
+        if detection_fdr is not None and not 0.0 < float(detection_fdr) <= 1.0:
+            raise ValueError(f"detection_fdr must be in (0, 1], got {detection_fdr!r}")
+        if detection_fdr_method not in ("bh", "by"):
+            raise ValueError(f"unknown detection_fdr_method {detection_fdr_method!r}")
+        self._detection_fdr = (None if detection_fdr is None
+                               else float(detection_fdr))
+        self._detection_fdr_method = detection_fdr_method
+        self._detection_z_floor = float(detection_z_floor)
+        self._last_detection_fdr = None
+        if sparsity not in (None, "adaptive-lasso"):
+            raise ValueError(f"unknown sparsity {sparsity!r}")
+        if robust_loss not in (None, "huber"):
+            raise ValueError(f"unknown robust_loss {robust_loss!r}")
+        #: opt-in inner-solve variants (default None == plain NNLS)
+        self._sparsity = sparsity
+        self._robust_loss = robust_loss
+        if bo_settings not in (None, "matern52"):
+            raise ValueError(f"unknown bo_settings {bo_settings!r}")
+        #: opt-in GP-BO settings (None == skopt defaults); see _bo_kwargs
+        self._bo_settings = bo_settings
         # Physical prior on log10 ne (center, sigma_dex), charged to the
         # weighted outer objective.  MEASURED NECESSITY (2026-07-19): the
         # data cost is EXACTLY flat in ne (705.0 at ne 14.1 and 17.0 on
@@ -626,6 +841,8 @@ class PeakyIndexerV3:
         evidence_max_refits: int = 2,
         prefilter_temperatures: Optional[Sequence[float]] = None,
         stark_width_weight: float = 0.0,
+        outer_polish: Optional[str] = None,
+        outer_polish_maxfev: int = 40,
         stark_c4: float = 1e-4,
         stark_log_ne_ref: float = 17.0,
         sa_tau_scale: float = 0.0,
@@ -697,6 +914,12 @@ class PeakyIndexerV3:
         self._evidence_min_net = float(evidence_min_net)
         self._evidence_max_refits = int(max(evidence_max_refits, 0))
         self._stark_width_weight = float(max(stark_width_weight, 0.0))
+        # Wave-3 (2026-11-04): optional local polish of the outer state after
+        # the GP search; None (OFF) | "powell" | "nelder-mead".
+        if outer_polish not in (None, "powell", "nelder-mead"):
+            raise ValueError(f"unknown outer_polish {outer_polish!r}")
+        self._outer_polish = outer_polish
+        self._outer_polish_maxfev = int(max(outer_polish_maxfev, 0))
         self._stark_c4 = float(max(stark_c4, 0.0))
         self._stark_log_ne_ref = float(stark_log_ne_ref)
         self._sa_tau_scale = float(max(sa_tau_scale, 0.0))
@@ -787,7 +1010,13 @@ class PeakyIndexerV3:
         removes a per-evaluation emissivity recomputation.
         """
         self._stark_peak_shape = np.zeros(self.n_peaks, dtype=float)
-        if self._stark_width_weight <= 0.0 or self._stark_c4 <= 0.0:
+        # The "peak+stark" overlap kernel also needs the frozen per-peak
+        # dominant-line Stark shapes (to profile gamma_inst), independent of
+        # whether the Stark width COST is enabled.  When neither is on the
+        # early return keeps the historic (all-zero) behaviour bit-identical.
+        need_stark = (self._stark_width_weight > 0.0
+                      or self._overlap_kernel == "peak+stark")
+        if not need_stark or self._stark_c4 <= 0.0:
             return
         lt = self.line_table
         if lt is None or self.peak_line_map is None or self.peak_line_map.nnz == 0:
@@ -806,13 +1035,71 @@ class PeakyIndexerV3:
     # Step 3: Forward model
     # =================================================================
 
+    def _apply_overlap_mode(self, rows, cols, vals, n_cols):
+        """Make the raw overlap triplets conserve each database line's weight.
+
+        The raw overlap map books the Voigt height ratio ``V(Δλ;σ,γ)/V(0)`` of
+        EVERY database line ``j`` onto EVERY observed peak ``i`` within
+        ``shift_tolerance``, so a single line is replicated across the peaks of
+        a dense forest while an isolated resonance line is booked ~once.
+        Measured emissivity-weighted replication ``Σ_i overlap(i,j)`` on
+        ``binary_ca_mg`` at truth: Ca 1.04 (isolated), Mg 1.97 (forest); on
+        ``silicate_4el`` Ca 2.24 / Mg 4.65 / Si 4.98 / Fe 5.27.  The design
+        column ``A[i,s]=Σ_{j∈s} overlap(i,j)·ε_j`` therefore over-predicts
+        dense-forest elements per unit concentration, NNLS shrinks them, and
+        the fraction is biased (Ca 0.73 vs 0.60 truth on the binary oracle).
+        See reports/2026-11-03-debug-composition-bias-at-truth.md.
+
+        Modes (``self._overlap_mode``):
+
+        * ``"legacy"`` -- return the triplets unchanged (historic behaviour).
+        * ``"conserve"`` -- divide every entry of line ``j`` by ``Σ_i raw(i,j)``
+          ONLY when that sum exceeds 1, so ``Σ_i overlap(i,j) = min(1, Σ_i
+          raw(i,j))``.  Never scales UP: a line whose single peak sits at the
+          tolerance edge legitimately contributes less than 1.
+        * ``"nearest"`` -- hard-assign line ``j`` to its single best-matching
+          peak (``argmax_i raw(i,j)``), keeping that raw overlap as the weight
+          and zeroing the rest.
+
+        ``rows``/``cols``/``vals`` are the COO triplets (lists, legacy path) and
+        are returned untouched for ``"legacy"``; the conserving modes return
+        numpy arrays.  Both are accepted by ``scipy.sparse.csr_matrix``.
+        """
+        mode = getattr(self, "_overlap_mode", "legacy")
+        if mode == "legacy" or len(rows) == 0:
+            return rows, cols, vals
+        rows = np.asarray(rows, dtype=np.int64)
+        cols = np.asarray(cols, dtype=np.int64)
+        vals = np.asarray(vals, dtype=float)
+        if mode == "conserve":
+            col_sum = np.zeros(int(n_cols), dtype=float)
+            np.add.at(col_sum, cols, vals)
+            denom = np.where(col_sum[cols] > 1.0, col_sum[cols], 1.0)
+            return rows, cols, vals / denom
+        if mode == "nearest":
+            # Keep only the max-overlap entry of each column (database line).
+            order = np.lexsort((vals, cols))
+            sorted_cols = cols[order]
+            is_last = np.ones(order.size, dtype=bool)
+            is_last[:-1] = sorted_cols[1:] != sorted_cols[:-1]
+            keep = order[is_last]
+            return rows[keep], cols[keep], vals[keep]
+        return rows, cols, vals  # pragma: no cover - validated in __init__
+
     def _build_overlap_map(
         self,
         row_wavelengths: np.ndarray,
         sigma: float,
         gamma: float,
+        apply_mode: bool = False,
     ) -> scipy.sparse.csr_matrix:
-        """Return an overlap map for arbitrary wavelength rows."""
+        """Return an overlap map for arbitrary wavelength rows.
+
+        ``apply_mode`` applies :meth:`_apply_overlap_mode` to the raw triplets
+        (the observed-peak map honours ``overlap_mode``); it is left False for
+        the pseudo-observation (missing-line) map, whose rows are not observed
+        peaks and whose per-line conservation has a different meaning.
+        """
         lt = self.line_table
         row_wavelengths = np.asarray(row_wavelengths, dtype=float).reshape(-1)
         n_rows = row_wavelengths.size
@@ -844,7 +1131,10 @@ class PeakyIndexerV3:
                     cols.append(j)
                     vals.append(float(ov))
 
-        if rows:
+        if apply_mode:
+            rows, cols, vals = self._apply_overlap_mode(
+                rows, cols, vals, lt.n_lines)
+        if len(rows):
             return scipy.sparse.csr_matrix(
                 (vals, (rows, cols)),
                 shape=(n_rows, lt.n_lines),
@@ -885,7 +1175,8 @@ class PeakyIndexerV3:
                     cols.append(j)
                     vals.append(float(ov))
 
-        if rows:
+        rows, cols, vals = self._apply_overlap_mode(rows, cols, vals, lt.n_lines)
+        if len(rows):
             return scipy.sparse.csr_matrix(
                 (vals, (rows, cols)),
                 shape=(self.n_peaks, lt.n_lines),
@@ -899,6 +1190,126 @@ class PeakyIndexerV3:
         sigmas = np.array([max(p.sigma, 1e-6) for p in self.peaks], dtype=float)
         gammas = np.array([max(p.gamma, 1e-6) for p in self.peaks], dtype=float)
         return float(np.median(sigmas)), float(np.median(gammas))
+
+    def _kernel_gamma_inst(self, log_ne: float) -> float:
+        """Instrumental Lorentzian HWHM for the ``peak+stark`` kernel.
+
+        Profiled exactly as in :meth:`_width_cost`: for each peak with a
+        frozen dominant-line Stark shape the observed Lorentzian HWHM is
+        ``gamma_inst + stark_hwhm(shape, nₑ)``, and ``gamma_inst`` is the
+        amplitude-weighted least-squares intercept at the trial nₑ, floored
+        at 0.  Falls back to the (floored) median observed HWHM when no peak
+        carries a usable Stark shape (e.g. ``c4 = 0``).
+        """
+        obs_gamma = np.asarray(self.peak_array[:, 3], dtype=float)
+        finite = np.isfinite(obs_gamma) & (obs_gamma > 0)
+        peak_shape = getattr(self, "_stark_peak_shape", None)
+        if peak_shape is not None:
+            peak_shape = np.asarray(peak_shape, dtype=float)
+            valid = finite & (peak_shape > 0)
+            if np.any(valid):
+                stark = stark_hwhm(peak_shape[valid], log_ne,
+                                   self._stark_c4, self._stark_log_ne_ref)
+                w = self._obs_amp[valid] / max(float(np.max(self._obs_amp)),
+                                               1e-300)
+                wsum = float(np.sum(w))
+                if wsum > 0:
+                    return max(
+                        float(np.sum(w * (obs_gamma[valid] - stark)) / wsum),
+                        0.0)
+        if np.any(finite):
+            return max(float(np.median(obs_gamma[finite])), 0.0)
+        return 0.0
+
+    def _build_scaled_overlap_map(
+        self, sigma: float, gamma: float, log_ne: float,
+    ) -> scipy.sparse.csr_matrix:
+        """Observed-peak overlap map for the per-peak width kernels.
+
+        ``"peak"`` -- each observed peak keeps its fitted RELATIVE width,
+        scaled by the search's global factors ``(sigma/sigma_med,
+        gamma/gamma_med)`` with ``(sigma_med, gamma_med) =
+        _median_peak_widths()``; the kernel is the height-ratio Voigt
+        ``overlap(i, j) = V(Δλ; σ_i', γ_i') / V(0; σ_i', γ_i')`` (so an
+        on-centre line of the peak's width scores 1, as for ``"median"``).
+
+        ``"peak+stark"`` -- additionally gives every database line ``j`` its
+        own profile (``σ_j = sigma`` the shared instrument Gaussian,
+        ``γ_j = γ_inst + stark_hwhm(shape_j, log_ne, c4, log_ne_ref)`` with
+        ``shape_j = LineTable.stark_shape`` and ``γ_inst`` from
+        :meth:`_kernel_gamma_inst`), and uses the normalised least-squares
+        projection of line ``j``'s profile onto peak ``i``'s template --
+        the inner product of two symmetric Voigts equals their convolution
+        at the separation:
+
+            overlap(i, j) = V(Δλ; sqrt(σ_i'^2 + σ_j^2), γ_i' + γ_j)
+                            / V(0; sqrt(2)·σ_i', 2·γ_i')
+
+        normalised so a line carrying the peak's own widths sitting on the
+        peak scores 1 (consistent with the height-ratio normalisation and
+        hence with ``_obs_amp``).  Pseudo-observation rows have no fitted
+        width and keep the shared ``(sigma, gamma)`` -- they are built
+        separately in :meth:`_rebuild_overlap`.  ``_apply_overlap_mode``
+        (conserve/nearest) is applied to the triplets exactly as for the
+        shared-width map.
+        """
+        lt = self.line_table
+        if lt is None or lt.n_lines == 0 or self.n_peaks == 0:
+            shape = (self.n_peaks, 0 if lt is None else lt.n_lines)
+            return scipy.sparse.csr_matrix(shape)
+
+        tolerance = (float(self._shift_tolerance)
+                     if self._shift_tolerance is not None else 0.2)
+        s_med, g_med = self._median_peak_widths()
+        scale_s = max(float(sigma), 1e-6) / max(s_med, 1e-6)
+        scale_g = max(float(gamma), 1e-6) / max(g_med, 1e-6)
+        sig_i = np.maximum(self.peak_array[:self.n_peaks, 2] * scale_s, 1e-6)
+        gam_i = np.maximum(self.peak_array[:self.n_peaks, 3] * scale_g, 1e-6)
+
+        stark = self._overlap_kernel == "peak+stark"
+        if stark:
+            sig_j = max(float(sigma), 1e-6)
+            shape = np.asarray(
+                getattr(lt, "stark_shape", np.zeros(lt.n_lines)), dtype=float)
+            gamma_inst = self._kernel_gamma_inst(log_ne)
+            gam_j_all = np.maximum(
+                gamma_inst + stark_hwhm(shape, log_ne, self._stark_c4,
+                                        self._stark_log_ne_ref), 0.0)
+
+        wl = lt.wavelengths
+        rows, cols, vals = [], [], []
+        for i in range(self.n_peaks):
+            si = float(sig_i[i])
+            gi = float(gam_i[i])
+            diffs = np.abs(wl - self._obs_wl[i])
+            within = np.where(diffs <= tolerance)[0]
+            if within.size == 0:
+                continue
+            d = diffs[within]
+            if stark:
+                denom = voigt(0.0, np.sqrt(2.0) * si, 2.0 * gi)
+                if denom < 1e-30:
+                    continue
+                overlaps = voigt(
+                    d, np.sqrt(si * si + sig_j * sig_j),
+                    gi + gam_j_all[within]) / denom
+            else:
+                denom = voigt(0.0, si, gi)
+                if denom < 1e-30:
+                    continue
+                overlaps = voigt(d, si, gi) / denom
+            for j, ov in zip(within, overlaps):
+                if ov > 1e-6:
+                    rows.append(i)
+                    cols.append(int(j))
+                    vals.append(float(ov))
+
+        rows, cols, vals = self._apply_overlap_mode(rows, cols, vals,
+                                                    lt.n_lines)
+        if len(rows):
+            return scipy.sparse.csr_matrix(
+                (vals, (rows, cols)), shape=(self.n_peaks, lt.n_lines))
+        return scipy.sparse.csr_matrix((self.n_peaks, lt.n_lines))
 
     def _build_design_matrix_from_map(
         self,
@@ -1702,6 +2113,9 @@ class PeakyIndexerV3:
         # stage's predicted pattern, including the ones the relative gate
         # below removes from the solve (see _stage_tie_cost)
         self._last_A_all = A
+        # state of this design matrix, for the stage thermometer's optional
+        # two-temperature / LTE-gap evaluation (_stage_tie_cost)
+        self._last_state = (float(temperature), float(log_ne), line_weight_scale)
         if A.size:
             # Per-trial relative emissivity gate: a species whose strongest
             # predicted contribution at THIS (T, ne) is below
@@ -1857,12 +2271,59 @@ class PeakyIndexerV3:
         else:
             A_pseudo_norm = np.empty((0, A.shape[1]), dtype=float)
 
+        # Soft linear stage-coupling rows inside A_aug: for each element with
+        # >=2 active stages (s1, s2), penalize w_tie * (c_real[s1] - c_real[s2])
+        # = w_tie * (c_norm[s1]/col_max[s1] - c_norm[s2]/col_max[s2]) weighted
+        # by the harmonic mean of stage column norms.
+        lam_inner = (
+            float(getattr(self, "_inner_stage_coupling_weight", 0.0))
+            * float(getattr(self, "_stage_consistency_weight", 1.0))
+        )
+        if lam_inner > 0.0 and getattr(self, "line_table", None) is not None:
+            active_indices = np.flatnonzero(active)
+            full_to_active = {int(s): idx for idx, s in enumerate(active_indices)}
+            by_el: Dict[str, List[int]] = {}
+            for s_idx in active_indices:
+                sp = self.line_table.species[int(s_idx)]
+                by_el.setdefault(sp.element, []).append(int(s_idx))
+
+            tie_rows = []
+            for el, stgs in by_el.items():
+                if len(stgs) < 2:
+                    continue
+                for k_i in range(len(stgs) - 1):
+                    s1, s2 = stgs[k_i], stgs[k_i + 1]
+                    col1 = A[:, s1] * w_data if w_data is not None else A[:, s1]
+                    col2 = A[:, s2] * w_data if w_data is not None else A[:, s2]
+                    u1 = float(np.linalg.norm(col1))
+                    u2 = float(np.linalg.norm(col2))
+                    if u1 <= 1e-30 or u2 <= 1e-30:
+                        continue
+                    w_tie = np.sqrt(lam_inner) * (u1 * u2) / np.sqrt(u1 ** 2 + u2 ** 2)
+                    row = np.zeros(len(active_indices), dtype=float)
+                    row[full_to_active[s1]] = w_tie / col_max[s1]
+                    row[full_to_active[s2]] = -w_tie / col_max[s2]
+                    tie_rows.append(row)
+
+            if tie_rows:
+                tie_block = np.vstack(tie_rows)
+                A_aug = np.vstack([A_aug, tie_block])
+                y_aug = np.concatenate(
+                    [y_aug, np.zeros(tie_block.shape[0], dtype=float)]
+                )
+
         assert A_aug.shape[0] == y_aug.shape[0], (
             f"augmented system row mismatch: A_aug has {A_aug.shape[0]} rows, "
             f"y_aug has {y_aug.shape[0]}"
         )
         telemetry.count("nnls_solves")
-        c_norm, _residual = nnls(A_aug, y_aug)
+        if (getattr(self, "_sparsity", None) is None
+                and getattr(self, "_robust_loss", None) is None):
+            c_norm, _residual = nnls(A_aug, y_aug)
+        else:
+            c_norm = _robust_sparse_solve(
+                A_aug, y_aug, int(self._obs_amp.size),
+                sparsity=self._sparsity, robust_loss=self._robust_loss)
 
         # Un-normalise the column scaling: the NNLS ran on A / col_max, so
         # c_real = c_norm / col_max recovers physical concentrations (in the
@@ -1991,7 +2452,7 @@ class PeakyIndexerV3:
             if sig is not None:
                 z = float(np.max(own / np.maximum(sig, 1e-30)))
                 detection_z[element] = z
-                if z < ELEMENT_DETECT_Z_MIN:
+                if self._detection_fdr is None and z < ELEMENT_DETECT_Z_MIN:
                     continue
             residual_el = self._obs_amp - (predicted_total - own)
             residual_w = (residual_el / sigma_eff if sigma_eff is not None
@@ -2003,6 +2464,23 @@ class PeakyIndexerV3:
                 stage_disagreement[element] = float(
                     (np.max(c_stages) - np.min(c_stages)) / np.sum(c_stages)
                 )
+
+        self._last_detection_fdr = None
+        if self._detection_fdr is not None and detection_z:
+            # FDR control replaces the hard z gate: decided over all
+            # candidates with a noise model (the per-element estimates
+            # above are independent of the other elements' admission)
+            keep, finfo = fdr_select(
+                detection_z, self._detection_fdr,
+                self._detection_fdr_method, self._detection_z_floor)
+            finfo["q"] = self._detection_fdr
+            finfo["method"] = self._detection_fdr_method
+            finfo["z_floor"] = self._detection_z_floor
+            self._last_detection_fdr = finfo
+            for el in list(element_concentrations):
+                if el in detection_z and el not in keep:
+                    element_concentrations.pop(el)
+                    stage_disagreement.pop(el, None)
 
         total = sum(element_concentrations.values())
         element_fractions = (
@@ -2071,6 +2549,8 @@ class PeakyIndexerV3:
         of elements is most nearly consistent with a single plasma; the
         per-element terms are exposed for the report.
         """
+        self._last_stage_offset_k = 0.0
+        self._last_lte_flagged = []
         concentrations = np.asarray(concentrations, dtype=float)
         A = np.asarray(A, dtype=float)
         if A.size == 0 or concentrations.size == 0:
@@ -2078,6 +2558,99 @@ class PeakyIndexerV3:
         A_all = A if A_all is None else np.asarray(A_all, dtype=float)
         if A_all.shape != A.shape:
             A_all = A
+        if self._stage_temperature_offset_max_k > 0.0 or self._lte_gap_flag:
+            return self._stage_tie_cost_options(concentrations, A, A_all)
+        return self._stage_tie_cost_core(concentrations, A, A_all)
+
+    # ------------------------------------------------------------------
+    # Optional thermometer refinements (wave 3 option C).  Both default
+    # OFF; the OFF path above calls the untouched core below.
+    # ------------------------------------------------------------------
+    def _species_delta_e(self) -> np.ndarray:
+        """Per-species LTE gap proxy dE_s [eV]: the smallest non-zero level
+        energy among the lower/upper levels of the species' table lines."""
+        lt = self.line_table
+        key = (lt.n_species, int(lt.Ek.size))
+        cache = getattr(self, "_delta_e_cache", None)
+        if cache is not None and cache[0] == key:
+            return cache[1]
+        de = np.zeros(lt.n_species, dtype=float)
+        for s in range(lt.n_species):
+            m = lt.species_idx == s
+            lev = np.concatenate([lt.Ei[m], lt.Ek[m]])
+            lev = lev[lev > 1e-6]
+            de[s] = float(lev.min()) if lev.size else 0.0
+        self._delta_e_cache = (key, de)
+        return de
+
+    @staticmethod
+    def _ne_crit(temperature: float, delta_e_ev) -> np.ndarray:
+        """McWhirter/Fujimoto critical density [cm^-3]."""
+        return 1.6e12 * np.sqrt(temperature) * np.asarray(delta_e_ev) ** 3
+
+    def _lte_flagged_mask(self, temperature: float, log_ne: float) -> np.ndarray:
+        crit = self._ne_crit(temperature, self._species_delta_e())
+        return (10.0 ** log_ne) < crit
+
+    def _stage_tie_cost_options(self, concentrations, A, A_all):
+        state = getattr(self, "_last_state", None)
+        flagged_el: set = set()
+        skip = None
+        if self._lte_gap_flag and state is not None:
+            mask = self._lte_flagged_mask(state[0], state[1])
+            sp = self.line_table.species
+            self._last_lte_flagged = [
+                f"{sp[i].element}_{sp[i].ion}" for i in np.flatnonzero(mask)]
+            skip = {sp[i].element for i in np.flatnonzero(mask)}
+        dmax = self._stage_temperature_offset_max_k
+        if dmax <= 0.0 or state is None:
+            return self._stage_tie_cost_core(
+                concentrations, A, A_all, skip_elements=skip)
+        T, log_ne, scale = state
+        lt = self.line_table
+        ion_cols = np.array([sp.ion >= 2 for sp in lt.species], dtype=bool)
+        cache: Dict[float, Tuple[float, Dict[str, float]]] = {}
+
+        def tied_at(delta: float):
+            delta = float(delta)
+            if delta in cache:
+                return cache[delta]
+            if delta == 0.0:
+                out = self._stage_tie_cost_core(
+                    concentrations, A, A_all, skip_elements=skip)
+            else:
+                lw = self._line_weights(T + delta, log_ne)
+                if scale is not None:
+                    lw = lw * scale
+                A_hot = self._build_design_matrix(lw)
+                A_tied = A_all.copy()
+                A_tied[:, ion_cols] = A_hot[:, ion_cols]
+                out = self._stage_tie_cost_core(
+                    concentrations, A, A_all, A_tied_all=A_tied,
+                    skip_elements=skip)
+            cache[delta] = out
+            return out
+
+        # 5-point grid on [0, dmax] + one parabolic refine (<= 6 evaluations)
+        grid = np.linspace(0.0, dmax, 5)
+        vals = np.array([tied_at(d)[0] for d in grid])
+        k = int(np.argmin(vals))
+        best = float(grid[k])
+        if 0 < k < 4:
+            x0, x1, x2 = grid[k - 1:k + 2]
+            y0, y1, y2 = vals[k - 1:k + 2]
+            den = (y0 - 2.0 * y1 + y2)
+            if den > 0.0:
+                xv = x1 - 0.5 * (x1 - x0) * (
+                    (y2 - y0) / den)
+                xv = float(min(max(xv, x0), x2))
+                if tied_at(xv)[0] < vals[k]:
+                    best = xv
+        self._last_stage_offset_k = best
+        return tied_at(best)
+
+    def _stage_tie_cost_core(self, concentrations, A, A_all,
+                             A_tied_all=None, skip_elements=None):
         col_max = np.max(A_all, axis=0)
         predicted_total = A @ concentrations
         obs = np.asarray(self._obs_amp, dtype=float)
@@ -2091,6 +2664,8 @@ class PeakyIndexerV3:
         per_element: Dict[str, float] = {}
         total = 0.0
         for element, s_indices in by_element.items():
+            if skip_elements and element in skip_elements:
+                continue
             supported = [s for s in s_indices if col_max[s] > 1e-30]
             if len(supported) < 2:
                 continue
@@ -2100,7 +2675,8 @@ class PeakyIndexerV3:
             a_st = A_all[:, supported]
             own = A[:, supported] @ c_st
             r_el = obs - (predicted_total - own)
-            a_tied = np.sum(a_st, axis=1)
+            a_tied = np.sum(a_st if A_tied_all is None
+                            else A_tied_all[:, supported], axis=1)
             if w is not None:
                 r_el = r_el * w
                 a_st = a_st * w[:, np.newaxis]
@@ -2157,7 +2733,7 @@ class PeakyIndexerV3:
             telemetry.count("prune_refits")
             self.line_table.filter_species(keep_mask)
             self._select_pseudo_wavelengths(temperature, log_ne)
-            self._rebuild_overlap(sigma, gamma)
+            self._rebuild_overlap(sigma, gamma, log_ne)
             concentrations, cost = self._solve_concentrations(temperature, log_ne)
 
         return concentrations, cost
@@ -2238,7 +2814,7 @@ class PeakyIndexerV3:
         T, log_ne, sigma, gamma = params[:4]
 
         telemetry.count("outer_objective_evals")
-        self._rebuild_overlap(sigma, gamma)
+        self._rebuild_overlap(sigma, gamma, log_ne)
 
         c, cost = self._solve_concentrations(T, log_ne)
         cost += self._width_cost(log_ne)
@@ -2276,15 +2852,20 @@ class PeakyIndexerV3:
     #: entries turns its 2 x nodes map builds into 2 total.
     _OVERLAP_CACHE_MAX = 16
 
-    def _rebuild_overlap(self, sigma: float, gamma: float):
+    def _rebuild_overlap(self, sigma: float, gamma: float,
+                         log_ne: Optional[float] = None):
         """Set the peak-line overlap matrices for this broadening.
 
-        The maps depend only on (sigma, gamma) given the current candidate
-        table, NOT on (T, ne) — so (T, ne)-only moves are served from a
-        cache.  The key fingerprints the candidate-table state (identity +
-        line/species counts + pseudo positions), which changes on every
-        ``build_candidate_matrix`` and every evidence prune, so stale hits
-        are impossible without invalidation hooks at each mutation site.
+        For the ``"median"`` and ``"peak"`` kernels the maps depend only on
+        (sigma, gamma) given the current candidate table, NOT on (T, ne) — so
+        (T, ne)-only moves are served from a cache.  The ``"peak+stark"``
+        kernel gives every line an nₑ-dependent Stark width, so its key also
+        carries ``log_ne`` bucketed to 0.05 dex (T-only moves still hit); the
+        nₑ-independent kernels key on ``None`` there, so their cache behaviour
+        is unchanged.  The key fingerprints the candidate-table state (identity
+        + line/species counts + pseudo positions + kernel), which changes on
+        every ``build_candidate_matrix`` and every evidence prune, so stale
+        hits are impossible without invalidation hooks at each mutation site.
         """
         lt = self.line_table
         if lt is None:
@@ -2292,19 +2873,31 @@ class PeakyIndexerV3:
         cache = getattr(self, "_overlap_cache", None)
         if cache is None:
             cache = self._overlap_cache = {}
+        if self._overlap_kernel == "peak+stark":
+            ne_val = self.ne_init if log_ne is None else float(log_ne)
+            ne_key = round(round(float(ne_val) / 0.05) * 0.05, 6)
+        else:
+            ne_key = None
         key = (round(float(sigma), 12), round(float(gamma), 12),
                None if self._shift_tolerance is None
                else float(self._shift_tolerance),
                id(lt), int(getattr(lt, "n_lines", -1)),
                int(getattr(lt, "n_species", -1)),
-               self._pseudo_wavelengths.tobytes())
+               self._pseudo_wavelengths.tobytes(),
+               self._overlap_kernel, ne_key)
         hit = cache.get(key)
         if hit is not None:
             telemetry.count("overlap_cache_hits")
             self.peak_line_map, self.pseudo_line_map = hit
             return
         telemetry.count("overlap_rebuilds")
-        self.peak_line_map = self._build_overlap_map(self._obs_wl, sigma, gamma)
+        if self._overlap_kernel == "median":
+            self.peak_line_map = self._build_overlap_map(
+                self._obs_wl, sigma, gamma, apply_mode=True)
+        else:
+            self.peak_line_map = self._build_scaled_overlap_map(
+                sigma, gamma,
+                self.ne_init if log_ne is None else float(log_ne))
         self.pseudo_line_map = self._build_overlap_map(
             self._pseudo_wavelengths,
             sigma,
@@ -2440,6 +3033,10 @@ class PeakyIndexerV3:
         elif search != "gp":
             raise ValueError(f"unknown search mode {search!r}; use 'gp' or 'grid'")
 
+        bo_kwargs = {}
+        if getattr(self, "_bo_settings", None) == "matern52":
+            dimensions, bo_kwargs = self._bo_matern52(
+                dimensions, random_state, len(y0) if y0 else 0)
         result = gp_minimize(
             objective,
             dimensions,
@@ -2449,6 +3046,7 @@ class PeakyIndexerV3:
             y0=y0,
             random_state=random_state,
             verbose=False,
+            **bo_kwargs,
         )
 
         # Extract best parameters
@@ -2466,6 +3064,13 @@ class PeakyIndexerV3:
                 grid_nodes, best_params, T_bounds, ne_bounds,
                 verbose=verbose)
 
+        polish_info = None
+        self._outer_polish_info = None
+        if getattr(self, "_outer_polish", None) and self._outer_polish_maxfev > 0:
+            best_params, polish_info = self._polish_outer(
+                objective, best_params, dimensions, verbose=verbose)
+            self._outer_polish_info = polish_info
+
         best_T, best_ne, best_sigma, best_gamma = best_params[:4]
         if self._sa_fit and best_params.size >= 5:
             self._sa_tau_scale = float(10.0 ** best_params[4])
@@ -2474,7 +3079,7 @@ class PeakyIndexerV3:
                   f"σ={best_sigma:.4f}, γ={best_gamma:.4f}")
 
         # Final solve at best parameters (per-peak sigma/gamma are preserved)
-        self._rebuild_overlap(best_sigma, best_gamma)
+        self._rebuild_overlap(best_sigma, best_gamma, best_ne)
         concentrations, cost = self._solve_concentrations(best_T, best_ne)
         concentrations, cost = self._prune_and_refit(
             best_T,
@@ -2491,6 +3096,9 @@ class PeakyIndexerV3:
             'best_params': list(best_params),
             'all_costs': result.func_vals.tolist(),
         }
+        if bo_kwargs:
+            extra['bo_settings'] = self._bo_settings
+            extra['bo_n_calls_used'] = int(len(result.func_vals))
         if bic_info is not None:
             extra.update(bic_info)
         return self._build_result(
@@ -2499,9 +3107,150 @@ class PeakyIndexerV3:
             verbose=verbose,
         )
 
+    #: early-stop rule of ``bo_settings="matern52"`` (see _bo_matern52)
+    BO_STOP_WINDOW = 5
+    BO_STOP_REL = 0.005
+    BO_MIN_CALLS = 6
+
+    @classmethod
+    def _bo_stopper(cls, n_seeded=0):
+        """skopt callback: stop when the best cost improved by < 0.5 % of
+        the current best over the last 5 calls (and >= 6 calls were made).
+
+        Exact rule on the running-minimum trace ``m`` (grid seeds x0/y0 are
+        part of ``func_vals`` but are NOT counted as calls): with
+        ``len(m) - n_seeded >= 6`` and ``m[-1] < m[n_seeded - 1]`` (some BO
+        call has beaten the grid seeds -- a flat trace on the seeds is a
+        failed search, not convergence), stop iff
+        ``m[-6] - m[-1] < 0.005 * |m[-1]|``.  This
+        is skopt's ``DeltaYStopper(n_best=2, delta)`` generalised to a
+        relative window; ``DeltaYStopper`` itself needs an absolute delta,
+        so it is subclassed with a relative threshold.
+        """
+        from skopt.callbacks import DeltaYStopper
+
+        window, rel, floor = cls.BO_STOP_WINDOW, cls.BO_STOP_REL, cls.BO_MIN_CALLS
+
+        class _RelStopper(DeltaYStopper):
+            def __call__(self, result):
+                ys = np.minimum.accumulate(np.asarray(result.func_vals, float))
+                if len(ys) - n_seeded < max(floor, window + 1):
+                    return False
+                best = float(ys[-1])
+                if not best < float(ys[n_seeded - 1] if n_seeded else np.inf):
+                    return False       # no BO call has beaten the grid seeds
+                return bool(ys[-window - 1] - best < rel * abs(best))
+
+        return _RelStopper(delta=0.0, n_best=2)
+
+    def _bo_matern52(self, dimensions, random_state, n_seeded=0):
+        """Matern-5/2 GP surrogate, EI acquisition, normalised dimensions.
+
+        Returns ``(dimensions, gp_minimize kwargs)``.  Dimensions become
+        ``transform="normalize"``; sigma/gamma (indices 2, 3) use a
+        log-uniform prior when their bounds span more than a decade.  The
+        kernel is ConstantKernel * Matern(nu=2.5, ARD) + WhiteKernel with
+        ``normalize_y=True``.  Grid seeding (x0/y0) and ``random_state`` are
+        untouched; ``n_seeded`` = number of seed points (excluded from the
+        early-stop call count).
+        """
+        from skopt.learning import GaussianProcessRegressor
+        from skopt.learning.gaussian_process.kernels import (
+            ConstantKernel, Matern, WhiteKernel)
+        from skopt.space import Real
+
+        dims = []
+        for i, d in enumerate(dimensions):
+            prior = "uniform"
+            if i in (2, 3) and d.low > 0 and d.high / d.low > 10.0:
+                prior = "log-uniform"
+            dims.append(Real(d.low, d.high, prior=prior,
+                             transform="normalize", name=d.name))
+        kernel = (ConstantKernel(1.0, (1e-3, 1e3))
+                  * Matern(length_scale=np.ones(len(dims)),
+                           length_scale_bounds=[(1e-2, 1e2)] * len(dims),
+                           nu=2.5)
+                  + WhiteKernel(1e-5, (1e-10, 1e-1)))
+        gp = GaussianProcessRegressor(
+            kernel=kernel, normalize_y=True, noise="gaussian",
+            n_restarts_optimizer=2, random_state=random_state)
+        return dims, dict(base_estimator=gp, acq_func="EI",
+                          callback=[self._bo_stopper(n_seeded)])
+
     #: ΔBIC below which the runner-up basin is considered a live
     #: alternative (Kass-Raftery "positive" evidence threshold).
     BIC_AMBIGUITY = 6.0
+
+    def _polish_outer(self, objective, x0, dimensions, verbose=False):
+        """Gated local polish of the outer state after the GP search.
+
+        Powell (native bounds) or Nelder-Mead (penalty outside the box) on
+        the same closure the GP optimised.  The polished point is accepted
+        only if its objective is strictly lower than the GP best, both
+        evaluated through the same closure.
+        """
+        from scipy.optimize import minimize
+        method = self._outer_polish
+        maxfev = int(self._outer_polish_maxfev)
+        x0 = np.asarray(x0, dtype=float)
+        lo = np.array([d.low for d in dimensions], dtype=float)
+        hi = np.array([d.high for d in dimensions], dtype=float)
+        n = x0.size
+        x0c = np.clip(x0, lo, hi)
+        cost_before = float(objective(list(x0c)))
+        tol_x = np.array([5.0, 0.01, 1e-4, 1e-4, 0.01])[:n]
+        n_fev = [0]
+        big = max(1e6, 1e3 * abs(cost_before))
+
+        def f(x):
+            n_fev[0] += 1
+            x = np.asarray(x, dtype=float)
+            if np.any(x < lo) or np.any(x > hi):
+                return big
+            return float(objective(list(x)))
+
+        try:
+            if method == "powell":
+                res = minimize(f, x0c, method="Powell",
+                               bounds=list(zip(lo, hi)),
+                               options={"maxfev": maxfev,
+                                        "xtol": float(np.min(tol_x / (hi - lo))),
+                                        "ftol": 1e-6})
+            else:
+                res = minimize(f, x0c, method="Nelder-Mead",
+                               options={"maxfev": maxfev,
+                                        "xatol": float(np.min(tol_x)),
+                                        "fatol": 1e-8,
+                                        "initial_simplex": self._nm_simplex(
+                                            x0c, lo, hi)})
+            x1 = np.clip(np.asarray(res.x, dtype=float), lo, hi)
+            cost_after = float(objective(list(x1)))
+        except Exception as exc:    # polish must never break the run
+            if verbose:
+                print(f"  outer polish failed: {exc}")
+            return x0, {"method": method, "n_fev": int(n_fev[0]),
+                        "cost_before": cost_before, "cost_after": None,
+                        "accepted": False,
+                        "delta": [0.0] * n, "error": str(exc)}
+        accepted = bool(np.isfinite(cost_after) and cost_after < cost_before)
+        info = {"method": method, "n_fev": int(n_fev[0]),
+                "cost_before": cost_before, "cost_after": cost_after,
+                "accepted": accepted,
+                "delta": [float(v) for v in (x1 - x0c)]}
+        if verbose:
+            print(f"  outer polish ({method}): {cost_before:.4e} -> "
+                  f"{cost_after:.4e} accepted={accepted}")
+        return (x1 if accepted else x0), info
+
+    @staticmethod
+    def _nm_simplex(x0, lo, hi):
+        """Initial simplex of ~5% of each box width, kept inside the box."""
+        n = x0.size
+        sim = np.tile(x0, (n + 1, 1))
+        for k in range(n):
+            step = 0.05 * (hi[k] - lo[k])
+            sim[k + 1, k] = x0[k] + step if x0[k] + step <= hi[k] else x0[k] - step
+        return sim
 
     def _select_basin_bic(self, grid_nodes, gp_best, T_bounds, ne_bounds,
                           verbose=False):
@@ -2572,11 +3321,15 @@ class PeakyIndexerV3:
             if not _duplicate(p, candidates):
                 candidates.append(p)
 
+        # N here is the PEAK count, not a pixel count: fitted peak areas are
+        # separate parameters-of-interest and are not lag-correlated by the
+        # export-grid interpolation, so ``bic_effective_n`` (a pixel
+        # autocorrelation correction) deliberately does NOT rescale it.
         n_obs = max(int(self.n_peaks), 2)
         log_n = np.log(n_obs)
         scored = []
         for p in candidates:
-            self._rebuild_overlap(float(p[2]), float(p[3]))
+            self._rebuild_overlap(float(p[2]), float(p[3]), float(p[1]))
             c, cost = self._solve_concentrations(float(p[0]), float(p[1]))
             cost += self._ne_prior_cost(float(p[1]))
             cost += self._stage_consistency_cost(c)
@@ -2595,7 +3348,7 @@ class PeakyIndexerV3:
         post_m2: Dict[str, float] = {}
         for idx in keep:
             p = gx[idx]
-            self._rebuild_overlap(float(p[2]), float(p[3]))
+            self._rebuild_overlap(float(p[2]), float(p[3]), float(p[1]))
             c, _cost = self._solve_concentrations(float(p[0]), float(p[1]))
             _conc, fr, _dis = self._aggregate_elements(
                 c, self._last_A, amp_sigma=self._amp_sigma)
@@ -2687,7 +3440,7 @@ class PeakyIndexerV3:
         """
         if self.n_peaks == 0:
             return self._empty_result("empty_peak_table")
-        self._rebuild_overlap(sigma, gamma)
+        self._rebuild_overlap(sigma, gamma, log_ne)
         concentrations, cost = self._solve_concentrations(temperature, log_ne)
         concentrations, cost = self._prune_and_refit(
             temperature, log_ne, sigma, gamma, concentrations, cost)
@@ -2789,10 +3542,23 @@ class PeakyIndexerV3:
             'physical_triage': getattr(self, '_triage_report', None),
             'stage_consistency_weight': self._stage_consistency_weight,
             'stage_tie_cost': tie_total,
+            **({'stage_temperature_offset_k': float(self._last_stage_offset_k)}
+               if self._stage_temperature_offset_max_k > 0.0 else {}),
+            **({'lte_flagged_species': list(self._last_lte_flagged)}
+               if self._lte_gap_flag else {}),
             'stage_tie_by_element': {el: float(v) for el, v in
                                      sorted(tie_by_element.items())},
             'gamma_inst': self._last_gamma_inst,
             'detection_z': dict(self._last_detection_z),
+            **({'detection_fdr_q': self._last_detection_fdr['q'],
+                'detection_fdr_method': self._last_detection_fdr['method'],
+                'detection_fdr_threshold_z':
+                    self._last_detection_fdr['threshold_z'],
+                'detection_m': self._last_detection_fdr['m'],
+                'detection_z_floor': self._last_detection_fdr['z_floor'],
+                'detection_q_value': dict(
+                    self._last_detection_fdr['q_values'])}
+               if self._last_detection_fdr is not None else {}),
             'sa_tau_scale': self._sa_tau_scale if self._sa_tau_scale > 0 else None,
             'sa_converged': self._last_sa_converged,
             'sa_doublet_taus': {
@@ -2807,6 +3573,8 @@ class PeakyIndexerV3:
                 if self._sa_fit else None
             ),
         }
+        if getattr(self, '_outer_polish_info', None) is not None:
+            convergence_info['outer_polish'] = self._outer_polish_info
         if extra_convergence:
             convergence_info.update(extra_convergence)
 
@@ -2854,6 +3622,8 @@ class PeakyIndexerV3:
         evidence_min_net: float = 0.0,
         evidence_max_refits: int = 2,
         stark_width_weight: float = 0.0,
+        outer_polish: Optional[str] = None,
+        outer_polish_maxfev: int = 40,
         stark_c4: float = 1e-4,
         stark_log_ne_ref: float = 17.0,
         sa_tau_scale: float = 0.0,
@@ -2915,6 +3685,8 @@ class PeakyIndexerV3:
             evidence_min_net=evidence_min_net,
             evidence_max_refits=evidence_max_refits,
             stark_width_weight=stark_width_weight,
+            outer_polish=outer_polish,
+            outer_polish_maxfev=outer_polish_maxfev,
             stark_c4=stark_c4,
             stark_log_ne_ref=stark_log_ne_ref,
             sa_tau_scale=sa_tau_scale,

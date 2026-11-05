@@ -42,6 +42,7 @@ build-whole-rock-prior = "scripts.build_whole_rock_prior:main"
 run-mw2-112 = "scripts.run_mw2_112:main"
 build-mw2-112-relative-profiles = "scripts.build_mw2_112_relative_profiles:main"
 mw2-112 = "scripts.mw2_112:main"
+fit-quality-panel = "scripts.fit_quality_panel:main"
 
 [tool.setuptools.packages.find]
 include = ["alibz*", "scripts*"]
@@ -53,6 +54,7 @@ include = ["alibz*", "scripts*"]
     "db/el_lines92.pickle",
     "db/no_lines26.pickle",
     "db/observed_lines_nist.tsv",
+    "db/partition_barklem2016.npz",
     "db/quantitative_lines_se_th_u.tsv",
     "db/whole_rock_element_ranges.csv",
     "db/whole_rock_carbonate_volatile_prior_v1.npz",

@@ -55,9 +55,13 @@ def make_scene(composition: Mapping[str, float], temperature_k: float = 10_000.0
                continuum_scale: float = DEFAULT_CONTINUUM_SCALE,
                argon_fraction: Optional[float] = None,
                dbpath: str = "db",
-               sb: Optional[SahaBoltzmann] = None) -> SyntheticScene:
+               sb: Optional[SahaBoltzmann] = None,
+               partition_source: str = "lines",
+               ipd: Optional[str] = None) -> SyntheticScene:
     """Build a Saha-consistent scene; ``argon_fraction`` adds an air/argon
     ambient component (the argon-vs-air validation axis)."""
+    if sb is None and (partition_source != "lines" or ipd is not None):
+        sb = SahaBoltzmann(dbpath, partition_source=partition_source, ipd=ipd)
     stage_map = saha_stage_map(composition, temperature_k, log_ne_cm3,
                                dbpath=dbpath, sb=sb)
     target = PlasmaComponent.from_mapping(
@@ -86,7 +90,9 @@ def make_scene(composition: Mapping[str, float], temperature_k: float = 10_000.0
     return SyntheticScene(target=target, ambient_gas=ambient, seed=int(seed),
                           metadata={"truth_composition": dict(composition),
                                     "truth_temperature_k": temperature_k,
-                                    "truth_log_ne_cm3": log_ne_cm3})
+                                    "truth_log_ne_cm3": log_ne_cm3,
+                                    "partition_source": partition_source,
+                                    "ipd": ipd})
 
 
 def render_case(composition: Mapping[str, float], seed: int = 0,
@@ -94,8 +100,10 @@ def render_case(composition: Mapping[str, float], seed: int = 0,
                 generator: Optional[SyntheticSpectrumGenerator] = None,
                 **scene_kwargs):
     """Render one case; returns ``(x, y, scene)``."""
+    partition_source = scene_kwargs.get("partition_source", "lines")
     generator = (generator if generator is not None
-                 else SyntheticSpectrumGenerator(dbpath))
+                 else SyntheticSpectrumGenerator(
+                     dbpath, partition_source=partition_source))
     scene = make_scene(composition, seed=seed, dbpath=dbpath, **scene_kwargs)
     spectrum = generator.render(scene, add_noise=add_noise)
     return spectrum.wavelength_nm, spectrum.intensity_counts, scene

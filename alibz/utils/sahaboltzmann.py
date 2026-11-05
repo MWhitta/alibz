@@ -1,10 +1,49 @@
-from typing import List, Tuple
+import logging
+from typing import List, Optional, Tuple
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from alibz.utils.database import Database
 from alibz.utils.constants import BOLTZMANN, PLANCK, SPEED_OF_LIGHT, ELECTRON_MASS
+
+_LOG = logging.getLogger(__name__)
+
+#: Elementary charge (C) and vacuum permittivity (F/m), CODATA 2018; used only
+#: by the opt-in Debye ionization-potential depression.
+_E_CHARGE = 1.602176634e-19
+_EPS0 = 8.8541878128e-12
+
+PARTITION_SOURCES = ("lines", "barklem2016")
+IPD_MODELS = (None, "debye")
+_BARKLEM_FILE = "partition_barklem2016.npz"
+_ROMAN = ("", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+
+
+def _roman(n: int) -> str:
+    """Roman numeral for an ion label 1..39 (1 = neutral)."""
+    n = int(n)
+    out = ""
+    for v, r in ((100, "C"), (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"),
+                 (5, "V"), (4, "IV"), (1, "I")):
+        while n >= v:
+            out += r
+            n -= v
+    return out
+
+
+def debye_length_m(temperature_K, ne_cm3):
+    """Electron Debye length lambda_D = sqrt(eps0 k T / (n_e e^2)) in metres."""
+    kT_J = BOLTZMANN * _E_CHARGE * np.asarray(temperature_K, dtype=float)
+    return np.sqrt(_EPS0 * kT_J / (np.asarray(ne_cm3, dtype=float) * 1e6 * _E_CHARGE**2))
+
+
+def debye_ipd_eV(temperature_K, ne_cm3, charge=0):
+    """Debye ionization-potential depression, in eV, of an ion of the given
+    charge z (z = 0 neutral) being ionized: (z + 1) e^2 / (4 pi eps0 lambda_D).
+    Electrons only (no ion-sphere or Griem terms)."""
+    lam = debye_length_m(temperature_K, ne_cm3)
+    return (np.asarray(charge, dtype=float) + 1.0) * _E_CHARGE / (4 * np.pi * _EPS0 * lam)
 
 
 def line_emissivity(
@@ -47,7 +86,22 @@ class SahaBoltzmann():
     """ Calculate ionization distribution and partition functions using the Saha-Boltzmann equation
     """
 
-    def __init__(self, dbpath='db', temperature_lo=10000, temperature_hi=10500, temperature_inc=500, ne_lo=0., ne_hi=25., ne_step=1) -> None:
+    def __init__(self, dbpath='db', temperature_lo=10000, temperature_hi=10500, temperature_inc=500, ne_lo=0., ne_hi=25., ne_step=1,
+                 partition_source: str = "lines", ipd: Optional[str] = None) -> None:
+        if partition_source not in PARTITION_SOURCES:
+            raise ValueError(f"partition_source must be one of {PARTITION_SOURCES}, got {partition_source!r}")
+        if ipd not in IPD_MODELS:
+            raise ValueError(f"ipd must be one of {IPD_MODELS}, got {ipd!r}")
+        #: ``"lines"`` (default, line-derived level sum) or ``"barklem2016"``.
+        self.partition_source = partition_source
+        #: ``None`` (default) or ``"debye"`` ionization-potential depression.
+        self.ipd = ipd
+        #: Set True when a tabulated partition function was evaluated above
+        #: the 10 000 K table edge (log-linear extrapolation).  Reset by
+        #: :meth:`reset_partition_flags`; the pipeline reports it.
+        self.partition_extrapolated = False
+        self._barklem = None
+        self._barklem_missing = set()
         # database
         self.db = Database(dbpath)
 
@@ -148,8 +202,55 @@ class SahaBoltzmann():
         return cached
 
 
+    def reset_partition_flags(self) -> None:
+        self.partition_extrapolated = False
+
+    def _barklem_table(self):
+        if self._barklem is None:
+            path = self.db.dbpath / _BARKLEM_FILE
+            d = np.load(path)
+            self._barklem = (
+                {str(sp): i for i, sp in enumerate(d["species"])},
+                np.asarray(d["T_K"], dtype=float),
+                np.asarray(d["lnU"], dtype=float),
+            )
+        return self._barklem
+
+    def _barklem_partition(self, element, ion_label, temperature):
+        """Tabulated U(T) for one stage, or None if the species is absent.
+
+        ln U is interpolated linearly in T on the table grid (42 nodes,
+        1e-5 .. 1e4 K).  Above 1e4 K ln U is extrapolated linearly from the
+        last two nodes and ``partition_extrapolated`` is set (the Z300 plasma
+        reaches ~12 kK, so this is exercised in practice).
+        """
+        index, grid, lnU = self._barklem_table()
+        name = f"{element}_{_roman(ion_label)}"
+        row = index.get(name)
+        if row is None:
+            if name not in self._barklem_missing:
+                # one WARNING per run (first missing species); the rest at DEBUG
+                _LOG.log(logging.WARNING if not self._barklem_missing else logging.DEBUG,
+                         "partition_source='barklem2016': %s not in table; using line-sum "
+                         "partition function (further misses logged at DEBUG)", name)
+                self._barklem_missing.add(name)
+            return None
+        y = lnU[row]
+        out = np.interp(temperature, grid, y)
+        hi = temperature > grid[-1]
+        if np.any(hi):
+            slope = (y[-1] - y[-2]) / (grid[-1] - grid[-2])
+            out = np.where(hi, y[-1] + slope * (temperature - grid[-1]), out)
+            self.partition_extrapolated = True
+        return np.exp(out)
+
     def partition(self, element, temperature, ion=None):
         """Return stage partition functions derived from the line database.
+
+        With ``partition_source='barklem2016'`` the returned ``Zi`` is instead
+        the tabulated Barklem & Collet (2016) value for every stage present in
+        the table (``level_weights`` stay line-derived and are informational
+        only).
 
         The partition function is built from the union of lower and upper
         levels present in the line list for each ion stage:
@@ -197,6 +298,12 @@ class SahaBoltzmann():
             Zie = level_degeneracy[None, :] * np.exp(-level_energy[None, :] / kT)
             Zi[:, ii] = np.sum(Zie, axis=-1)
             level_weights.append(Zie)
+
+        if self.partition_source == "barklem2016":
+            for ii, label in enumerate(ions):
+                tab = self._barklem_partition(element, label, temperature)
+                if tab is not None:
+                    Zi[:, ii] = tab
 
         if ion is None:
             return Zi, level_weights
@@ -253,6 +360,15 @@ class SahaBoltzmann():
             Eind = Eion[:, 1] == ion_stage - 1
             if np.any(Eind):
                 Ei[:, ii] = Eion[Eind, -1][0]
+
+        if self.ipd == "debye":
+            # Debye depression of the lower stage's ionization energy; the
+            # stage label is 1-based (1 = neutral, charge z = label - 1), so
+            # the depression is (z + 1) * e^2 / (4 pi eps0 lambda_D).
+            lam_D = debye_length_m(temperature, 10**ne_log10)
+            unit = _E_CHARGE / (4 * np.pi * _EPS0 * lam_D)  # eV per unit charge
+            dchi = ions[:-1][None, :] * unit[:, None]
+            Ei = Ei - dchi
 
         saha_prefactor = 2.0 * lamb[:, 0]**-3 / ne_m3
         min_partition = 10.0 ** (-decimal_precision)

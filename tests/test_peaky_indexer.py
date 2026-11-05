@@ -109,7 +109,7 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
             return np.array([1.0]), 0.0
 
         idx._solve_concentrations = fake_solve
-        idx._rebuild_overlap = lambda _sigma, _gamma: None
+        idx._rebuild_overlap = lambda _sigma, _gamma, _log_ne=None: None
 
         with patch(
             "skopt.gp_minimize",
@@ -141,7 +141,7 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         idx._sa_doublet_info = {}
         idx._sa_log_tau_bounds = (-2.0, 3.0)
         idx._last_sa_converged = None
-        idx._rebuild_overlap = lambda _sigma, _gamma: None
+        idx._rebuild_overlap = lambda _sigma, _gamma, _log_ne=None: None
         idx._width_cost = lambda _log_ne: 0.0
 
         def fake_solve(_temperature, _log_ne):
@@ -578,7 +578,7 @@ class TestPeakyIndexerPublicApi(unittest.TestCase):
         idx.line_table = _FakeLineTable([], wavelengths=[], species_idx=[])
         idx.peak_line_map = scipy.sparse.csr_matrix((1, 0))
         idx._line_weights = lambda _temperature, _log_ne: np.empty(0, dtype=float)
-        idx._rebuild_overlap = lambda _sigma, _gamma: None
+        idx._rebuild_overlap = lambda _sigma, _gamma, _log_ne=None: None
 
         with patch(
             "skopt.gp_minimize",

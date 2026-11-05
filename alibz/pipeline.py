@@ -83,6 +83,7 @@ stayed flat — far beyond ``<El>_unc`` — so treat flagged samples' alkali
 values as model-limited, not noise-limited.
 """
 
+import copy
 import csv
 import glob
 import json
@@ -127,6 +128,7 @@ from alibz.detections import (  # noqa: F401
 )
 from alibz import telemetry
 from alibz.peaky_indexer_v3 import STAGE_CONSISTENCY_WEIGHT
+from alibz.peaky_indexer_v3 import FitResult as _FitResult
 
 DEFAULT_PATTERN = "*.csv"
 DEFAULT_N_CALLS = 40
@@ -249,6 +251,36 @@ class AnalysisConfig:
     #: true plasma state but its chi-squared still misranks T; off until
     #: that bias is resolved against suite S.
     weighted_solve: bool = False
+    #: opt-in FDR control of the per-element detection gate (None = z >= 3)
+    detection_fdr: Optional[float] = None
+    detection_fdr_method: str = "bh"
+    #: opt-in sparse solve: None | "adaptive-lasso" (PeakyIndexerV3 sparsity)
+    sparsity: Optional[str] = None
+    #: opt-in robust loss: None | "huber" (IRLS; PeakyIndexerV3 robust_loss)
+    robust_loss: Optional[str] = None
+    #: opt-in GP-BO settings: None | "matern52" (PeakyIndexerV3 bo_settings)
+    bo_settings: Optional[str] = None
+    #: opt-in BIC effective-n: None | rho (lag-1 autocorr) | "auto" (0.92 on
+    #: the 1/30 nm export grid, 0 on native); see refinement.resolve_bic_rho
+    bic_effective_n: Optional[object] = None
+    #: partition function source: "lines" (default) | "barklem2016" (tabulated)
+    partition_source: str = "barklem2016"
+    #: ionization-potential depression: None (default) | "debye"
+    ipd: Optional[str] = "debye"
+    inner_stage_coupling_weight: float = 0.0
+    stark_width_weight: float = 0.0
+    #: design-matrix overlap accounting (PeakyIndexerV3 overlap_mode):
+    #: "legacy" (default) | "conserve" | "nearest" — stop a database line
+    #: being replicated across the peaks it touches (see the composition-bias
+    #: debug report 2026-11-03).
+    overlap_mode: str = "conserve"
+    #: wave-3 model options (2026-11-04), OFF by default; scored on the
+    #: fit-quality panel before any default flip (reports/2026-11-04-w3-*.md)
+    overlap_kernel: str = "median"
+    outer_polish: Optional[str] = None
+    outer_polish_maxfev: int = 40
+    stage_temperature_offset_max_k: float = 0.0
+    lte_gap_flag: bool = False
     #: stage-consistency thermometer weight (PeakyIndexerV3._stage_tie_cost)
     stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT
     physical_triage: str = "off"
@@ -272,6 +304,11 @@ class AnalysisConfig:
     segment_response_fallback_uncertainty: Optional[float] = None
     segment_shift_offsets_nm: Optional[Tuple[float, ...]] = None
     segment_shift_prior_nm: Optional[Tuple[float, ...]] = None
+    #: opt-in per-stage capture for manuscript figures: when True the
+    #: analysis dict gains a ``"stages"`` list snapshotting the production
+    #: chain stage by stage (see :func:`analyze_spectrum`).  False leaves
+    #: the returned dict byte-identical.
+    capture_stages: bool = False
 
     @staticmethod
     def _tuple_or_none(seq: Optional[Sequence[float]]
@@ -410,13 +447,18 @@ def _get_db(dbpath: str):
     return db
 
 
-def _get_sb(dbpath: str):
-    """Per-process SahaBoltzmann singleton (level caches are expensive)."""
+def _get_sb(dbpath: str, partition_source: str = "barklem2016", ipd: Optional[str] = "debye"):
+    """Per-process SahaBoltzmann singleton (level caches are expensive).
+
+    One instance per (dbpath, partition_source, ipd); the defaults keep the
+    original ``(dbpath, "sb")`` key.
+    """
     from alibz.utils.sahaboltzmann import SahaBoltzmann
-    key = (dbpath, "sb")
+    key = (dbpath, "sb") if (partition_source == "lines" and ipd is None) \
+        else (dbpath, "sb", partition_source, ipd)
     sb = _DB_CACHE.get(key)
     if sb is None:
-        sb = SahaBoltzmann(dbpath)
+        sb = SahaBoltzmann(dbpath, partition_source=partition_source, ipd=ipd)
         _DB_CACHE[key] = sb
     return sb
 
@@ -516,6 +558,104 @@ def _halpha_ne(peak_array: np.ndarray):
     return 0.5 * (bounds[0] + bounds[1]), bounds
 
 
+# ---------------------------------------------------------------------------
+# Optional per-stage capture (manuscript figures)
+# ---------------------------------------------------------------------------
+#: documented pipeline order of the stage snapshots.  The ``stages`` list is
+#: stable-sorted by this map before return, so the snapshots appear in this
+#: order regardless of the order they were taken at (data-only refinement is
+#: TAKEN before the per-segment registration finishes, but is reported after,
+#: matching the "3a before 3b after pass 1" numbering in the stage labels).
+_STAGE_ORDER = {
+    "blind_fit": 0, "registration": 1, "refine_data": 2, "pass1": 3,
+    "refine_physics": 4, "seed": 5, "recover": 6, "deblend": 7,
+    "pass2": 8, "deepen": 9, "deepen_final": 10, "sa_recovery": 11,
+    "detections": 12,
+}
+
+
+def _copy_fit(fit):
+    """Decouple a ``fit`` dict from later in-place mutation.
+
+    Shallow dict copy; every array-valued entry (``sorted_parameter_array``,
+    ``background``, and any other ndarray) is copied so a later stage that
+    rewrites the table does not change the snapshot.  Non-array nested values
+    are left shared (they are not mutated in place downstream).
+    """
+    if fit is None:
+        return None
+    out = dict(fit)
+    for k, v in out.items():
+        if isinstance(v, np.ndarray):
+            out[k] = np.array(v, copy=True)
+    return out
+
+
+def _snap_copy(v):
+    """Decouple one snapshot payload value from later mutation.
+
+    FitResults are stored by reference (they are never mutated after
+    creation — the SA/deepen re-solves return fresh dataclasses); arrays are
+    copied; decision/record lists and plasma-state dicts are deep-copied.
+    """
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return v
+    if isinstance(v, np.ndarray):
+        return np.array(v, copy=True)
+    if isinstance(v, _FitResult):
+        return v
+    try:
+        return copy.deepcopy(v)
+    except Exception:  # pragma: no cover - defensive; keep the reference
+        return v
+
+
+def _snap(stages, *, stage, label, fit=None, n_peaks=None, **payload):
+    """Append one stage snapshot to ``stages`` (no-op when ``stages`` is None).
+
+    ``fit`` (if given) is copied via :func:`_copy_fit` and its peak count is
+    recorded as ``n_peaks``; an explicit ``n_peaks`` overrides it for stages
+    that carry no fit table.  Every other payload value is decoupled via
+    :func:`_snap_copy`.
+    """
+    if stages is None:
+        return
+    snap = {"stage": stage, "label": label}
+    if fit is not None:
+        cfit = _copy_fit(fit)
+        snap["fit"] = cfit
+        arr = np.asarray(cfit.get("sorted_parameter_array"))
+        snap["n_peaks"] = int(arr.shape[0]) if arr.ndim >= 1 else 0
+    if n_peaks is not None:
+        snap["n_peaks"] = int(n_peaks)
+    elif "n_peaks" not in snap:
+        snap["n_peaks"] = 0
+    for k, v in payload.items():
+        snap[k] = _snap_copy(v)
+    stages.append(snap)
+
+
+def _stage_fractions(result):
+    """Per-(element, ion-stage) rows a FitResult exposes, for the figures.
+
+    FitResult carries no normalised per-stage fraction or z/sigma field, so
+    this stores what EXISTS: one row per fitted species with its element,
+    ion stage, and the (element, ion) concentration scale aligned to
+    ``result.species``.
+    """
+    conc = np.atleast_1d(np.asarray(getattr(result, "concentrations", [])
+                                    if getattr(result, "concentrations", None)
+                                    is not None else []))
+    species = getattr(result, "species", None) or []
+    out = []
+    for i, sp in enumerate(species):
+        row = {"element": sp.element, "stage": int(sp.ion)}
+        if i < conc.shape[0]:
+            row["concentration"] = float(conc[i])
+        out.append(row)
+    return out
+
+
 def analyze_spectrum(
     x: np.ndarray,
     y: np.ndarray,
@@ -527,6 +667,22 @@ def analyze_spectrum(
     search: str = DEFAULT_SEARCH,
     gp_seed: int = DEFAULT_GP_SEED,
     weighted_solve: bool = False,
+    detection_fdr: Optional[float] = None,
+    detection_fdr_method: str = "bh",
+    sparsity: Optional[str] = None,
+    robust_loss: Optional[str] = None,
+    bo_settings: Optional[str] = None,
+    bic_effective_n: Optional[object] = None,
+    partition_source: str = "barklem2016",
+    ipd: Optional[str] = "debye",
+    inner_stage_coupling_weight: float = 0.0,
+    stark_width_weight: float = 0.0,
+    overlap_mode: str = "conserve",
+    overlap_kernel: str = "median",
+    outer_polish: Optional[str] = None,
+    outer_polish_maxfev: int = 40,
+    stage_temperature_offset_max_k: float = 0.0,
+    lte_gap_flag: bool = False,
     stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
@@ -538,6 +694,7 @@ def analyze_spectrum(
     gas_wavelength_calibration: str = "apply",
     wavelength_registration: str = "ambient",
     subpixel: str = "gaussian",
+    capture_stages: bool = False,
 ) -> dict:
     """Run the full chain on one spectrum.
 
@@ -585,6 +742,10 @@ def analyze_spectrum(
     if subpixel not in {"gaussian", "parabolic"}:
         raise ValueError("subpixel must be 'gaussian' or 'parabolic'")
     telemetry.reset()
+    # opt-in per-stage capture: when None, every _snap() call is a no-op and
+    # the returned dict is byte-identical to a run without this flag.
+    stages = [] if capture_stages else None
+    _solve_i = 0
     db = _get_db(dbpath)
     finder = PeakyFinder.__new__(PeakyFinder)  # fit_spectrum needs no data dir
     with telemetry.stage("blind_fit"):
@@ -593,6 +754,7 @@ def analyze_spectrum(
     peaks = fit["sorted_parameter_array"]
     if peaks.size == 0:
         raise ValueError("blind fit found no peaks")
+    _snap(stages, stage="blind_fit", label="1 · blind fit", fit=fit)
 
     # Independent references: raw instrument-axis samples and original observed
     # peaks, before any mixed-element shift or Fe-informed refinement. Gas
@@ -615,8 +777,11 @@ def analyze_spectrum(
     # are recorded but deferred until pass 1 provides an element posterior
     with telemetry.stage("refine_data"):
         refined, dec_data = refine_fit(x, y, fit, db=db, shift_nm=shift0,
-                                       asymmetric="defer")
+                                       asymmetric="defer",
+                                       bic_effective_n=bic_effective_n)
     rpeaks = refined["sorted_parameter_array"]
+    _snap(stages, stage="refine_data", label="3a · data-only refinement",
+          fit=refined, decisions=dec_data)
 
     # Per-peak Gaussian instrumental-profile diagnostics for the refined table
     # (fitted sigma in px, chi^2/nu, blend flag).  This is ADDITIVE: it records
@@ -655,6 +820,10 @@ def analyze_spectrum(
     # from fit noise (segments failing the gate keep the global shift)
     with telemetry.stage("segment_shift"):
         shift, n_shift_anchor = estimate_wavelength_shift_segments(rpeaks, db)
+    # the per-segment shift EXACTLY as returned, before the prior/offset,
+    # registration and gas-calibration reassignments below (for the figure's
+    # registration snapshot, which is taken once those products exist)
+    _seg_shift_returned = shift
     shift_prior_applied = (False,) * len(shift.shifts)
     if (segment_shift_offsets_nm is not None
             and segment_shift_prior_nm is not None):
@@ -759,6 +928,15 @@ def analyze_spectrum(
     shift, wavelength_calibration = apply_gas_calibrations(
         baseline_shift, gas_calibrations, mode=gas_wavelength_calibration)
 
+    _reg_payload = dict(shift=_seg_shift_returned, shift0=shift0,
+                        n_anchor=n_anchor, n_shift_anchor=n_shift_anchor)
+    if wl_registration is not None:
+        _reg_payload["wavelength_registration"] = wl_registration
+    if wavelength_calibration:
+        _reg_payload["wavelength_calibration"] = wavelength_calibration
+    _snap(stages, stage="registration", label="2 · wavelength registration",
+          n_peaks=int(np.atleast_2d(rpeaks).shape[0]), **_reg_payload)
+
     ne_init, ne_bounds = _halpha_ne(rpeaks)
     # physical ne prior: H-alpha Stark anchor when present, else the
     # instrument-level default.  The data cost is flat in ne while the
@@ -777,15 +955,27 @@ def analyze_spectrum(
         ne_bounds_source = "prior"
     else:
         ne_bounds_source = "halpha"
-    sb = _get_sb(dbpath)
-    idx_kwargs = dict(dbpath=dbpath, db=db, sb=sb,
+    sb = _get_sb(dbpath, partition_source, ipd)
+    sb.reset_partition_flags()
+    idx_kwargs = dict(dbpath=dbpath, db=db, sb=sb, inner_stage_coupling_weight=inner_stage_coupling_weight,
                       weighted_solve=bool(weighted_solve),
+                      detection_fdr=detection_fdr,
+                      detection_fdr_method=detection_fdr_method,
+                      sparsity=sparsity, robust_loss=robust_loss,
+                      bo_settings=bo_settings,
+                      overlap_mode=overlap_mode,
+                      overlap_kernel=overlap_kernel,
+                      stage_temperature_offset_max_k=stage_temperature_offset_max_k,
+                      lte_gap_flag=lte_gap_flag,
                       stage_consistency_weight=float(stage_consistency_weight),
                       ne_prior=ne_prior,
                       wavelength_registration=(wl_registration["combined"]
                                                if wl_registration else None))
     # amp_sigma_floor is attached after the noise scale is measured below
     run_kwargs = dict(sa_doublets=True, n_calls=n_calls, verbose=verbose,
+                      stark_width_weight=stark_width_weight,
+                      outer_polish=outer_polish,
+                      outer_polish_maxfev=outer_polish_maxfev,
                       sa_stimulated_emission=bool(stimulated_emission),
                       search=search, random_state=gp_seed)
     idx_kwargs["ne_init"] = (float(ne_init) if ne_init is not None
@@ -900,6 +1090,15 @@ def analyze_spectrum(
          if f >= ESTABLISHED_MIN_FRACTION],
         key=element_sort_key,
     )
+    _snap(stages, stage="pass1", label="4 · pass-1 solve", fit=refined,
+          result=res1, solve_index=_solve_i, T=float(res1.temperature),
+          log_ne=float(res1.ne), sigma=float(res1.sigma),
+          gamma=float(res1.gamma),
+          element_fractions=dict(res1.element_fractions),
+          stage_fractions=_stage_fractions(res1),
+          r_squared=float(getattr(res1, "r_squared", float("nan"))),
+          established=established)
+    _solve_i += 1
 
     # stage 3b — PHYSICS adjudication of the deferred asymmetric features,
     # now that an element posterior exists.  The posterior is the
@@ -913,7 +1112,8 @@ def analyze_spectrum(
     with telemetry.stage("refine_physics"):
         refined, dec_phys = refine_fit(x, y, refined, db=db,
                                        elements=posterior or None,
-                                       shift_nm=shift, asymmetric="only")
+                                       shift_nm=shift, asymmetric="only",
+                                       bic_effective_n=bic_effective_n)
     decisions = dec_data + dec_phys
     rpeaks = refined["sorted_parameter_array"]
 
@@ -951,6 +1151,9 @@ def analyze_spectrum(
                     observed_area=obs,
                     emission_area=float(dec["emission_area"])))
 
+    _snap(stages, stage="refine_physics", label="3b · self-absorption tags",
+          fit=refined, decisions=dec_phys, sa_zones=sa_zones)
+
     final, records = refined, []
     if seed_minor and established:
         with telemetry.stage("seed_minor"):
@@ -959,6 +1162,15 @@ def analyze_spectrum(
                                               shift_nm=shift,
                                               segment_edges=(620.0,),
                                               exclude=tuple(sa_zones))
+        _snap(stages, stage="seed",
+              label="5 · Boltzmann-seeded minor lines", fit=final,
+              records=records)
+    else:
+        _snap(stages, stage="seed",
+              label="5 · Boltzmann-seeded minor lines", fit=final,
+              records=records, skipped=True,
+              reason=("seed_minor disabled" if not seed_minor
+                      else "no established elements"))
     # element-agnostic recovery: significant positive residual peaks are
     # real lines the seeder could not predict (e.g. Fe lines when the Fe
     # stage scale fails the Boltzmann trust gate) — fit them from the
@@ -966,6 +1178,8 @@ def analyze_spectrum(
     with telemetry.stage("recover_residual"):
         final, recovered = recover_residual_lines(x, y, final,
                                                   exclude=tuple(sa_zones))
+    _snap(stages, stage="recover", label="6 · residual recovery",
+          fit=final, recovered=recovered)
 
     # shoulder-triggered deblends: peaks whose profile shows a one-sided
     # flank bump (an unresolved overlapping line contaminating the fitted
@@ -979,16 +1193,26 @@ def analyze_spectrum(
         prof_pre = analyze_peak_profiles(x, y, final)
         final, deblends = deblend_shoulders(x, y, final, prof_pre,
                                             exclude=tuple(sa_zones))
+    _snap(stages, stage="deblend", label="7 · shoulder deblends", fit=final,
+          deblends=deblends, profiles_pre=prof_pre)
     fpeaks = final["sorted_parameter_array"]
 
     # pass 2: identify elements + plasma state, warm-started at pass-1 state
     with telemetry.stage("indexer_pass2"):
         idx2 = PeakyIndexerV3(_db_frame(fpeaks), dbpath=dbpath,
-                              db=db, sb=sb,
+                              db=db, sb=sb, inner_stage_coupling_weight=inner_stage_coupling_weight,
                               amp_sigma=_amp_sigma(fpeaks),
                               amp_sigma_floor=_noise,
                               amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
                               weighted_solve=bool(weighted_solve),
+                              detection_fdr=detection_fdr,
+                              detection_fdr_method=detection_fdr_method,
+                              sparsity=sparsity, robust_loss=robust_loss,
+                              bo_settings=bo_settings,
+                              overlap_mode=overlap_mode,
+                              overlap_kernel=overlap_kernel,
+                              stage_temperature_offset_max_k=stage_temperature_offset_max_k,
+                              lte_gap_flag=lte_gap_flag,
                               stage_consistency_weight=float(
                                   stage_consistency_weight),
                               ne_prior=ne_prior,
@@ -1006,7 +1230,8 @@ def analyze_spectrum(
                   ("basin_bic", "basin_cost", "basin_k",
                    "delta_bic_runner_up", "basin_ambiguous",
                    "n_basins_considered", "posterior_fractions",
-                   "posterior_spread", "n_posterior_nodes")
+                   "posterior_spread", "n_posterior_nodes",
+                   "bo_settings", "bo_n_calls_used", "outer_polish")
                   if k in _info2}
 
     # ITERATIVE DEEPENING: pass 2 has now CONFIRMED which elements are
@@ -1022,6 +1247,18 @@ def analyze_spectrum(
     # the pass-2 T, ne came from the intense lines and the weak lines only
     # corroborate) and is rejected wholesale if it newly collapses.
     fidx, result = idx2, res2
+    # pass-2 snapshot taken here, before any deepening bar grows `final`:
+    # the confirmed/confident lists are computed below (deepening gate) and
+    # are therefore not yet available at this capture point.
+    _snap(stages, stage="pass2", label="8 · pass-2 solve", fit=final,
+          result=res2, solve_index=_solve_i, T=float(res2.temperature),
+          log_ne=float(res2.ne), sigma=float(res2.sigma),
+          gamma=float(res2.gamma),
+          element_fractions=dict(res2.element_fractions),
+          stage_fractions=_stage_fractions(res2),
+          r_squared=float(getattr(res2, "r_squared", float("nan"))),
+          basin_info=basin_info)
+    _solve_i += 1
     corroboration = dict(used=False, added=0, reason="seed_minor disabled")
     if seed_minor:
         from alibz.minor_lines import match_and_scale
@@ -1090,11 +1327,19 @@ def analyze_spectrum(
                 with telemetry.stage("deepen_solve"):
                     idxN = PeakyIndexerV3(
                         _db_frame(work["sorted_parameter_array"]),
-                        dbpath=dbpath, db=db, sb=sb,
+                        dbpath=dbpath, db=db, sb=sb, inner_stage_coupling_weight=inner_stage_coupling_weight,
                         amp_sigma=_amp_sigma(work["sorted_parameter_array"]),
                         amp_sigma_floor=_noise,
                         amp_sigma_poisson_gain=POISSON_GAIN_COUNTS,
                         weighted_solve=bool(weighted_solve),
+                        detection_fdr=detection_fdr,
+                        detection_fdr_method=detection_fdr_method,
+                        sparsity=sparsity, robust_loss=robust_loss,
+                        bo_settings=bo_settings,
+                        overlap_mode=overlap_mode,
+                        overlap_kernel=overlap_kernel,
+                        stage_temperature_offset_max_k=stage_temperature_offset_max_k,
+                        lte_gap_flag=lte_gap_flag,
                         stage_consistency_weight=float(
                             stage_consistency_weight),
                         ne_prior=ne_prior,
@@ -1112,6 +1357,14 @@ def analyze_spectrum(
                     rounds.append(dict(bar=bar, seeded=n_seed,
                                        recovered=n_rec, used=False,
                                        reason="collapse"))
+                    _snap(stages, stage="deepen",
+                          label="9 · iterative deepening", fit=work,
+                          result=resN, solve_index=_solve_i, bar=float(bar),
+                          n_added_seed=int(n_seed), n_added_recover=int(n_rec),
+                          T=float(resN.temperature), log_ne=float(resN.ne),
+                          element_fractions=dict(resN.element_fractions),
+                          accepted=False, collapsed=True)
+                    _solve_i += 1
                     break
                 records = records + corr + rec
                 n_seed_tot += n_seed
@@ -1120,6 +1373,14 @@ def analyze_spectrum(
                     work, work["sorted_parameter_array"], idxN, resN)
                 rounds.append(dict(bar=bar, seeded=n_seed, recovered=n_rec,
                                    used=True))
+                _snap(stages, stage="deepen",
+                      label="9 · iterative deepening", fit=work, result=resN,
+                      solve_index=_solve_i, bar=float(bar),
+                      n_added_seed=int(n_seed), n_added_recover=int(n_rec),
+                      T=float(resN.temperature), log_ne=float(resN.ne),
+                      element_fractions=dict(resN.element_fractions),
+                      accepted=True, collapsed=False)
+                _solve_i += 1
             total = n_seed_tot + n_rec_tot
             reason = ""
             if total == 0:
@@ -1135,6 +1396,16 @@ def analyze_spectrum(
                                           default=0.0)), 3),
                 reason=reason)
 
+    # the fit/result carried forward out of deepening; equals pass 2 when no
+    # bar changed anything (then accepted=False)
+    _snap(stages, stage="deepen_final", label="9 · iterative deepening",
+          fit=final, result=result, solve_index=_solve_i,
+          T=float(result.temperature), log_ne=float(result.ne),
+          element_fractions=dict(result.element_fractions),
+          accepted=bool(corroboration.get("used")),
+          reason=corroboration.get("reason", ""))
+    _solve_i += 1
+
     # per-segment, per-peak shape physics (alibz.profiles) on the FINAL
     # fit, then growth-curve area recovery: sa-like peaks of species NOT
     # already anchored by the indexer's doublet channel are refit with the
@@ -1147,6 +1418,10 @@ def analyze_spectrum(
         result, sa_records, sa_used = recover_sa_areas(
             fidx, result, x, y, final, profiles, exclude=tuple(sa_zones),
             premeasured=tuple(sa_merges))
+    _snap(stages, stage="sa_recovery",
+          label="10 · self-absorption area recovery", n_peaks=fpeaks.shape[0],
+          result=result, element_fractions=dict(result.element_fractions),
+          sa_records=sa_records, sa_used=bool(sa_used), profiles=profiles)
 
     # detection report + confounder (true-negative rival) analysis; when
     # SA recovery was applied, detections see the SAME corrected
@@ -1182,7 +1457,13 @@ def analyze_spectrum(
             d["shoulder_share"] = round(float(q["shoulder_share"]), 3)
             d["clean_anchors"] = int(q["clean_anchors"])
 
-    return dict(
+    _snap(stages, stage="detections", label="11 · detections",
+          n_peaks=fpeaks.shape[0], detections=det["detections"],
+          resolved_fractions=det["resolved_fractions"],
+          contested=det["contested"], support=det["support"],
+          element_uncertainty=det["element_uncertainty"])
+
+    out = dict(
         fit=fit, refined=refined, final=final, decisions=decisions,
         records=records, recovered=recovered, shift=shift,
         baseline_shift=baseline_shift,
@@ -1205,7 +1486,17 @@ def analyze_spectrum(
         corroboration=corroboration,
         basin_info=basin_info,
         shape_refit=dict(deblends=deblends, sa=sa_records, sa_used=sa_used),
+        partition_source=partition_source, ipd=ipd, inner_stage_coupling_weight=inner_stage_coupling_weight, stark_width_weight=stark_width_weight,
+        partition_extrapolated=bool(sb.partition_extrapolated),
     )
+    if stages is not None:
+        # report the snapshots in the documented pipeline order (data-only
+        # refinement is taken before per-segment registration but reported
+        # after, per the stage labels); a stable sort keeps the deepen bars
+        # in their round order.
+        stages.sort(key=lambda s: _STAGE_ORDER.get(s["stage"], 99))
+        out["stages"] = stages
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1455,6 +1746,18 @@ def _analyze_file(job) -> dict:
                 search=cfg.search,
                 gp_seed=cfg.gp_seed,
                 weighted_solve=cfg.weighted_solve,
+                detection_fdr=cfg.detection_fdr,
+                detection_fdr_method=cfg.detection_fdr_method,
+                sparsity=cfg.sparsity, robust_loss=cfg.robust_loss,
+                bo_settings=cfg.bo_settings,
+                bic_effective_n=cfg.bic_effective_n,
+                partition_source=cfg.partition_source, ipd=cfg.ipd, inner_stage_coupling_weight=cfg.inner_stage_coupling_weight, stark_width_weight=cfg.stark_width_weight,
+                overlap_mode=cfg.overlap_mode,
+                overlap_kernel=cfg.overlap_kernel,
+                outer_polish=cfg.outer_polish,
+                outer_polish_maxfev=cfg.outer_polish_maxfev,
+                stage_temperature_offset_max_k=cfg.stage_temperature_offset_max_k,
+                lte_gap_flag=cfg.lte_gap_flag,
                 stage_consistency_weight=cfg.stage_consistency_weight,
                 physical_triage=cfg.physical_triage,
                 gas_wavelength_calibration=cfg.gas_wavelength_calibration,
@@ -1467,7 +1770,8 @@ def _analyze_file(job) -> dict:
                 segment_response_fallback_uncertainty=
                 cfg.segment_response_fallback_uncertainty,
                 segment_shift_offsets_nm=cfg.segment_shift_offsets_nm,
-                segment_shift_prior_nm=cfg.segment_shift_prior_nm)
+                segment_shift_prior_nm=cfg.segment_shift_prior_nm,
+                capture_stages=cfg.capture_stages)
         finally:
             if use_alarm:
                 signal.setitimer(signal.ITIMER_REAL, 0.0)  # disarm FIRST
@@ -1507,6 +1811,22 @@ def analyze_directory(
     search: str = DEFAULT_SEARCH,
     gp_seed: int = DEFAULT_GP_SEED,
     weighted_solve: bool = False,
+    detection_fdr: Optional[float] = None,
+    detection_fdr_method: str = "bh",
+    sparsity: Optional[str] = None,
+    robust_loss: Optional[str] = None,
+    bo_settings: Optional[str] = None,
+    bic_effective_n: Optional[object] = None,
+    partition_source: str = "barklem2016",
+    ipd: Optional[str] = "debye",
+    inner_stage_coupling_weight: float = 0.0,
+    stark_width_weight: float = 0.0,
+    overlap_mode: str = "conserve",
+    overlap_kernel: str = "median",
+    outer_polish: Optional[str] = None,
+    outer_polish_maxfev: int = 40,
+    stage_temperature_offset_max_k: float = 0.0,
+    lte_gap_flag: bool = False,
     stage_consistency_weight: float = STAGE_CONSISTENCY_WEIGHT,
     segment_response_fallback_ratio: Optional[float] = None,
     segment_response_fallback_source: Optional[str] = None,
@@ -1559,6 +1879,18 @@ def analyze_directory(
         stimulated_emission=bool(stimulated_emission),
         search=search, gp_seed=gp_seed,
         weighted_solve=bool(weighted_solve),
+        detection_fdr=detection_fdr,
+        detection_fdr_method=detection_fdr_method,
+        sparsity=sparsity, robust_loss=robust_loss,
+        bo_settings=bo_settings,
+        bic_effective_n=bic_effective_n,
+        partition_source=partition_source, ipd=ipd, inner_stage_coupling_weight=inner_stage_coupling_weight, stark_width_weight=stark_width_weight,
+        overlap_mode=overlap_mode,
+        overlap_kernel=overlap_kernel,
+        outer_polish=outer_polish,
+        outer_polish_maxfev=outer_polish_maxfev,
+        stage_temperature_offset_max_k=stage_temperature_offset_max_k,
+        lte_gap_flag=lte_gap_flag,
         stage_consistency_weight=float(stage_consistency_weight),
         physical_triage=physical_triage,
         gas_wavelength_calibration=gas_wavelength_calibration,
@@ -1736,6 +2068,12 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
               "strongest_peak_nm", "strongest_obs",
               "upper_limit", "stage_disagreement",
               "sa_share", "shoulder_share", "clean_anchors"]
+    # q_value (BH/BY-adjusted p of the indexer's FDR gate) is appended only
+    # when some detection carries it, so default CSVs are unchanged
+    with_q = any("q_value" in d for r in rows
+                 for d in (r.get("detections") or []))
+    if with_q:
+        header.append("q_value")
     n = 0
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
@@ -1781,7 +2119,8 @@ def write_detections_csv(rows: Sequence[dict], path: str) -> int:
                      if d.get("shoulder_share") is not None else ""),
                     (d["clean_anchors"]
                      if d.get("clean_anchors") is not None else ""),
-                ])
+                ] + ([f"{d['q_value']:.3g}" if d.get("q_value") is not None
+                      else ""] if with_q else []))
                 n += 1
     return n
 

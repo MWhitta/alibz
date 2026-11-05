@@ -4,6 +4,7 @@ db/
 !db/
 db/*
 !db/atomic_line_sources.json
+!db/partition_barklem2016.npz
 !db/observed_lines_nist.tsv
 !db/quantitative_lines_se_th_u.tsv
 
@@ -48,3 +49,6 @@ reports/*backup*/
 !cal/data/
 # Packaged instrument shapes shipped inside the alibz package (ePSF, detector).
 !alibz/data/
+
+# manuscript figure analysis cache (regenerable from scripts/manuscript_figures.py analyze)
+manuscript/figures/cache/

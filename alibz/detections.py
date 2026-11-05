@@ -339,6 +339,7 @@ def _run_contest(
     area_sigma: np.ndarray,
     sup_idx: Dict[str, List[int]],
     build_state: Tuple[float, float] = CONTEST_BUILD_STATE,
+    overlap_mode: str = "legacy",
 ) -> Dict[str, dict]:
     """Build the un-pruned contest design and scan the plasma grid.
 
@@ -357,7 +358,8 @@ def _run_contest(
     n_pk = len(obs)
     idx_c = PeakyIndexerV3(peaks_dbframe, dbpath=dbpath,
                            temperature_init=build_state[0],
-                           ne_init=build_state[1])
+                           ne_init=build_state[1],
+                           overlap_mode=overlap_mode)
     idx_c.build_candidate_matrix()
     lt = idx_c.line_table
     el_full = sorted({sp.element for sp in lt.species})
@@ -426,6 +428,13 @@ def classify_detections(
     optimistic; treat 2 < z < 4 as soft rather than sharp.
     """
     detections = []
+    # FDR-controlled indexer run (detection_fdr): per-element q-value and
+    # floor from the solve's convergence_info; None = historical z >= 3 ladder
+    _ci = getattr(result, "convergence_info", None) or {}
+    fdr_q = _ci.get("detection_fdr_q")
+    q_values = _ci.get("detection_q_value") or {}
+    fdr_thr_z = _ci.get("detection_fdr_threshold_z")
+    fdr_floor = float(_ci.get("detection_z_floor", 2.0))
     for el in sorted(set(stats) | set(result.element_fractions),
                      key=element_sort_key):
         frac = float(result.element_fractions.get(el, 0.0))
@@ -446,7 +455,21 @@ def classify_detections(
                 # element the best fit reports — maximal fragility, the
                 # opposite of confidence
                 z = 0.0
-            if z >= DETECT_Z and len(lines) >= 2:
+            if fdr_q is not None:
+                # FDR-significant = admitted by the indexer's BH/BY step-up
+                # (its z is the best-line score; detection.z is the
+                # bootstrap fraction/std and only gates the ladder floor)
+                iz = (_ci.get("detection_z") or {}).get(el)
+                fdr_sig = (el in q_values and q_values[el] <= float(fdr_q)
+                           and fdr_thr_z is not None and iz is not None
+                           and iz >= fdr_thr_z and iz >= fdr_floor)
+            else:
+                fdr_sig = True
+            if fdr_q is not None and not fdr_sig:
+                status = "marginal" if (
+                    (_ci.get("detection_z") or {}).get(el, 0.0) >= fdr_floor
+                ) else "weak"
+            elif z >= DETECT_Z and len(lines) >= 2:
                 status = "detected"
             elif z >= DETECT_Z and len(lines) == 1:
                 status = "single-line"
@@ -498,6 +521,7 @@ def classify_detections(
             strongest_peak_nm=(round(strongest[1], 3) if strongest else None),
             strongest_obs=(round(strongest[2], 1) if strongest else None),
             upper_limit=upper,
+            **({"q_value": q_values.get(el)} if fdr_q is not None else {}),
             stage_disagreement=(round(float(d), 2) if np.isfinite(d)
                                 else None),
         ))
@@ -651,7 +675,9 @@ def analyze_detections(
     if contest and support:
         try:
             contested = _run_contest(np.asarray(indexer.peak_array),
-                                     dbpath, obs, area_sigma, sup_idx)
+                                     dbpath, obs, area_sigma, sup_idx,
+                                     overlap_mode=getattr(
+                                         indexer, "_overlap_mode", "legacy"))
         except Exception:  # noqa: BLE001 - contest is best-effort QC
             traceback.print_exc(file=sys.stderr)
             print("contested-support: full-candidate scan failed; "

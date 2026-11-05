@@ -118,6 +118,21 @@ def main(argv=None) -> int:
                         "objective). Accurate at the true plasma state but "
                         "inverts the Ca/Mg ratio on the synthetic round "
                         "trip (2026-09-21); off by default.")
+    p.add_argument("--overlap-kernel",
+                   choices=("median", "peak", "peak+stark"), default="median",
+                   help="design overlap kernel widths: 'median' (one shared "
+                        "search (sigma,gamma) for every peak), 'peak' (each "
+                        "peak's own fitted widths), 'peak+stark' (per-peak "
+                        "widths plus per-line Stark widths at the trial ne). "
+                        "Wave-3 option (2026-11-04), off by default.")
+    p.add_argument("--overlap-mode",
+                   choices=("legacy", "conserve", "nearest"), default="conserve",
+                   help="design-matrix overlap accounting: 'legacy' (historic, "
+                        "replicates each database line across every peak it "
+                        "touches), 'conserve' (cap each line's summed overlap "
+                        "at 1), or 'nearest' (assign each line to its single "
+                        "best peak). Fixes the dense-forest over-prediction "
+                        "bias (2026-11-03); 'legacy' by default.")
     p.add_argument("--stage-consistency-weight", type=float,
                    default=STAGE_CONSISTENCY_WEIGHT,
                    help="weight of the stage-consistency thermometer in "
@@ -153,6 +168,8 @@ def main(argv=None) -> int:
         stimulated_emission=args.stimulated_emission,
         search=args.search, gp_seed=args.gp_seed,
         weighted_solve=args.weighted_solve,
+        overlap_mode=args.overlap_mode,
+        overlap_kernel=args.overlap_kernel,
         physical_triage=args.physical_triage,
         gas_wavelength_calibration=args.gas_wavelength_calibration,
         wavelength_registration=args.wavelength_registration,

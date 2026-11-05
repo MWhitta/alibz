@@ -116,8 +116,50 @@ def _fit(model, x, y, w, p0, lo, hi, loss="soft_l1", f_scale=None):
     return res.x, 2.0 * float(res.cost)
 
 
-def _bic(chi2, n, n_params):
-    return chi2 + n_params * np.log(max(n, 2))
+#: lag-1 pixel autocorrelation of the vendor 1/30 nm export grid (spline
+#: resampled from ~0.09-0.18 nm native pixels); see
+#: memory/export-grid-spline-resampled.
+EXPORT_GRID_RHO = 0.92
+EXPORT_GRID_PITCH_NM = 1.0 / 30.0
+
+
+def effective_n(n, rho=0.0):
+    """AR(1) effective sample count ``n (1 - rho) / (1 + rho)`` (rho=0: n)."""
+    rho = float(rho or 0.0)
+    if rho <= 0.0:
+        return n
+    return max(n * (1.0 - rho) / (1.0 + rho), 2.0)
+
+
+def resolve_bic_rho(x, bic_effective_n=None):
+    """Resolve the ``bic_effective_n`` option to a lag-1 autocorrelation.
+
+    ``None`` -> 0.0 (off).  A number is used as rho directly (0 <= rho < 1).
+    ``"auto"`` -> ``EXPORT_GRID_RHO`` when ``x`` is the uniform vendor
+    1/30 nm export grid (median pitch within 2 % of 1/30 nm and the pitch
+    spread under 2 %), else 0.0 (native grid: independent pixels).
+    """
+    if bic_effective_n is None:
+        return 0.0
+    if isinstance(bic_effective_n, str):
+        if bic_effective_n != "auto":
+            raise ValueError(f"unknown bic_effective_n {bic_effective_n!r}")
+        d = np.diff(np.asarray(x, dtype=float))
+        if d.size < 3:
+            return 0.0
+        med = float(np.median(d))
+        uniform = float(np.max(np.abs(d - med))) < 0.02 * med
+        if uniform and abs(med - EXPORT_GRID_PITCH_NM) < 0.02 * EXPORT_GRID_PITCH_NM:
+            return EXPORT_GRID_RHO
+        return 0.0
+    rho = float(bic_effective_n)
+    if not 0.0 <= rho < 1.0:
+        raise ValueError(f"bic_effective_n must be in [0, 1), got {rho!r}")
+    return rho
+
+
+def _bic(chi2, n, n_params, rho=0.0):
+    return chi2 + n_params * np.log(max(effective_n(n, rho), 2))
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +288,7 @@ def _feature_window(sub):
 
 def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
                      elements=None, shift_nm=0.0, tol_nm=0.06,
-                     model_others=None, extra_area=0.0):
+                     model_others=None, extra_area=0.0, bic_rho=0.0):
     """Fit S / A / B models to one feature and decide blend vs asymmetry.
 
     ``model_others`` is the summed profile of every peak NOT in
@@ -256,6 +298,9 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
     components absorbed by the caller — see :func:`refine_fit`); it
     enlarges the area seeds/bounds.  ``shift_nm`` is the value returned
     by ``estimate_wavelength_shift`` (observed = db + shift).
+
+    ``bic_rho`` (default 0 = off) is the lag-1 pixel autocorrelation used
+    to shrink the BIC sample count to ``n (1-rho)/(1+rho)``.
 
     Returns a decision dict with the verdict, per-model BIC, fitted
     parameters, and the database evidence used.
@@ -327,7 +372,7 @@ def classify_feature(x, y_bgsub, peaks, indices, noise, db=None,
     if not np.isfinite(min(chis.values())):
         return None  # every model failed to fit: nothing to decide
     s2 = max(1.0, min(c / max(n - npar[k], 1) for k, c in chis.items()))
-    bic = {k: _bic(c / s2, n, npar[k]) for k, c in chis.items()}
+    bic = {k: _bic(c / s2, n, npar[k], bic_rho) for k, c in chis.items()}
 
     # --- physics/chemistry evidence ---
     # A blend claim needs two DISTINCT database lines matching the two
@@ -478,13 +523,14 @@ def _classify_job(indices, absorbed):
     return classify_feature(c["x"], c["y_bgsub"], c["peaks"], indices, c["noise"],
                             db=c["db"], elements=c["elements"], shift_nm=c["shift_nm"],
                             model_others=c["model_total"] - own,
-                            extra_area=float(c["peaks"][list(absorbed), 0].sum()))
+                            extra_area=float(c["peaks"][list(absorbed), 0].sum()),
+                            bic_rho=c.get("bic_rho", 0.0))
 
 
 def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
                snr_min=4.0, segment_edges=None,
                s2_action_max=50.0,
-               asymmetric="apply") -> Tuple[dict, List[dict]]:
+               asymmetric="apply", bic_effective_n=None) -> Tuple[dict, List[dict]]:
     """Second-iteration refinement of a fitted spectrum.
 
     Enumerates ambiguous features (significant residual structure next to
@@ -599,6 +645,7 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
     # is re-classified sequentially, so the result is identical to the
     # sequential path.
     pre = {}
+    bic_rho = resolve_bic_rho(x, bic_effective_n)
     n_workers = _refine_workers()
     if n_workers > 1 and len(features) > 1:
         try:
@@ -610,7 +657,7 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
         if ctx is not None:
             _PAR_CTX.update(x=x, y_bgsub=y_bgsub, peaks=peaks, noise=noise,
                             model_total=model_total, db=db, elements=elements,
-                            shift_nm=shift_nm)
+                            shift_nm=shift_nm, bic_rho=bic_rho)
             jobs = [(fi, tuple(int(i) for i in idx), tuple(_absorbed_for(idx, set())))
                     for fi, (_kind, idx) in enumerate(features)]
             try:
@@ -636,7 +683,8 @@ def refine_fit(x, y, fit_dict, db=None, elements=None, shift_nm=0.0,
             dec = classify_feature(x, y_bgsub, peaks, indices, noise,
                                    db=db, elements=elements, shift_nm=shift_nm,
                                    model_others=model_total - own,
-                                   extra_area=float(peaks[absorbed, 0].sum()))
+                                   extra_area=float(peaks[absorbed, 0].sum()),
+                                   bic_rho=bic_rho)
         if dec is None:
             continue
         dec["kind"] = kind

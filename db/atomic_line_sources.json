@@ -111,5 +111,19 @@
     "Rn",
     "Pa"
   ],
-  "wavelength_policy": "Stored wavelengths are vacuum; Database converts >=200 nm to standard air at load time."
+  "wavelength_policy": "Stored wavelengths are vacuum; Database converts >=200 nm to standard air at load time.",
+  "partition_barklem2016": {
+    "reference": "Barklem & Collet 2016, A&A 588, A96 (CDS J/A+A/588/A96/table8)",
+    "source_url": "http://vizier.cfa.harvard.edu/viz-bin/asu-tsv?-source=J/A%2bA/588/A96/table8&-out.max=unlimited&-out.all=2&-out.meta=hud",
+    "cds_ftp_mirrors_tried": "cdsarc.cds.unistra.fr and cdsarc.u-strasbg.fr timed out (60 s); vizier.cfa.harvard.edu ftp path 404",
+    "downloaded": "2026-11-03",
+    "source_tsv_sha256": "5391d67c8599a0a4f5ae3d406e75750b32837d28ed5bda8143495c03d72d2fef",
+    "artifact": "db/partition_barklem2016.npz",
+    "artifact_sha256": "4c48381651459dbbba60dd837cb4b065cb25295c8f377045338d67543e7ccd4f",
+    "builder": "scripts/build_partition_barklem2016.py",
+    "species": 277,
+    "species_note": "284 table rows; 7 negative ions (H-, C-, O-, F-, Si-, S-, Cl-) skipped",
+    "T_grid_K": "42 points, 1e-5 .. 1e4",
+    "interpolation": "ln U linear in T; above 1e4 K log-linear extrapolation from last two nodes (flagged)"
+  }
 }

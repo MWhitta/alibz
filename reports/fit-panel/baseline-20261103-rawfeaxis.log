@@ -1,0 +1,37 @@
+[1/36] synthetic/iron_rich_low_t error ValueError: target stage abundances must sum to one, got 0.99999998884 | ValueError: target stage abundances must sum to one, got 0.99999998884
+[2/36] synthetic/binary_ca_mg ok 
+[3/36] synthetic/binary_argon_ambient ok 
+[4/36] synthetic/feldspar_k_na ok 
+[5/36] real/REE_01 ok 
+[6/36] real/argon_noAr ok 
+[7/36] synthetic/silicate_4el ok 
+[8/36] real/user_spec1 ok 
+[9/36] fe/run-e825d9f567204c5cbc6fc33c9c16bbf7 ok 
+[10/36] fe/run-a50ac639cc7747b4af81a677c8e99312 ok 
+[11/36] fe/run-eae9d54f22834928ae2f6af8d4a23779 ok 
+[12/36] fe/run-126d0c96e1584131a0f8d7e5fb065f1a ok 
+[13/36] real/scan9x9 ok 
+[14/36] real/REE_44 ok 
+[15/36] fe/run-5291e643082343619a4973a1b67898db ok 
+[16/36] fe/run-11d07e557f4743c290137c2dcdf6fdfc ok 
+[17/36] fe/run-c52b7f2159244dc2b7bf16a33dc5c346 ok 
+[18/36] fe/run-b95ffbb4f6ac4fc6944e0cb9d9e26b61 ok 
+[19/36] fe/run-6e38b110215a43db86ba3d81273f67f3 ok 
+[20/36] fe/run-674f4feb6d2149c4bac365e395a4d327 ok 
+[21/36] fe/run-da01e553ae6a4c91995aa2d403904fa2 ok 
+[22/36] fe/run-56a8de4a62864db0865c87c1d6b408b8 ok 
+[23/36] fe/run-39998be9f14c479e8008efecec3bee25 ok 
+[24/36] fe/run-8264fabf6e4d4e61b05df90ef45cecb3 ok 
+[25/36] fe/run-b17cc0430a5c41c097fcfde0ca73bbf4 ok 
+[26/36] fe/run-bb777df5e62c4fc18c3e2c33cbb6c766 ok 
+[27/36] fe/run-d99401be15bb4ca19d5b59e0f61a57e5 ok 
+[28/36] fe/run-07c25af6dd9b4fa6bc801e18a40661a4 ok 
+[29/36] fe/run-6ce8e9b3945f4429997104a9b1fa22f9 ok 
+[30/36] fe/run-2e03f73db1f441939ff7bf2480d75e0d ok 
+[31/36] fe/run-6cd149cca8d648469e3486cf60f5ee5c ok 
+[32/36] fe/run-468a150cbd4a458a8fa0fda3b09432dc ok 
+[33/36] fe/run-90143c6b30884618ade5aea2f14819b8 ok 
+[34/36] fe/run-01105eaef0044dca87fb08bfdea5b107 ok 
+[35/36] fe/run-fd1e6d48a1034cd09e6780a94f43111b ok 
+[36/36] fe/run-74c9332760af4a1ab6f4a343c5e47c4f ok 
+wrote reports/fit-panel/baseline-20261103.json  (1 error rows)

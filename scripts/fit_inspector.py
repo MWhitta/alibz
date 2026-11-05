@@ -54,6 +54,11 @@ from alibz.utils.wavelength import (estimate_wavelength_shift,    # noqa: E402
 DBPATH = os.path.join(REPO, "db")
 _DB = Database(DBPATH)
 
+#: design-matrix overlap accounting for every indexer this inspector builds
+#: (PeakyIndexerV3 overlap_mode): "legacy" | "conserve" | "nearest".  Set via
+#: --overlap-mode; "legacy" keeps the inspector's historic behaviour.
+OVERLAP_MODE = "legacy"
+
 
 # ===========================================================================
 # Action logger — every interaction is appended as one JSON line, so a
@@ -170,7 +175,7 @@ def capture(x, y):
     rp = refined["sorted_parameter_array"]
     ne_init, ne_bounds = _halpha_ne(rp)
     run_kw = dict(sa_doublets=True, n_calls=40, verbose=False)
-    idx_kw = dict(dbpath=DBPATH)
+    idx_kw = dict(dbpath=DBPATH, overlap_mode=OVERLAP_MODE)
     if ne_init is not None:
         idx_kw["ne_init"] = ne_init
         run_kw["ne_bounds"] = ne_bounds
@@ -227,6 +232,7 @@ def capture(x, y):
 
     fp = final["sorted_parameter_array"]
     idx2 = PeakyIndexerV3(dbf(fp), dbpath=DBPATH, amp_sigma_floor=_noise,
+                          overlap_mode=OVERLAP_MODE,
                           temperature_init=res1.temperature, ne_init=res1.ne)
     idx2._amp_sigma = _amp_sigma(x, y, bg0, fp, seg_response)
     res2 = idx2.run(**run_kw)
@@ -274,6 +280,7 @@ def capture(x, y):
                 continue
             idxN = PeakyIndexerV3(dbf(work["sorted_parameter_array"]),
                                   dbpath=DBPATH, amp_sigma_floor=_noise,
+                                  overlap_mode=OVERLAP_MODE,
                                   temperature_init=res2.temperature,
                                   ne_init=res2.ne)
             idxN._amp_sigma = _amp_sigma(x, y, bg0,
@@ -319,7 +326,8 @@ def resolve(stage, meta, deleted, extra_species, removed_species):
     dbp[:, 1] -= shift_at(shift, dbp[:, 1])
     if seg_response is not None:
         dbp = correct_segment_response(dbp, seg_response, edges=(620.0,))
-    idx = PeakyIndexerV3(dbp, dbpath=DBPATH, temperature_init=T, ne_init=ne)
+    idx = PeakyIndexerV3(dbp, dbpath=DBPATH, temperature_init=T, ne_init=ne,
+                         overlap_mode=OVERLAP_MODE)
     idx._amp_sigma = _amp_sigma(x, y, bg, peaks, seg_response)
     # min_init_relative_intensity=0 keeps ALL in-range species as candidates
     # so a user can ADD one the default prefilter would have dropped; the
@@ -855,7 +863,14 @@ def main():
         help="JSONL action log (training-data trace); appended to")
     ap.add_argument("--no-browser", action="store_true",
                     help="do not auto-open the app in a web browser")
+    ap.add_argument("--overlap-mode",
+                    choices=("legacy", "conserve", "nearest"), default="legacy",
+                    help="design-matrix overlap accounting for every captured "
+                         "indexer (PeakyIndexerV3 overlap_mode); 'legacy' by "
+                         "default")
     args = ap.parse_args()
+    global OVERLAP_MODE
+    OVERLAP_MODE = args.overlap_mode
     try:
         import dash  # noqa: F401
         import plotly  # noqa: F401
