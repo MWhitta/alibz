@@ -1,0 +1,125 @@
+\section{Fit metrics and acceptance gates}
+\label{sec:metrics}
+
+A central lesson of the development of \alibz{} is that no single goodness-of-fit number can be trusted to select the right physical solution. This section defines each metric precisely, states where it is computed, and separates metrics that are \emph{reported} from those used to \emph{decide}. Table~\ref{tab:metrics} summarizes them. The equations referred to are those of Sections~\ref{sec:theory} and~\ref{sec:workflow}.
+
+\subsection{Goodness of fit and model comparison}
+
+\paragraph{Residual $r^2$.}
+The pipeline reports the coefficient of determination of the fitted peak-amplitude vector against the observed one. It is a quality-control quantity only: it is mapped to a warning below 0.50 and a failure below 0.30 % src: alibz/pipeline.py (FIT_R2_WARN, FIT_R2_FAIL)
+. It cannot compare solutions because a line-rich element fits almost any peak list. In a measured basin-collapse failure on the JChristensen set the pass that collapsed onto one element at about \SI{5200}{\kelvin} had an $r^2$ that \emph{improved} to 0.87 % src: docs/development_guide.md (honest measured caveat from JChristensen)
+. Likewise, a degenerate Bi-only vertex scored higher $r^2$ than a plausible mixture in the theory section's example (Section~\ref{sec:theory-inverse}). Quantities that compare basins must carry a complexity penalty.
+
+\paragraph{Weighted $\chi^2$ and the basin BIC.}
+The concentration solve minimizes the weighted objective of Eq.~\eqref{eq:wnnls} with the effective uncertainty of Eq.~\eqref{eq:sigma-eff}. When several $(T,\nel)$ basins are found, each is scored by a Bayesian information criterion in the sense of Schwarz~\cite{schwarz1978bic},
+\begin{equation}
+  \label{eq:basin-bic}
+  \mathrm{BIC}_b = C_b + k_b \ln N_\mathrm{pk},
+  \qquad k_b = \lVert\hat{\mathbf{c}}_b\rVert_0 + 4,
+\end{equation}
+where $C_b$ is the full objective at basin $b$ (weighted data misfit plus the $\nel$ prior and the stage-tie cost of Eq.~\eqref{eq:tie-cost}), $\lVert\hat{\mathbf{c}}_b\rVert_0$ counts non-zero stage concentrations, the constant $4$ counts the nonlinear plasma and profile parameters, and $N_\mathrm{pk}$ is the number of peaks % src: alibz/peaky_indexer_v3.py (_select_basin_bic)
+. The margin $\Delta\mathrm{BIC}$ between the best and the runner-up basin is exported as \texttt{delta\_bic\_runner\_up}; a margin below 6 sets the \texttt{basin-ambiguous} flag in the summary table % src: alibz/peaky_indexer_v3.py (BIC_AMBIGUITY = 6.0); alibz/pipeline.py (flags.append basin-ambiguous)
+. Runner-up basins that merely re-converge to a known minimum are merged first, so that the margin measures a genuinely different solution.
+
+\paragraph{Noise-rescaled BIC for local peak models.}
+In the refinement stage, three local models (a symmetric Voigt, a Voigt with a cold absorber, and two symmetric Voigts, with 4, 6, and 8 parameters) are compared window by window. Local windows on real spectra are dominated by systematics, so raw $\chi^2$ lies far above its photon-noise expectation and raw BIC margins would always favor the richest model. The $\chi^2$ values are therefore divided by $s^2=\max\{1,\min_m \chi^2_m/(n-k_m)\}$ before the penalty $k_m\ln n$ is added, so that margins measure relative improvement % src: alibz/refinement.py (_bic and noise_rescale)
+. A decision whose $s^2$ exceeds an action ceiling (\texttt{s2\_action\_max}, default 50) is recorded but not applied, because the best model then explains nothing at the stated noise level % src: alibz/refinement.py (s2_action_max=50.0)
+.
+
+\subsection{Detection, attribution, and plasma-state flags}
+
+\paragraph{Detection $z$ and status.}
+The score-test statistic of Eq.~\eqref{eq:detect}, with threshold 3, gates entry into the composition % src: alibz/peaky_indexer_v3.py (ELEMENT_DETECT_Z_MIN = 3.0)
+. For reporting, each element receives a status from the ratio of its fraction to its one-sigma statistical uncertainty, obtained by resampling the peak amplitudes with the fitted area uncertainties (32 draws by default) at fixed $(T,\nel)$ % src: alibz/detections.py (DEFAULT_DRAWS, classify_detections docstring)
+: \texttt{detected} ($z\ge3$ and at least two supporting lines), \texttt{single-line} ($z\ge3$ with one supporting line), \texttt{marginal} ($2\le z<3$), \texttt{weak} ($z<2$), and \texttt{upper-limit} when the best fit zeroed an element whose candidate lines were in the design, in which case the 95th percentile of the resampled fraction is reported as the upper limit. A \texttt{confounded} status is assigned by the contest below.
+
+\paragraph{Confounder contest.}
+Equation~\eqref{eq:contest} defines which supporting peaks are contested. Three numbers are exported per element: \texttt{clear\_lines}, the count of supporting peaks that no rival can cover at any scanned plasma state; \texttt{contested\_share}, the fraction of the element's supporting flux lying on contested peaks; and \texttt{confounder}, the rival that contests the most flux % src: docs/development_guide.md (Spectral confounders: the true-negative contest)
+. An element whose every supporting peak is contested is demoted to \texttt{confounded}, and \texttt{fraction\_resolved} is the composition after reattribution.
+
+\paragraph{Stage consistency.}
+The relative spread between the stage estimates of one element, $(\max_s c_s-\min_s c_s)/\sum_s c_s$ over the stages the solver retained (Eq.~\eqref{eq:stage-disagreement}), is exported as \texttt{stage\_disagreement}; values near zero are consistent with a single plasma at the fitted state, whereas values near unity indicate a wrong plasma state, non-LTE conditions, blend degeneracy, or phase heterogeneity of the target % src: alibz/peaky_indexer_v3.py (docstring of the aggregation method)
+. The summary table flags an element as \texttt{stage\_spread} when the value exceeds 0.5 % src: alibz/pipeline.py (STAGE_FLAG_THRESHOLD = 0.5)
+. The stage-tie cost of Eq.~\eqref{eq:tie-cost} is the same physics expressed in data units and is exported per element.
+
+\paragraph{Boundary and collapse flags.}
+The quality-control status of each spectrum is \texttt{fail}, \texttt{warn}, or \texttt{pass} according to the reasons collected in the summary table. Failure reasons include \texttt{physical-pattern-r2}, \texttt{temperature-at-bound} (search range \SIrange{4000}{25000}{\kelvin}), \texttt{electron-density-at-bound}, \texttt{composition-collapse} (top fraction at least 0.9), \texttt{dominant-weak-shape}, and \texttt{detector-response-invalid}; warnings include \texttt{detector-response-fallback}, \texttt{global-only-wavelength-shift}, \texttt{gas-wavelength-disagreement}, and \texttt{ar-registration-disagreement} % src: alibz/pipeline.py (qc_fail and qc_warn block; PLASMA_T_BOUNDS; COLLAPSE_TOP_FRACTION)
+. The electron-density test is applied to the bounds actually searched, recorded together with their source: either the H$\alpha$ Stark width (\texttt{halpha}) or the default prior, $\log_{10}\nel=17.0\pm0.5$ truncated at one standard deviation (\texttt{prior}) % src: reports/2026-09-21-stage-consistency-thermometer.md (sec. 3); alibz/pipeline.py (NE_PRIOR_DEFAULT, NE_PRIOR_BOUND_SIGMAS)
+. A flag is raised when the fitted $\log_{10}\nel$ lies within 0.01 dex of either bound % src: alibz/pipeline.py (electron-density-at-bound test)
+. Because the data lean cold along the Saha degeneracy ridge, an at-bound result without an H$\alpha$ line states that $\nel$ is prior-limited, not that the fit failed.
+
+\subsection{Synthetic-recovery metrics}
+
+For synthetic scenes the following quantities are computed against known truth. Element identification is scored by precision, recall, and $F_1$ at a presence threshold of 0.03 in atom fraction; composition accuracy by the mean absolute error over the union of true and predicted elements and by the mean relative error over true majors; and the plasma state by the percentage error in $T$ and the error in $\log_{10}\nel$ in dex % src: bench/benchmark.py (score, module docstring)
+. The suite-S scorer instead counts \emph{majors missed} (truth fraction at least 0.05 but recovered fraction below 0.025), the median and maximum relative error on majors, the \emph{spurious mass} (total recovered fraction on elements absent from the truth), and whether the dominant element is correct % src: bench/synth_cases.py (score_recovery)
+. Quantities that are fractions of nuclei in the emitting plasma are compared with the same quantity in the scene, never with a bulk composition.
+
+\subsection{Measured-spectrum metrics}
+
+\paragraph{Doublet and multiplet ratios.}
+Where two lines share an upper level (a T-independent branching ratio) or a lower level (a resonance pair), the measured area ratio $R$ is compared with the optically thin prediction $R_0\propto(gA/\lambda)\,e^{-E_k/\kB T}$, and the optical depth follows by inverting Eq.~\eqref{eq:doublet}. The calibration scripts use only isolated pairs of comparable strength (same ion and segment, $R_0\in[1.2,4]$, signal-to-noise ratio at least 12), and a pair is rejected if $R<1$, which indicates a contaminated weak member % src: cal/scripts/line_physics_analysis.py (multiplet_pairs); cal/reports/2026-09-24-line-matching-sa-broadening.md (2a)
+. As an independent check, a Boltzmann reference is fitted to non-resonance lines (lower-level energy at least \SI{0.8}{\electronvolt}, iterative rejection), and the logarithmic residual of each resonance or low-lying line, compared with the scatter of the reference as noise floor, measures its intensity deficit % src: cal/reports/2026-09-24-line-matching-sa-broadening.md (2b)
+. The pipeline-level counterpart is the doublet-anchored optical depth of Section~\ref{sec:theory-sa}.
+
+\paragraph{Boltzmann temperature.}
+For the pure-metal studies, $T$ is the slope of $\ln(I\lambda/gA)$ against $E_k$ with a robust fit that rejects the worst residual beyond $1.6\sigma$. A fit is called \emph{resolved} only if it uses at least 8 lines, spans at least \SI{2.4}{\electronvolt} in $E_k$, has $r^2\ge0.5$, and has $\sigma_T/T<0.5$ % src: cal/scripts/fe_plasma_analysis.py (fit_resolved; fit_boltzmann clip)
+. The detection limit for a change in $T$ between two conditions is twice the combined one-sigma fit uncertainty.
+
+\paragraph{Registration residual and peak-location accuracy.}
+A shift is defined as observed minus database wavelength (air). The registration estimators report per-segment medians and the median absolute deviation (MAD) across anchor lines, in picometers. The Ar-based and gas-based estimates are cross-checked, with a single-line floor of \SI{20}{\pico\metre}, and disagreement beyond three standard errors sets \texttt{ar-registration-disagreement} % src: DECISIONS.md (2026-09-23 Two argon wavelength engines); alibz/pipeline.py (gas_cross_check flag)
+. Run-to-run reproducibility of the element shift is judged against a target of \SI{30}{\pico\metre} % src: reports/2026-09-24-wavelength-registration.md (Run-to-run reproducibility header)
+. Peak-location accuracy of each estimator (vendor spline root, native parabola, point Gaussian, empirical point-spread function) is the median absolute residual $|\lambda_\mathrm{obs}-\lambda_\mathrm{db}-\text{curve}|$ in picometers after fitting one common smooth curve to the estimates of all methods, with a 3.5-MAD clip mask shared by all, so that estimators are compared on identical lines % src: cal/reports/2026-09-24-empirical-lsf.md (sec. 3, method)
+. Paired differences between estimators are reported with 95\% confidence intervals.
+
+\paragraph{Rank agreement.}
+For a profile measured without a reference composition, the within-element spatial rank correlation (Spearman) between the pipeline's relative profile and an independent vendor summary is used as external evidence, for one element at a time, never across elements % src: docs/mw2_112/analysis_plan.md (sec. 9)
+.
+
+\paragraph{Composition invariance and runtime.}
+The argon-versus-air test asks whether the recovered composition of the same target is invariant to the ambient gas once Ar, N, and O are modeled as an additional plasma component. The metric is the per-element change in recovered fraction between paired acquisitions, compared with its statistical uncertainty. No measured pair exists yet (Section~\ref{sec:datasets}), so this metric is defined here but not evaluated. Runtime is wall-clock time per spectrum from the per-file telemetry profile written with every run, and is meaningful only relative to the hardware on which it was measured % src: alibz/pipeline.py (PROFILE_NAME = profile.jsonl); reports/2026-09-21-stage-consistency-thermometer.md (sec. 4)
+.
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Metrics, where they are computed, and what they are used for. ``Decide'' means the quantity changes the solution or its reported status; ``report'' means it is exported for the reader. Module names are relative to the \texttt{alibz} package unless noted.}
+\label{tab:metrics}
+\begin{tabular}{@{}p{2.6cm}p{5.0cm}p{2.9cm}p{2.9cm}@{}}
+\toprule
+Metric & Definition & Module & Used for \\
+\midrule
+Residual $r^2$ & Fit of peak-amplitude vector; warn $<0.50$, fail $<0.30$ & \texttt{pipeline} & Report; QC \\
+Weighted $\chi^2$ & Eq.~\eqref{eq:wnnls} with Eq.~\eqref{eq:sigma-eff} & \texttt{peaky\_\allowbreak indexer\_\allowbreak v3} & Decide (concentrations) \\
+Basin BIC, $\Delta$BIC & Eq.~\eqref{eq:basin-bic}; ambiguous if $\Delta<6$ & \texttt{peaky\_\allowbreak indexer\_\allowbreak v3} & Decide (basin) \\
+Noise-rescaled BIC & $\chi^2/s^2+k\ln n$, $s^2\ge1$; action only if $s^2\le50$ & \texttt{refinement} & Decide (local model) \\
+Detection $z$ & Eq.~\eqref{eq:detect}; threshold 3 & \texttt{peaky\_\allowbreak indexer\_\allowbreak v3}, \texttt{detections} & Decide (presence); status \\
+Status; upper limit & detected, single-line, marginal, weak, upper-limit, confounded; 95th percentile of resampled fraction & \texttt{detections} & Report \\
+\texttt{clear\_\allowbreak lines}, \texttt{contested\_\allowbreak share}, \texttt{confounder} & Eq.~\eqref{eq:contest} and Section~\ref{sec:workflow} & \texttt{detections} & Decide (demotion); report \\
+\texttt{stage\_\allowbreak disagreement} & Eq.~\eqref{eq:stage-disagreement}; flag $>0.5$ & \texttt{peaky\_\allowbreak indexer\_\allowbreak v3}, \texttt{pipeline} & Report; phase-heterogeneity proxy \\
+Stage-tie cost & Eq.~\eqref{eq:tie-cost} & \texttt{peaky\_\allowbreak indexer\_\allowbreak v3} & Decide ($T$, $\nel$) \\
+$\nel$ and $T$ at bound & Within 0.01 dex of searched bounds; source halpha or prior & \texttt{pipeline} & QC fail \\
+Collapse & Top element fraction $\ge0.9$ & \texttt{pipeline} & Decide (reject re-solve); QC fail \\
+$F_1$, precision, recall & Presence at 0.03 atom fraction & \texttt{bench.benchmark} & Synthetic scoring \\
+Composition MAE; $T$, $\nel$ error & Mean absolute error over element union; \% in $T$; dex in $\log_{10}\nel$ & \texttt{bench.benchmark} & Synthetic scoring \\
+Majors missed; spurious mass & Truth $\ge0.05$ absent; fraction on non-truth elements & \texttt{bench.synth\_\allowbreak cases} & Round-trip gates \\
+Doublet/multiplet $R$, $\tau$ & Measured vs thin ratio; Eq.~\eqref{eq:doublet} & \texttt{utils.absorption}; \texttt{cal/\allowbreak scripts} & Self-absorption \\
+Boltzmann $T$, $\sigma_T$, $r^2$ & Robust slope; resolved criteria above & \texttt{cal/\allowbreak scripts} & Standards \\
+Registration shift, MAD & Observed minus database, pm; cross-check floor 20~pm & \texttt{wavelength\_\allowbreak registration} & Axis QC \\
+Peak-location accuracy & Median $|$residual$|$ to common curve, pm & \texttt{utils.peak\_\allowbreak location}; \texttt{cal/\allowbreak scripts} & Estimator choice \\
+Spearman $\rho$ & Within-element rank vs vendor summary & \texttt{mw2\_\allowbreak 112} & External check \\
+Ar-versus-air invariance & Paired change in recovered fraction & (not yet implemented) & Planned \\
+Runtime & Wall-clock per spectrum & \texttt{pipeline} (telemetry) & Cost \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Acceptance gates}
+
+The gates actually in force are of three kinds. First, the pipeline's own quality-control thresholds (above) are applied to every spectrum, and a failure is never silently converted to a composition. Second, the automated tests encode regression floors for synthetic recovery. The end-to-end round trip of the binary Ca/Mg scene must detect both majors, identify the dominant element correctly, keep every element fraction within 0.30 absolute of the truth, keep spurious mass below 0.25, and keep the fitted temperature within $[0.55,1.45]$ of the truth % src: tests/test_roundtrip_synthetic.py (TestRoundtripFast)
+. These tolerances were pinned to what the pipeline actually did on the date of pinning (plus margin) and are meant to be ratcheted down as fixes land, so they are a floor, not a claim of accuracy. Component-level gates include recovery of isolated synthetic peak areas to within 2\%, centers to within \SI{0.003}{\nano\metre}, and widths to within \SI{0.002}{\nano\metre}, and recovery of $\log_{10}\nel$ to within 0.3 dex when a Stark-width coupling is active, together with an asserted failure to recover it (more than 0.3 dex error) when the coupling is absent % src: tests/test_peaky_finder_accuracy.py (assertLess lines); tests/test_stark_ne.py (assertAlmostEqual delta=0.3)
+. Third, for the MW2-112 production run a pre-registered pilot gate required, among other conditions, that the all-zero spectrum be an explicit failure, that no new one-element collapse appear, and that major-element rankings be stable between 40 and a higher number of optimizer calls % src: docs/mw2_112/analysis_plan.md (G5)
+. The closed-sum composition run failed this gate (Section~\ref{sec:results}).
+
+The working accuracy target for the composition solve is a relative error of about \SI{20}{\percent} on major elements, to be established first by composition invariance between argon and air and then on certified reference materials % src: DECISIONS.md (2026-11-03 entry recording the 2026-07-01 target)
+. No certified reference material has yet been measured, so no accuracy gate against a certified composition can be claimed as met.

@@ -1,0 +1,163 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{What a physics-first inverse model buys}
+
+The central argument of this paper is not that \alibz{} is more accurate than
+calibrated or learned methods; Section~\ref{sec:results} shows that the absolute,
+closed-sum quantification of heterogeneous single shots is not yet reached. The
+argument is that an inverse model built from Equations~\eqref{eq:emissivity},
+\eqref{eq:saha} and \eqref{eq:wnnls} fails in ways that can be seen. Every failure
+mode documented in Section~\ref{sec:results} was caught by a diagnostic that the
+model itself produces: a basin collapse appears as a top fraction that jumps to one
+while $r^2$ \emph{improves}; a confounded attribution appears as a supporting peak set
+that a rival could cover at its own true-negative cap (Equation~\eqref{eq:contest});
+a phantom trace element appears as a detection score $z<3$ on its strongest predicted
+line (Equation~\eqref{eq:detect}); a wrong plasma state appears as a stage
+disagreement $D_\mathrm{el}$ (Equation~\eqref{eq:stage-disagreement}) or an electron
+density pinned to the edge of its prior box. A purely empirical regressor
+\citep{clegg2009pls,li2020cnn} returns a composition in each of these cases with no
+residual structure to flag it, because nothing in the model is obliged to be
+consistent with Saha--Boltzmann physics. That is the sense in which the assumptions of
+Section~\ref{sec:assumptions} are an asset rather than a liability: the ones that
+matter are tested at run time, and the ones that are not yet tested are named.
+
+\subsection{Where the model is limited by physics, and where by the instrument}
+
+Two limitations are intrinsic to the measurement and no amount of software removes
+them. The first is the weak information that line amplitudes carry about the plasma
+state. The amplitude objective is flat in $\nel$ at fixed $T$ and nearly flat in $T$
+over several thousand kelvin (Section~\ref{sec:theory-thermometer}), so the
+composition of a feldspar-like spectrum, whose Si/K emissivity ratio changes by a
+factor of $\sim$2.5 per \SI{1000}{\kelvin}, is only as good as the thermometer and
+the density anchor. The stage-consistency cost fixes $T$ where two stages of one
+element are observed, and H$\alpha$ fixes $\nel$ where hydrogen is present
+\citep{gigosos2003halpha}; otherwise \alibz{} falls back to a prior and says so. This
+is the same identifiability problem that limits classical CF-LIBS Boltzmann and
+Saha--Boltzmann plots \citep{tognoni2010cflibs,aguilera2007multielement}, made
+explicit by treating the stages as independent unknowns rather than hidden by tying
+them. The second intrinsic limitation is spatial and temporal inhomogeneity
+\citep{aragon2008review,cristoforetti2013columnar}: a single $(T,\nel)$ is an
+effective average over a gated, expanding plasma, and on a multi-phase mineral the
+same element is excited in different host phases. The stage disagreement is the
+diagnostic for both, and it cannot separate them; correlative characterization of the
+ablated phases is the only route to doing so.
+
+Three further limitations belong to the instrument and are therefore removable. The
+relative spectral response within and between the ultraviolet and visible segments is
+uncalibrated (Assumption~A6), and the \SI{620}{\nano\meter} gain step is measured
+from the continuum with a corpus fallback; on feldspar-like spectra the K/Si split is
+limited by that fallback, not by the thermometer. A lamp calibration and a
+branching-ratio method \citep{li2014spectralresponse,urbinamedina2021branching} are
+the planned fixes. The line-spread function is not a Voigt, the vendor export grid is
+a spline resample of coarser native pixels, and the pipeline now fits on the native
+grid with per-segment location estimators (Section~\ref{sec:wf-fit}); a
+forward-convolved, pixel-integrated line-spread function remains to be built, and
+until it is, the self-absorption parameters of Equation~\eqref{eq:sa-voigt} partly
+absorb instrument shape (Assumption~A9). Finally, the wavelength axis carried an
+18-pixel offset that invalidated every line identification made before it was found
+(Section~\ref{sec:results}); the per-spectrum registration against ambient argon
+lines now bounds the residual to a fraction of a pixel, but it is a reminder that an
+instrument-level error can masquerade as physics.
+
+Atomic data are a limitation of a third kind. Transition probabilities enter
+Equation~\eqref{eq:emissivity} linearly and carry accuracy classes from a few percent
+to \SI{50}{\percent} \citep{kramida2023asd,fuhr2006fe}; partition functions are
+summed from the line-derived level set rather than taken from critically evaluated
+tables \citep{barklem2016partition}; ionization-potential depression and the
+McWhirter criterion are not evaluated (Section~\ref{sec:theory-saha}). None of these
+is tested at run time. They set a floor on the accuracy that any calibration-free
+method can reach, and the synthetic generator samples them as source-aware
+uncertainty precisely so that a trained model does not learn to trust them.
+
+\subsection{The MW2-112 production gate}
+
+The clearest statement of where the method stands is the pre-registered production
+gate of the MW2-112 stratigraphic profile (Section~\ref{sec:datasets}). The
+closed-sum CF-LIBS branch was rejected: in the 20-shot quantitative pilot only 3
+positions passed the physical quality control, 4 warned and 12 failed on low or
+negative pattern $r^2$, plasma parameters at bounds, or weak-shape and composition
+collapse, and doubling the optimizer effort or varying the \SI{620}{\nano\meter}
+fallback response changed the compositions without stable improvement.
+% src: docs/mw2_112/analysis_plan.md §9 (execution record 2026-07-15)
+A relative-profile branch, which asks only for within-element spatial ranks from
+same-stage multiplets, was completed for all 929 spectra and validates against the
+vendor's independent summaries (Spearman $\rho$ of 0.93 for Si, 0.88 for Ti, 0.71 for
+Fe, 0.66 for Li and 0.60 for Mg).
+% src: docs/mw2_112/analysis_plan.md §9
+The contrast is instructive: the forward model and the peak-extraction chain are
+good enough to rank, and the identification and plasma-state inference are the
+weak links for absolute quantification on single shots of a heterogeneous,
+finely stratified mudrock. The calibration campaign on pure-element standards
+(Section~\ref{sec:datasets}) was begun for exactly this reason: on a target whose
+composition is known, every residual is attributable to the instrument or the
+physics rather than to the sample.
+
+\subsection{What the panel taught: basins compensate, matrices must conserve}
+
+Two lessons from Section~\ref{sec:results-ab} generalise beyond the specific changes. First, a
+physically more correct ingredient can score worse on a round trip when the baseline's error is
+being cancelled by a second error: the line-sum partition function landed the search on a cold
+basin that compensated a composition bias, and the tabulated functions were penalised for
+removing the compensation. A fixed panel with a solve at the known true state is what exposed
+this; a benchmark that only reports end-to-end accuracy would have rejected the correct physics.
+Second, the whole-pattern design matrix must conserve emission. Spreading one database line over
+several nearby peaks is a natural way to tolerate wavelength error, but it lets one line be
+counted against two fitted components, which over-predicts the elements whose lines most often
+have a second component within the tolerance, and the non-negative solve then under-recovers
+them; on the silicate scene that is silicon, and on real spectra it is likely to be iron, whose
+forest is the densest. The principled alternative is to let each fitted component be the sum of
+the database lines under it. This is a property of the inverse model, not of the plasma, and
+it is invisible to goodness of fit. We expect it to account for part of the single-element
+dominance failures of Section~\ref{sec:results} and for the pure-iron standard's low iron
+fraction; the conserving matrix is therefore the first change of the next round, and the
+candidates already scored are re-evaluated on top of it rather than on the biased solver.
+
+\subsection{Relation to learned models}
+
+We regard the physics-first inverse model and the learned models of
+Section~\ref{sec:intro} as complementary rather than competing, in two concrete
+ways. First, the forward model is the source of labelled training data. The
+explicit-stage synthetic generator (Section~\ref{sec:datasets}) renders spectra with
+independent stage abundances, per-stage temperatures and source-aware atomic
+uncertainty onto arbitrary pixel grids, and the planned coordinate-aware transformer
+is specified to be trained on it, with acceptance gates on conditional peak-profile
+and export-kernel realism before training begins. Randomizing the simulator in this
+way is the established route to transfer from synthetic to real data
+\citep{tobin2017domainrand}, and set- and point-based attention
+\citep{lee2019settransformer,zaheer2017deepsets} is the natural architecture for
+irregularly sampled, multi-segment spectra. Second, the inverse model supplies the
+consistency checks that a learned model lacks: a network's composition can be
+forward-modelled at its implied plasma state and scored by the same residual, stage
+disagreement and detectability diagnostics as a solver's. Physics-informed training
+\citep{raissi2019pinn} embeds the same equations as penalties; the difference is
+whether the physics is a constraint on the answer or a diagnostic of it, and we
+argue for keeping both.
+
+A more immediate statistical improvement is already identified. Comparing basins by
+$r^2$ fails because a degenerate single-element basin can fit a noisy spectrum
+better than the truth (Section~\ref{sec:results}); whitening the objective by a
+per-peak noise model (Equation~\eqref{eq:sigma-eff}) repairs the comparison on
+synthetic scenes but remains opt-in because its $\chi^2$ still misranks
+temperature. A pixel-level likelihood with a parametric, positive-definite noise
+covariance, replacing the peak table as the solver's input, is the fundamental fix;
+its prototype showed that correlated-noise whitening on the resampled export grid
+rewards sharp features and must be paired with the native grid and a noise nugget.
+
+\subsection{Open validation gates}
+
+Three gates remain open, in order of what they would establish. (i)
+\emph{Composition invariance}: the same rock measured under argon and in air must
+return the same composition while $T$ and $\nel$ differ \citep{palasti2022argon};
+the metric is defined (Section~\ref{sec:metrics}) but no measured pair has yet been
+staged into the repository, so it has been exercised only on a synthetic argon-ambient
+scene. (ii) \emph{Pure-element standards}: the Z300 iron and vanadium studies
+constrain the plasma temperature, the doublet optical depths and the wavelength
+registration, but a pure metal cannot test the composition solve. (iii)
+\emph{Certified reference materials}: no certified geological or glass standard
+\citep{jochum2005georem,jochum2011nist} has yet been measured; the benchmark
+scaffolding carries placeholders for them, and the working accuracy target is a
+relative error on major elements of about \SI{20}{\percent}.
+% src: DECISIONS.md 2026-11-03 entry recording the 2026-07-01 target
+Until (iii) is passed, every accuracy statement about \alibz{} rests on synthetic
+round trips, whose noise and atomic data are, by construction, those of the model.

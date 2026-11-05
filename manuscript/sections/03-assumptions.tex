@@ -1,0 +1,150 @@
+\section{Assumptions and their status}
+\label{sec:assumptions}
+
+Every quantification method rests on physical assumptions; the question for a
+calibration-free method, which has no standards to absorb the error, is which
+assumptions are load-bearing, how they fail, and whether the software notices. We
+enumerate them here as A1--A11. For each we give the statement, where it enters the
+model of Section~\ref{sec:theory}, the evidence for or against it on our own data, the
+failure mode it produces when violated, and whether \alibz{} tests it at run time. We
+distinguish a tested assumption (the code computes a diagnostic the user can read)
+from an untested one (the code relies on it silently).
+
+\begin{description}
+
+\item[\textbf{A1.}] \textbf{Local thermodynamic equilibrium within each stage.}
+The level populations of a single ionization stage follow one Boltzmann distribution
+at temperature $T$ (Equation~\eqref{eq:boltzmann}). This underlies every line weight
+through the emissivity of Equation~\eqref{eq:emissivity}. LTE is expected to hold at
+LIBS densities ($\nel\sim\SI{e17}{\per\cubic\centi\meter}$), but \alibz{} does not
+evaluate the McWhirter criterion that would confirm a lower bound on $\nel$, so the
+assumption is not directly tested. When it fails, line ratios within a stage no longer
+reflect $T$, biasing both the thermometer and the composition. \emph{Indirectly
+tested} through stage disagreement (A2) and through the within-stage consistency the
+minor-line seeding checks.
+
+\item[\textbf{A2.}] \textbf{Ion stages are independent unknowns, not Saha-tied.}
+The Saha equation (Equation~\eqref{eq:saha}) builds the design columns but does not
+constrain the solve: each (element, stage) density is a free non-negative unknown
+(Section~\ref{sec:theory-saha}). This enters the inverse problem of
+Equation~\eqref{eq:wnnls} and the per-element aggregation. The choice is deliberate:
+tying the stages makes $\nel$ unidentifiable from amplitudes, and real targets ionize
+differently in different phases. The cost is that an element's stages can disagree;
+\alibz{} \emph{tests this explicitly} by reporting
+$D_\mathrm{el}$ (Equation~\eqref{eq:stage-disagreement}, \texttt{stage\_disagreement}).
+Failure mode: a large $D_\mathrm{el}$ means the single-plasma element total is only a
+model-limited estimate.
+
+\item[\textbf{A3.}] \textbf{A single, homogeneous, time-integrated plasma.}
+One $(T,\nel)$ describes the whole spectrum, which is integrated over the acquisition
+gate rather than time-resolved. This enters the outer search of
+Section~\ref{sec:theory-inverse} and the thermometer of Equation~\eqref{eq:tie-cost}.
+A real plasma has spatial and temporal gradients, so the recovered $T$ is an
+effective average. \alibz{} does not model gradients, but the stage-tie cost
+(Equation~\eqref{eq:tie-cost}) and $D_\mathrm{el}$ both rise when a single state
+cannot reconcile the lines, so the assumption is \emph{indirectly tested}; the failure
+mode is a biased effective $T$ and inflated stage disagreement.
+
+\item[\textbf{A4.}] \textbf{Optically thin except where self-absorption is modeled.}
+Lines are treated as optically thin (escape factor $\rightarrow 1$) unless they carry
+a resonance-capable lower level, where the escape factor of
+Equation~\eqref{eq:escape}, the doublet inversion of Equation~\eqref{eq:doublet}, or
+the cold-absorber profile of Equation~\eqref{eq:sa-voigt} applies. This enters
+Equations~\eqref{eq:kappa}--\eqref{eq:sa-voigt}. The assumption is demonstrably
+violated on strong resonance lines---the \mbox{K\,\textsc{i}} doublet reads $1.30$
+against a thin $2.02$---so self-absorption is not an edge case but a routine
+correction. \alibz{} \emph{tests it} per line (doublet-ratio and profile-shape
+verdicts, emission-to-observed area ratios of $1.24$--$7.0$ on MW2-112). Untreated, a
+self-absorbed line understates its element.
+
+\item[\textbf{A5.}] \textbf{Atomic data are accurate to their stated classes.}
+Line positions, $gA_j$ values, and level energies come from the NIST Atomic Spectra
+Database \citep{kramida2023asd,ralchenko2020nist} (92 elements, H--U), supplemented by
+Kurucz GFALL records \citep{kurucz2011lines} for the low stages of Se, Th, and U; partition functions are summed from this line set
+(Equation~\eqref{eq:partition}) rather than read from tables. This enters every
+emissivity and optical depth. Unstable elements (Tc, Pm, Po, At, Rn, Fr, Ra, Ac, Pa)
+are excluded from candidates. \alibz{} does \emph{not} test $gA$ accuracy; the summed
+partition function is a known under-count when the line list is incomplete, and no van
+der~Waals broadening or free--bound continuum is included. Failure mode: systematic
+per-line bias that the fit cannot distinguish from composition.
+
+\item[\textbf{A6.}] \textbf{Detector spectral response.}
+The measured area is the physical emissivity times a response $R(\lambda)$
+(Equation~\eqref{eq:forward-line}). We have measured a multiplicative gain step of
+$\sim$\num{3.9}$\times$ at the \SI{620}{\nano\meter} visible/near-infrared junction
+(corpus median of 435 spectra, interquartile range $3.0$--$5.2$) and an additive step
+at \SI{365}{\nano\meter} (removed by the background model); the \SI{620}{\nano\meter}
+step is estimated per spectrum from the continuum, with the \num{3.9}$\times$ corpus
+value as the fallback when that estimate is inconclusive. The relative response within
+and between the ultraviolet and visible segments is \emph{uncalibrated}; a
+branching-ratio corpus method and a lamp calibration are planned. \alibz{} applies the
+measured steps but does \emph{not} self-test the absolute response. Failure mode: a
+cross-segment response error tilts the whole composition toward the better-amplified
+band.
+
+\item[\textbf{A7.}] \textbf{Noise model.}
+Per segment, the pixel variance follows a photon-transfer law
+\citep{janesick2007photontransfer} $\mathrm{Var}(I) = aI + b$, measured on a real sample as $a=10,\,b=63$ (UV);
+$a=1.2,\,b=26$ (VIS); $a=0.4,\,b=326$ (NIR), in counts. The vendor export grid carries
+a lag-1 autocorrelation $\rho(1)=0.92$; the recovered native grid is white. This feeds
+the per-peak $\sigma_{\mathrm{eff}}$ of Equation~\eqref{eq:sigma-eff}, the detection
+$z$-score of Equation~\eqref{eq:detect}, and the basin comparison. \alibz{} uses the
+model rather than testing it per spectrum, though the $\sim$\SI{9}{\percent} of
+$\chi^2$ explained by the fit is itself a measured statement that model inadequacy, not
+photon noise, dominates. Failure mode: mis-scaled weights and over-confident detections.
+
+\item[\textbf{A8.}] \textbf{Wavelength axis.}
+Database Ritz vacuum wavelengths are converted to standard air
+\citep{edlen1966refractive,birch1994refractive} at load for
+$\lambda\ge\SI{200}{\nano\meter}$, and the Z300 native axis carries a corrected
+$-18$~pixel offset (residual $\approx-0.25$~px). Registration applies a per-segment
+\emph{offset} only; within-segment slopes transfer between elements as database error,
+not instrument error, and Ar\,\textsc{i} near-infrared lines are the ambient anchors.
+This enters line matching throughout. \alibz{} \emph{tests} registration (per-segment
+golden-line residuals; a segment with fewer than three anchors is marked
+\texttt{unregistered}). Failure mode: a residual offset matches lines to the wrong
+species---the regime in which Fe\,\textsc{ii} lines can mimic Ar\,\textsc{i} positions.
+
+\item[\textbf{A9.}] \textbf{Instrument line-spread function.}
+The line shape is a Voigt (Equation~\eqref{eq:voigt-fwhm}) with a per-segment effective
+PSF (empirical in the visible, spline-root in the ultraviolet, Gaussian in the
+near-infrared), and the Gaussian width is fit as a free scalar rather than tied to $T$
+and emitter mass. This enters the profile fit and, through it, the areas that feed
+Equation~\eqref{eq:forward-line}. The true LSF is measurably not a Voigt (a systematic
+$5$--$7\sigma$ residual on the brightest lines), so self-absorption parameters partly
+absorb instrument shape. \alibz{} does \emph{not} yet forward-model the LSF; the
+interim guard is a robust \texttt{soft\_l1} loss. Failure mode: biased $\tau$ and
+widths on bright isolated lines.
+
+\item[\textbf{A10.}] \textbf{Composition closes over detected emitters.}
+The reported fractions sum to one over the elements \alibz{} detects and quantifies.
+Light elements poorly represented in the optical LIBS spectrum---notably O, H, and
+F---are not quantified, and no oxide or stoichiometric closure is imposed. This enters
+the normalization of the inverse solve and the reattribution of
+Section~\ref{sec:theory-inverse}. \alibz{} \emph{tests} membership through the
+detectability gate of Equation~\eqref{eq:detect} and the confounder contest of
+Equation~\eqref{eq:contest}, but the closure itself is an assumption, not a
+measurement. Failure mode: an unquantified major constituent inflates every reported
+fraction proportionally.
+
+\item[\textbf{A11.}] \textbf{Spatial homogeneity within the ablated volume.}
+The ablated and co-excited material is treated as one well-mixed source feeding one
+plasma. Geological targets are multi-phase: the same element in different co-ablated
+minerals ionizes differently, so a single Saha ratio need not describe it. This enters
+the single-plasma premise of A2 and A3. \alibz{} \emph{tests it indirectly}: the stage
+disagreement $D_\mathrm{el}$ of Equation~\eqref{eq:stage-disagreement} is, by
+construction, also a phase-heterogeneity proxy, because a heterogeneous host drives the
+per-stage estimates apart. Failure mode: the single-plasma element total averages over
+distinct subpopulations and is reported as model-limited.
+
+\end{description}
+
+\noindent The honest summary is that \alibz{} tests the assumptions that most often
+fail silently in calibration-free LIBS---self-absorption (A4), stage and phase
+consistency (A2, A11), confounded attribution and detectability (A10), and wavelength
+registration (A8)---and relies without a run-time check on those it cannot yet probe:
+the LTE criterion (A1), the absolute cross-segment response (A6), the atomic-data
+accuracy (A5), and the line-spread shape (A9). The named omissions---ionization-potential
+depression, the McWhirter diagnostic, tabulated partition functions, van der~Waals
+broadening, free--bound continuum, and a mass-tied Doppler width---are recorded here so
+that no reader mistakes a planned correction for an applied one.

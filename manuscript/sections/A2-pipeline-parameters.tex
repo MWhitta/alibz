@@ -1,0 +1,129 @@
+\section{Pipeline parameters and defaults}
+\label{app:params}
+
+Tables~\ref{tab:params-fit}--\ref{tab:params-solve} list the defaults of the \alibz\ pipeline as they stand in the code at the time of writing. Each parameter is named as it appears in the module given in the second column; entries marked ``literal'' are numerical constants inside a function body and not named constants. Quantities written with an exponent or a subscript are given in plain text for compatibility with the code. Parameters in Section~\ref{sec:workflow} that are not listed here (for example the stage tolerances of the golden-line selector) are internal and are not intended to be tuned.
+
+\begin{table*}[!htbp]
+\centering
+\caption{Background, detection and profile fitting.}
+\label{tab:params-fit}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{0.09\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.28\textwidth}@{}}
+\toprule
+Stage & Module & Parameter & Default & Meaning \\
+\midrule
+Background & \texttt{peaky\_\allowbreak{}finder} & \texttt{DEFAULT\_\allowbreak{}SEGMENT\_\allowbreak{}EDGES} & (365.0, 620.0) nm & Detector junctions at which the spectrum is split for background, noise and fits \\
+Background & \texttt{peaky\_\allowbreak{}finder} & \texttt{smooth\_\allowbreak{}nm} & 1.9 nm & Physical arPLS smoothing length; the penalty weight is $(\ell/\Delta\lambda)^4$ \\
+Background & \texttt{peaky\_\allowbreak{}finder} & \texttt{max\_\allowbreak{}iter} & 20 & arPLS reweighting iterations \\
+Detection & \texttt{peaky\_\allowbreak{}finder} & \texttt{n\_\allowbreak{}sigma} & 0 & Added to the 3.0 $\sigma$ floor of the local noise; cannot loosen it \\
+Detection & \texttt{peaky\_\allowbreak{}finder} & \texttt{\_\allowbreak{}noise\_\allowbreak{}scale\_\allowbreak{}local block} & 2048 samples & Block length of the robust noise estimate; blocks restart at junctions \\
+Fitting & \texttt{peaky\_\allowbreak{}finder} & \texttt{MIN\_\allowbreak{}HEIGHT\_\allowbreak{}SIGMA} & 2.0 & Final gate: implied height must exceed this multiple of local noise \\
+Fitting & \texttt{peaky\_\allowbreak{}finder} & \texttt{fit\_\allowbreak{}all window} & 50 samples & Half-width of the joint block refit (literal in code) \\
+Fitting & \texttt{peaky\_\allowbreak{}finder} & \texttt{width filter} & 100 $\times$ median FWHM & Components wider than this are discarded as baseline remnants (literal in code) \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[!htbp]
+\centering
+\caption{Refinement, deblending and self-absorption.}
+\label{tab:params-refine}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{0.09\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.28\textwidth}@{}}
+\toprule
+Stage & Module & Parameter & Default & Meaning \\
+\midrule
+Refinement & \texttt{refinement} & \texttt{BIC\_\allowbreak{}MARGIN} & 10.0 & BIC margin for a database-supported blend verdict \\
+Refinement & \texttt{refinement} & \texttt{BIC\_\allowbreak{}MARGIN\_\allowbreak{}UNSUPPORTED} & 30.0 & BIC margin for a blend without database support \\
+Refinement & \texttt{refinement} & \texttt{TAU\_\allowbreak{}MAX} & 8.0 & Absorber optical-depth ceiling; a fit at the ceiling is never acted on \\
+Refinement & \texttt{refinement} & \texttt{SA\_\allowbreak{}ROBUST\_\allowbreak{}F\_\allowbreak{}SCALE} & 8.0 & Scale of the soft-L1 robust loss \\
+Refinement & \texttt{refinement} & \texttt{s2\_\allowbreak{}action\_\allowbreak{}max} & 50.0 & Decisions whose noise rescale exceeds this are recorded, not applied \\
+Refinement & \texttt{refinement} & \texttt{resonance gate} & E\_i $\le$ 0.2 eV & Lower-level energy for a resonance-capable (self-absorbing) primary line (literal in code) \\
+Deblending & \texttt{profiles} & \texttt{DEBLEND\_\allowbreak{}ACCEPT\_\allowbreak{}SNR} & 4.0 & Matched-filter signal-to-noise ratio to accept a shoulder deblend \\
+Deblending & \texttt{profiles} & \texttt{DEBLEND\_\allowbreak{}BIC\_\allowbreak{}MARGIN} & 6.0 & Window BIC margin for a deblend \\
+Deblending & \texttt{profiles} & \texttt{DEBLEND\_\allowbreak{}MAX} & 12 & Maximum new components per spectrum \\
+SA recovery & \texttt{profiles} & \texttt{SA\_\allowbreak{}BIC\_\allowbreak{}MARGIN} & 10.0 & BIC win required over the symmetric control \\
+SA recovery & \texttt{profiles} & \texttt{SA\_\allowbreak{}AMPLIFICATION\_\allowbreak{}CAP} & 5.0 & Maximum emission-to-observed area ratio accepted \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[!htbp]
+\centering
+\caption{Registration, seeding and deepening.}
+\label{tab:params-seed}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{0.09\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.28\textwidth}@{}}
+\toprule
+Stage & Module & Parameter & Default & Meaning \\
+\midrule
+Registration & \texttt{pipeline} & \texttt{wavelength\_\allowbreak{}registration} & ambient & Mode: off, report, ambient or apply\_element \\
+Registration & \texttt{pipeline} & \texttt{subpixel} & gaussian & Sub-pixel center method: gaussian or parabolic \\
+Registration & \texttt{pipeline} & \texttt{gas\_\allowbreak{}wavelength\_\allowbreak{}calibration} & apply & Independent Ar I / O I engine: off, report or apply \\
+Registration & \texttt{wavelength\_\allowbreak{}registration} & \texttt{SEGMENT\_\allowbreak{}EDGES} & (365.0, 620.0) nm & Segment junctions for registration \\
+Registration & \texttt{wavelength\_\allowbreak{}registration} & \texttt{golden-line minimum} & 3 lines & Fewer golden lines leave a segment unregistered (documented in code) \\
+Registration & \texttt{wavelength\_\allowbreak{}registration} & \texttt{isolation\_\allowbreak{}window\_\allowbreak{}nm} & 0.30 nm & Search window for isolation of element anchors \\
+Registration & \texttt{wavelength\_\allowbreak{}registration} & \texttt{kT\_\allowbreak{}eV} & 0.78 eV (9000 K) & Boltzmann temperature that ranks golden-line strength \\
+Segment shift & \texttt{utils.wavelength} & \texttt{MIN\_\allowbreak{}SHIFT\_\allowbreak{}MATCHES} & 5 & Minimum unambiguous matches for a segment's own median \\
+Segment shift & \texttt{utils.wavelength} & \texttt{significance gate} & 2 $\times$ SE & A segment median is adopted only beyond this multiple of its standard error (literal in code) \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{DEFAULT\_\allowbreak{}KT\_\allowbreak{}EV} & 0.76 eV & Single reference temperature for Boltzmann ratios \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{tol\_\allowbreak{}nm} & 0.06 nm & Match tolerance between database and fitted peak \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{min\_\allowbreak{}ref\_\allowbreak{}lines} & 3 & Consistent references needed for a stage to predict \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{max\_\allowbreak{}scale\_\allowbreak{}spread} & 0.6 & Maximum relative spread of the stage scale \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{min\_\allowbreak{}ref\_\allowbreak{}snr} & 10.0 & Minimum signal-to-noise ratio of a reference line \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{consistency\_\allowbreak{}factor} & 5.0 & Agreement with the Boltzmann prediction required to add a line \\
+Seeding & \texttt{minor\_\allowbreak{}lines} & \texttt{bic\_\allowbreak{}margin} & 2.0 & BIC improvement required for an added line \\
+Recovery & \texttt{minor\_\allowbreak{}lines} & \texttt{snr\_\allowbreak{}min} & 4.0 & Local-noise bar for element-agnostic residual recovery \\
+Recovery & \texttt{minor\_\allowbreak{}lines} & \texttt{bic\_\allowbreak{}margin (recovery)} & 6.0 & BIC margin for a recovered line \\
+Recovery & \texttt{minor\_\allowbreak{}lines} & \texttt{max\_\allowbreak{}new} & 40 & Maximum recovered lines per call \\
+Deepening & \texttt{pipeline} & \texttt{CONFIDENT\_\allowbreak{}MIN\_\allowbreak{}REFS} & 4 & Clean reference lines for an ion to be confident \\
+Deepening & \texttt{pipeline} & \texttt{DEEPEN\_\allowbreak{}BARS} & (3.0, 2.0) $\sigma$ & Successive local-noise bars for the deepening rounds \\
+Deepening & \texttt{pipeline} & \texttt{SUPPORT\_\allowbreak{}GA\_\allowbreak{}FLOOR} & 1e6 & gA floor for a database line that marks coverage \\
+Deepening & \texttt{pipeline} & \texttt{SUPPORT\_\allowbreak{}TOL\_\allowbreak{}NM} & 0.06 nm & Position tolerance for that coverage \\
+Deepening & \texttt{pipeline} & \texttt{ESTABLISHED\_\allowbreak{}MIN\_\allowbreak{}FRACTION} & 0.002 & Pass-1 fraction above which an element seeds minor lines \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[!htbp]
+\centering
+\caption{Whole-pattern solve, detection and output.}
+\label{tab:params-solve}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{0.09\textwidth}p{0.17\textwidth}p{0.24\textwidth}p{0.13\textwidth}p{0.28\textwidth}@{}}
+\toprule
+Stage & Module & Parameter & Default & Meaning \\
+\midrule
+Solve & \texttt{pipeline} & \texttt{DEFAULT\_\allowbreak{}SEARCH} & grid & Outer search: a 15 $\times$ 7 $(T,$ log $n_\mathrm{e}$) grid seeds a Gaussian-process optimizer \\
+Solve & \texttt{pipeline} & \texttt{DEFAULT\_\allowbreak{}N\_\allowbreak{}CALLS} & 40 & Optimizer evaluations per pass \\
+Solve & \texttt{pipeline} & \texttt{DEFAULT\_\allowbreak{}GP\_\allowbreak{}SEED} & 42 & Random seed of the optimizer \\
+Solve & \texttt{pipeline} & \texttt{PLASMA\_\allowbreak{}T\_\allowbreak{}BOUNDS} & (4000, 25000) K & Temperature search bounds \\
+Solve & \texttt{pipeline} & \texttt{PLASMA\_\allowbreak{}LOG\_\allowbreak{}NE\_\allowbreak{}BOUNDS} & (14.0, 19.0) & Hard bounds on $\log_{10}$ $n_\mathrm{e}$ (cm$^{-3}$) \\
+Solve & \texttt{pipeline} & \texttt{NE\_\allowbreak{}PRIOR\_\allowbreak{}DEFAULT} & (17.0, 0.5) & Default $\log_{10}$ $n_\mathrm{e}$ prior (centre, $\sigma$ in dex) without H$\alpha$ \\
+Solve & \texttt{pipeline} & \texttt{NE\_\allowbreak{}PRIOR\_\allowbreak{}BOUND\_\allowbreak{}SIGMAS} & 1.0 & Search bo$\times$ half-width in prior $\sigma$s \\
+Solve & \texttt{peaky\_\allowbreak{}indexer\_\allowbreak{}v3} & \texttt{STAGE\_\allowbreak{}CONSISTENCY\_\allowbreak{}WEIGHT} & 1.0 & Weight of the stage-tie cost (0 disables) \\
+Solve & \texttt{pipeline} & \texttt{weighted\_\allowbreak{}solve} & False & Opt-in weighted NNLS (WNNLS) \\
+Solve & \texttt{pipeline} & \texttt{POISSON\_\allowbreak{}GAIN\_\allowbreak{}COUNTS} & 1.0 & Counts per photoelectron in the Poisson term \\
+Solve & \texttt{peaky\_\allowbreak{}indexer\_\allowbreak{}v3} & \texttt{ELEMENT\_\allowbreak{}DETECT\_\allowbreak{}Z\_\allowbreak{}MIN} & 3.0 & Detectability gate on the strongest predicted line \\
+Guard & \texttt{pipeline} & \texttt{COLLAPSE\_\allowbreak{}TOP\_\allowbreak{}FRACTION} & 0.9 & Top fraction at which a corroborated composition counts as collapsed \\
+Guard & \texttt{pipeline} & \texttt{COLLAPSE\_\allowbreak{}JUMP} & 0.2 & Minimum growth of the top fraction over pass 2 to reject \\
+Guard & \texttt{pipeline} & \texttt{STAGE\_\allowbreak{}FLAG\_\allowbreak{}THRESHOLD} & 0.5 & Stage disagreement above which an element is flagged \\
+Detections & \texttt{detections} & \texttt{DETECT\_\allowbreak{}Z} & 3.0 & z = fraction / 1-$\sigma$ uncertainty for status detected \\
+Detections & \texttt{detections} & \texttt{MARGINAL\_\allowbreak{}Z} & 2.0 & z for status marginal \\
+Detections & \texttt{detections} & \texttt{MIN\_\allowbreak{}SUPPORT\_\allowbreak{}FRACTION} & 0.3 & Share of a peak's amplitude for an element to support it \\
+Detections & \texttt{detections} & \texttt{RIVAL\_\allowbreak{}COVER\_\allowbreak{}FRACTION} & 0.5 & Share of amplitude a rival must cover to contest a peak \\
+Detections & \texttt{detections} & \texttt{RIVAL\_\allowbreak{}MIN\_\allowbreak{}RESPONSE} & 0.05 & Minimum rival-to-claimant template response \\
+Detections & \texttt{detections} & \texttt{CONTEST\_\allowbreak{}T\_\allowbreak{}GRID} & (6000, 8000, 10000, 12000) K & Temperatures scanned by the contest \\
+Detections & \texttt{detections} & \texttt{CONTEST\_\allowbreak{}LOGNE\_\allowbreak{}GRID} & (16.5, 17.5) & $\log_{10}$ $n_\mathrm{e}$ values scanned by the contest \\
+Detections & \texttt{detections} & \texttt{CONTEST\_\allowbreak{}BUILD\_\allowbreak{}STATE} & (9000 K, 17.0) & Neutral state of the pre-prune candidate table \\
+Detections & \texttt{detections} & \texttt{DEFAULT\_\allowbreak{}DRAWS} & 32 & Amplitude-resampling draws for uncertainties \\
+Run & \texttt{pipeline} & \texttt{DEFAULT\_\allowbreak{}TIMEOUT\_\allowbreak{}S} & 900 s & Per-spectrum time limit \\
+Run & \texttt{pipeline} & \texttt{physical\_\allowbreak{}triage} & off & Experimental physical candidate priors \\
+Run & \texttt{pipeline} & \texttt{DEFAULT\_\allowbreak{}STIMULATED\_\allowbreak{}EMISSION} & False & Include the induced-emission factor in optical depths \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,63 @@
+\section{Introduction}
+\label{sec:intro}
+
+Laser-induced breakdown spectroscopy (LIBS) determines elemental composition from the atomic and ionic emission of a microplasma produced by a focused, pulsed laser.
+The technique needs no sample preparation, works in air at standoff or contact, and records most of the periodic table in a single shot, which explains its adoption across metallurgy, environmental monitoring, geochemistry, and planetary exploration \citep{hahn2010review1,hahn2012libs,fortes2013libs,cremers2013handbook}.
+Turning a spectrum into a mass fraction is nonetheless difficult.
+The emitted intensity depends on the amount of ablated mass, which varies with laser coupling and sample physical state \citep{russo2013ablation}; on the plasma temperature and electron density, which evolve in time and space and differ from shot to shot \citep{aguilera2004spatial,borduchi2022detection}; and on the ambient gas \citep{palasti2022argon}.
+Matrix effects couple these factors to the bulk composition and structure of the target, so that the same element at the same concentration yields different line intensities in different hosts \citep{eppler1996matrix,takahashi2017matrix}.
+Strong lines are further distorted by self-absorption, which flattens and broadens them and biases both intensity ratios and concentration estimates \citep{bulajic2002selfabsorption,palleschi2022selfabsorption}.
+Finally, the measured spectrum is the product of the plasma emission and the wavelength-dependent response of the spectrometer and detector, which must be known to compare lines far apart in wavelength \citep{li2014spectralresponse}.
+
+Two families of calibration strategy have been developed to cope with these effects.
+The first is empirical: spectra from reference materials of known composition are used to build univariate calibration curves, or multivariate models such as partial least squares (PLS) regression, that map intensities to concentrations \citep{clegg2009pls,dyar2016univariate,costa2021calibration}.
+These models can be accurate within the compositional range of their training set, and the ChemCam and SuperCam programs have refined them over more than a decade \citep{wiens2012chemcam,anderson2017submodels,wiens2021supercam,anderson2022supercam}.
+Their weakness is that they are interpolative.
+Univariate curves are valid only for matrix-matched standards, and multivariate models degrade when the unknown differs from the training set in composition, physical state, or instrument condition \citep{dyar2016univariate,eppler1996matrix}.
+Certified reference materials exist for common glasses, rocks, and alloys \citep{jochum2005georem,jochum2011nist}, but they cover only a small part of natural compositional space, and the limit of quantification one obtains depends on that coverage \citep{mermet2008loq}.
+The second family is calibration-free LIBS (CF-LIBS).
+Introduced by \citet{ciucci1999cflibs} and reviewed by \citet{tognoni2010cflibs}, it assumes that the plasma is optically thin, stoichiometric with the sample, and in local thermodynamic equilibrium (LTE), so that Boltzmann and Saha relations link line intensities to the temperature, electron density, and species populations \citep{cristoforetti2010lte,aguilera2007multielement}.
+Composition then follows from a plasma-state fit and a closure condition, without reference spectra.
+The same assumptions are the method's known failure modes.
+Departures from LTE, spatial and temporal gradients, unresolved or unmeasured ion stages, and self-absorption all bias the inferred state \citep{cristoforetti2010lte,cristoforetti2013columnar,aguilera2004spatial}.
+Accuracy on oxide and alloy targets has been reported to depend strongly on the line selection and on corrections applied to the data \citep{praher2010cflibs,herrera2009cflibs}.
+Several refinements address individual weaknesses: internal reference and iterative corrections for self-absorption \citep{bulajic2002selfabsorption}, curve-of-growth and $C\sigma$ approaches that retain optically thick lines \citep{aragon2014csigma,aragon2015generalizedcog}, one-point calibration that borrows a single standard to absorb unknown scale factors \citep{cavalcanti2013onepoint}, radiative-transfer and Monte Carlo plasma models \citep{gornushkin2022montecarlo}, and statistical definitions of detection limits suited to the method \citep{villasboas2023lod}.
+Direct tests of optical thinness, for example by branching ratios, are available but are applied to few lines at a time \citep{urbinamedina2021branching}.
+
+Machine learning (ML) is the third approach and is now the most active.
+Reviews catalog its use for classification, regression, and line identification \citep{hao2024mlreview,dehbozorgi2025mldl,zhang2023dlreview}.
+Compared with linear calibration, regularized and nonlinear regressors, artificial neural networks, and convolutional networks cope better with nonlinear response and matrix effects when sufficient training data are available \citep{sirven2006ann,li2020cnn}.
+Transfer learning and calibration sharing reduce the data demand when moving between instruments \citep{kepes2022transfer,lepore2024calsharing}, and shared benchmark datasets make methods comparable \citep{kepes2020benchmark}.
+Line identification has itself been automated \citep{noel2025alias}.
+What these methods do not provide is equally clear.
+A trained network is an interpolator in the space of its training spectra; it carries no mechanism that tells it when an unknown lies outside that space, and its output need not satisfy the physical constraints, such as ionization balance or a single plasma state, that real spectra obey.
+Uncertainty estimates are rarely calibrated against a physical error budget, and when a model fails on a new target the failure is silent: the prediction is a plausible-looking composition, with no residual structure that would point to the violated assumption.
+Calibration-free methods have the opposite profile.
+Their assumptions are explicit and their failures are, in principle, diagnosable, but the classical implementation uses a handful of selected lines and a single-temperature Boltzmann plot, discarding most of the information in the spectrum and propagating errors in line selection directly into composition.
+Physics-informed networks embed governing equations as penalties \citep{raissi2019pinn}, and models trained on simulated spectra can be made more robust by randomizing the simulator \citep{tobin2017domainrand}, but both depend on the fidelity of the forward model they inherit.
+% cite needed: LIBS-specific synthetic-spectrum training with a physical forward model (no verified reference found 2026-11-03)
+
+These limitations are sharpest in the setting that motivates the present work.
+Handheld LIBS analyzers now put the technique in the hands of field geologists, who use it to screen for light elements that portable X-ray fluorescence cannot detect, notably lithium in pegmatites and brines \citep{senesi2021handheld,sweetapple2015lithium,korbel2024lithium,harmon2023muscovite}.
+Geological targets are heterogeneous, multi-phase, and often compositionally unlike any available standard \citep{harmon2013geochem}.
+A single laser spot may sample one mineral grain or a mixture of several, so the ablated mass, the electron density, and the ionization state of a given element change from point to point with the host phase.
+Standards are not available at the outcrop, instruments are exposed to varying temperature and gas conditions, and the instrument-specific response can differ from the laboratory units on which published calibrations were built.
+Global whole-rock compilations show how broad the compositional range is that a field tool must handle \citep{gard2019wholerock}.
+Peaks that would be attributed to one element in a single-phase standard may be shared by several species in a mineral, so line identification, not only calibration, becomes part of the quantification problem.
+In this regime an empirical model trained on laboratory standards is least reliable, and a physics-based model whose assumptions fail visibly is most useful.
+
+\alibz{} \citep{alibz} is built on that second principle.
+It treats a measured spectrum as a non-negative linear combination of forward-modeled element--ion templates evaluated at a shared plasma state, and obtains the composition by a constrained inverse solve over the whole pattern rather than a selection of isolated lines.
+The forward model rests on LTE emission \citep{griem1997principles}, tabulated atomic data \citep{kramida2023asd}, partition functions \citep{barklem2016partition}, and Stark and Voigt line profiles \citep{konjevic2002review}; its inversion uses standard non-negative least squares \citep{lawson1995nnls} and robust optimization tools \citep{virtanen2020scipy}.
+The design commitments are that every quantity entering the model is either measured from the spectrum or taken from a cited source, that every assumption is named, and that, wherever possible, each assumption is accompanied by a test that can fail.
+Validation proceeds as a ladder: round trips on synthetic spectra, for which the true state is known by construction, and then pure-element standards measured on a handheld analyzer of the SciAps Z300 class, with three CCD segments spanning the ultraviolet to the near infrared.
+Because the model is physical, a failed fit is informative: the residual, the inferred plasma state, and the consistency between ionization stages indicate which assumption is under strain, rather than merely returning a number.
+We regard multi-phase mineral targets as the next rung, and we do not claim that it has been reached.
+We make no assertion in this paper that the approach outperforms calibration or ML methods; its purpose is to make the physics, and the places where it fails, explicit and auditable.
+
+The remainder of the paper is organized as follows.
+Section~\ref{sec:theory} presents the emission model and its conventions, including the Saha--Boltzmann relations, line profiles, self-absorption, the stage-consistency thermometer, and the inverse problem.
+Section~\ref{sec:assumptions} lists each assumption, its status, and the test that bears on it.
+Section~\ref{sec:workflow} describes the processing chain from raw spectrum to composition.
+Section~\ref{sec:datasets} describes the synthetic and measured datasets, and Section~\ref{sec:metrics} defines the diagnostics and acceptance gates by which a fit is judged.
+Section~\ref{sec:results} reports results to date, including failures, and Section~\ref{sec:discussion} discusses their implications, the open validation gates, and the route to multi-phase geological targets.

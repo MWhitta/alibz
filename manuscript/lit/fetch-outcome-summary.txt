@@ -1,0 +1,67 @@
+{
+ "report": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/report-20261103-150853.json",
+ "summary": {
+  "exists": 98,
+  "no_pdf": 5,
+  "captured": 36,
+  "skipped": 2,
+  "blocked": 2
+ },
+ "blocked": [
+  {
+   "publisher_key": "10.1086",
+   "strategy": "direct",
+   "reason": "AWS WAF challenge (HTTP 202 interstitial)",
+   "strikes": 2,
+   "first_source": "karzas1961gaunt",
+   "blocked_count": 2
+  }
+ ],
+ "missing": [
+  [
+   "10.1002",
+   "cremers2013handbook",
+   "no_pdf"
+  ],
+  [
+   "10.1086",
+   "anderson2000epsf",
+   "blocked"
+  ],
+  [
+   "10.1086",
+   "irwin1981partition",
+   "skipped"
+  ],
+  [
+   "10.1086",
+   "karzas1961gaunt",
+   "skipped"
+  ],
+  [
+   "10.1086",
+   "stewart1966lowering",
+   "blocked"
+  ],
+  [
+   "10.1107",
+   "thompson1987voigt",
+   "no_pdf"
+  ],
+  [
+   "10.1109",
+   "huang2023mlsoil",
+   "no_pdf"
+  ],
+  [
+   "10.1109",
+   "keys1981cubic",
+   "no_pdf"
+  ],
+  [
+   "10.2138",
+   "sweetapple2015lithium",
+   "no_pdf"
+  ]
+ ]
+}

@@ -1,0 +1,17 @@
+# dropped_key -> kept_key  (dropped_from -> kept_in)  reason
+hahn2012review2 -> hahn2012libs  (cflibs -> theory)  same DOI
+cremers2013handbook -> cremers2013handbook  (cflibs -> theory)  same key
+ciucci1999cflibs -> ciucci1999cflibs  (cflibs -> theory)  same key
+tognoni2010cflibs -> tognoni2010cflibs  (cflibs -> theory)  same key
+aragon2008review -> aragon2008review  (cflibs -> theory)  same key
+bulajic2002selfabsorption -> bulajic2002selfabsorption  (cflibs -> theory)  same key
+sun2009selfabsorption -> sun2009internalreference  (cflibs -> theory)  same DOI
+aguilera2007sahaboltzmann -> aguilera2007multielement  (cflibs -> theory)  same DOI
+cristoforetti2010lte -> cristoforetti2010lte  (cflibs -> theory)  same key
+cristoforetti2013columnar -> cristoforetti2013columnar  (cflibs -> theory)  same key
+bredice2006selfabsorption -> bredice2006manganese  (cflibs -> theory)  same DOI
+clegg2009multivariate -> clegg2009pls  (ml -> cflibs)  same DOI
+clegg2017recalibration -> clegg2017recalibration  (ml -> cflibs)  same key
+wiens2013chemcam -> wiens2013preflight  (ml -> cflibs)  same DOI
+anderson2000epsf -> anderson2000epsf  (ml -> theory)  same key
+virtanen2020scipy -> virtanen2020scipy  (ml -> local)  same key

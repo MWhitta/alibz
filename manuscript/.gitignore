@@ -1,0 +1,16 @@
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+main.pdf
+arxiv/
+alibz-arxiv.tar.gz
+lit/downloads/
+lit/fulltext/
+lit/profile/
+lit/report-*.json

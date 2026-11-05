@@ -1,0 +1,77 @@
+% alibz manuscript — arXiv preprint; journal target: Applied Spectroscopy (SAS/SAGE).
+% Build: make   (latexmk -pdf).  Switch \arxivtrue/\arxivfalse below for journal layout.
+\documentclass[11pt]{article}
+
+\newif\ifarxiv
+\arxivtrue
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[margin=1in]{geometry}
+\usepackage{lineno}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+\usepackage{orcidlink}
+\usepackage{authblk}
+
+\sisetup{range-phrase=--, range-units=single, per-mode=symbol}
+\graphicspath{{figures/}}
+
+% ---- editorial macros ----
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\alibz}{\texttt{alibz}}
+\newcommand{\nel}{n_{\mathrm{e}}}
+\newcommand{\kB}{k_{\mathrm{B}}}
+\newcommand{\Tex}{T}
+\newcommand{\order}[1]{\mathcal{O}(#1)}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\ifarxiv
+  \linenumbers
+\fi
+
+\title{Calibration-free quantification of laser-induced breakdown spectra by
+  whole-pattern forward modelling: theory, assumptions, workflow, datasets and
+  fit metrics behind \alibz}
+
+\author[1,2]{Michael L. Whittaker\thanks{Corresponding author: mwhittaker@lbl.gov}}
+\affil[1]{Energy Geosciences Division, Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
+\affil[2]{Materials Sciences Division, Lawrence Berkeley National Laboratory, Berkeley, CA 94720, USA}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{sections/00-abstract}
+\input{sections/01-introduction}
+\input{sections/02-theory}
+\input{sections/03-assumptions}
+\input{sections/04-workflow}
+\input{sections/05-datasets}
+\input{sections/06-metrics}
+\input{sections/07-results}
+\input{sections/08-discussion}
+\input{sections/09-conclusions}
+
+\section*{Acknowledgements}
+\todo{funding, instrument access (SciAps Z300), compute (moissanite, beryl), collaborators.}
+
+\section*{Data and code availability}
+\alibz{} is open source at \url{https://github.com/MWhitta/alibz}. \todo{DOI for the
+tagged release; dataset deposition for the spectra used here.}
+
+\bibliographystyle{unsrtnat}
+\bibliography{bib/theory,bib/cflibs,bib/ml,bib/local}
+
+\appendix
+\input{sections/A1-notation}
+\input{sections/A2-pipeline-parameters}
+
+\end{document}

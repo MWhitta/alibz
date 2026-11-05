@@ -1,0 +1,3793 @@
+{
+ "generated": "2026-11-03T17:16:28",
+ "total": 149,
+ "captured": 74,
+ "text": 0,
+ "summary": {
+  "suspect": 65,
+  "captured": 74,
+  "no_pdf": 10
+ },
+ "suspect": [
+  {
+   "name": "cristoforetti2010lte",
+   "reason": "only 1 page(s) (expected 10) \u2014 likely a preview"
+  },
+  {
+   "name": "aragon2008review",
+   "reason": "only 1 page(s) (expected 24) \u2014 likely a preview"
+  },
+  {
+   "name": "aguilera2007multielement",
+   "reason": "only 1 page(s) (expected 8) \u2014 likely a preview"
+  },
+  {
+   "name": "hermann1998earlyphase",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "ralchenko2020nist",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "konjevic1999nonhydrogenic",
+   "reason": "only 1 page(s) (expected 63) \u2014 likely a preview"
+  },
+  {
+   "name": "gigosos2003halpha",
+   "reason": "only 1 page(s) (expected 16) \u2014 likely a preview"
+  },
+  {
+   "name": "olivero1977voigt",
+   "reason": "only 1 page(s) (expected 4) \u2014 likely a preview"
+  },
+  {
+   "name": "irons1979escape",
+   "reason": "only 1 page(s) (expected 20) \u2014 likely a preview"
+  },
+  {
+   "name": "bulajic2002selfabsorption",
+   "reason": "only 1 page(s) (expected 15) \u2014 likely a preview"
+  },
+  {
+   "name": "elsherbini2005selfabsorption",
+   "reason": "only 1 page(s) (expected 7) \u2014 likely a preview"
+  },
+  {
+   "name": "sun2009internalreference",
+   "reason": "only 1 page(s) (expected 8) \u2014 likely a preview"
+  },
+  {
+   "name": "bredice2006manganese",
+   "reason": "only 1 page(s) (expected 10) \u2014 likely a preview"
+  },
+  {
+   "name": "amamou2002selfabsorption",
+   "reason": "only 1 page(s) (expected 17) \u2014 likely a preview"
+  },
+  {
+   "name": "cristoforetti2013columnar",
+   "reason": "only 1 page(s) (expected 9) \u2014 likely a preview"
+  },
+  {
+   "name": "janesick2007photontransfer",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "tognoni2010cflibs",
+   "reason": "only 1 page(s) (expected 14) \u2014 likely a preview"
+  },
+  {
+   "name": "gaudiuso2010review",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "praher2010cflibs",
+   "reason": "only 1 page(s) (expected 9) \u2014 likely a preview"
+  },
+  {
+   "name": "gornushkin2010radiative",
+   "reason": "only 1 page(s) (expected 15) \u2014 likely a preview"
+  },
+  {
+   "name": "gornushkin2022montecarlo",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter); byte-identical to another capture (gaudiuso2010review)"
+  },
+  {
+   "name": "aragon2014csigma",
+   "reason": "only 1 page(s) (expected 13) \u2014 likely a preview"
+  },
+  {
+   "name": "aragon2015generalizedcog",
+   "reason": "only 1 page(s) (expected 10) \u2014 likely a preview"
+  },
+  {
+   "name": "cavalcanti2013onepoint",
+   "reason": "only 1 page(s) (expected 6) \u2014 likely a preview"
+  },
+  {
+   "name": "aguilera2004spatial",
+   "reason": "only 1 page(s) (expected 16) \u2014 likely a preview"
+  },
+  {
+   "name": "grifoni2016cfcomparison",
+   "reason": "only 1 page(s) (expected 7) \u2014 likely a preview"
+  },
+  {
+   "name": "rezaei2020selfabsorption",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "elsherbini2006halpha",
+   "reason": "only 1 page(s) (expected 8) \u2014 likely a preview"
+  },
+  {
+   "name": "clegg2009pls",
+   "reason": "only 1 page(s) (expected 10) \u2014 likely a preview"
+  },
+  {
+   "name": "clegg2017recalibration",
+   "reason": "only 1 page(s) (expected 22) \u2014 likely a preview"
+  },
+  {
+   "name": "anderson2017submodels",
+   "reason": "only 1 page(s) (expected 9) \u2014 likely a preview"
+  },
+  {
+   "name": "dyar2016univariate",
+   "reason": "only 1 page(s) (expected 12) \u2014 likely a preview"
+  },
+  {
+   "name": "mermet2008loq",
+   "reason": "only 1 page(s) (expected 17) \u2014 likely a preview"
+  },
+  {
+   "name": "harmon2013geochem",
+   "reason": "only 1 page(s) (expected 16) \u2014 likely a preview"
+  },
+  {
+   "name": "harmon2023muscovite",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "senesi2014earth",
+   "reason": "only 1 page(s) (expected 37) \u2014 likely a preview"
+  },
+  {
+   "name": "senesi2021handheld",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "borduchi2022detection",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "palleschi2022selfabsorption",
+   "reason": "byte-identical to another capture (korbel2024lithium)"
+  },
+  {
+   "name": "saloman2004neon",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter); byte-identical to another capture (hermann1998earlyphase)"
+  },
+  {
+   "name": "villasboas2023lod",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "li2021annreview",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "li2020cnn",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "yu2023cnn",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "castorena2021deepcnn",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "vandeneynde2023dlregression",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "lepore2024calsharing",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "noel2025alias",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "forni2013ica",
+   "reason": "only 1 page(s) (expected 11) \u2014 likely a preview"
+  },
+  {
+   "name": "dyar2012lasso",
+   "reason": "only 1 page(s) (expected 17) \u2014 likely a preview"
+  },
+  {
+   "name": "boucher2015ml",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "anderson2022supercam",
+   "reason": "only 1 page(s) (expected \u22652) \u2014 likely a preview"
+  },
+  {
+   "name": "schwarz1978bic",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "huber1964robust",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "humlicek1982voigt",
+   "reason": "only 1 page(s) (expected 8) \u2014 likely a preview"
+  },
+  {
+   "name": "efron1979bootstrap",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "wilks1938lrt",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "raissi2019pinn",
+   "reason": "only 1 page(s) (expected 22) \u2014 likely a preview"
+  },
+  {
+   "name": "wold2001pls",
+   "reason": "only 1 page(s) (expected 22) \u2014 likely a preview"
+  },
+  {
+   "name": "vaswani2017attention",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "lee2019settransformer",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "zaheer2017deepsets",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "he2022mae",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "kingma2015adam",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  },
+  {
+   "name": "tobin2017domainrand",
+   "reason": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)"
+  }
+ ],
+ "blocked": [],
+ "text_holes": [],
+ "results": [
+  {
+   "name": "cristoforetti2010lte",
+   "url": "https://doi.org/10.1016/j.sab.2009.11.005",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cristoforetti2010lte.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cristoforetti2010lte.suspect.pdf",
+     "bytes": 634402,
+     "sha256": "2acd489672052b9cae213713c6d2a4bd0a108390174e5023d762ca8b1fd66f0f"
+    }
+   ],
+   "bytes": 634402,
+   "sha256": "2acd489672052b9cae213713c6d2a4bd0a108390174e5023d762ca8b1fd66f0f",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 10) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "fujimoto1990validity",
+   "url": "https://doi.org/10.1103/PhysRevA.42.6588",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fujimoto1990validity.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fujimoto1990validity.pdf",
+     "bytes": 771279,
+     "sha256": "4ebd86f9382b5a613dc02f504e5377e440e6c47f938661b541a026bf8620becf"
+    }
+   ],
+   "bytes": 771279,
+   "sha256": "4ebd86f9382b5a613dc02f504e5377e440e6c47f938661b541a026bf8620becf",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "griem1963validity",
+   "url": "https://doi.org/10.1103/PhysRev.131.1170",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1963validity.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1963validity.pdf",
+     "bytes": 563265,
+     "sha256": "00b08b271f594db0b5175c83e5c9d64b844da93ff66b2f401f0e6f591b9b2ed7"
+    }
+   ],
+   "bytes": 563265,
+   "sha256": "00b08b271f594db0b5175c83e5c9d64b844da93ff66b2f401f0e6f591b9b2ed7",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "aragon2008review",
+   "url": "https://doi.org/10.1016/j.sab.2008.05.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2008review.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2008review.suspect.pdf",
+     "bytes": 1822766,
+     "sha256": "298b3fb4424727b3f640a48000a0c24f0644ca8bebe7eb1b59245334c3ff1ab3"
+    }
+   ],
+   "bytes": 1822766,
+   "sha256": "298b3fb4424727b3f640a48000a0c24f0644ca8bebe7eb1b59245334c3ff1ab3",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 24) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "aguilera2007multielement",
+   "url": "https://doi.org/10.1016/j.sab.2007.03.024",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aguilera2007multielement.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aguilera2007multielement.suspect.pdf",
+     "bytes": 285249,
+     "sha256": "2ba8ac15ba7ee04ffb064e8446444851daaa38fb7284b7a418ca8d033f04ab22"
+    }
+   ],
+   "bytes": 285249,
+   "sha256": "2ba8ac15ba7ee04ffb064e8446444851daaa38fb7284b7a418ca8d033f04ab22",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 8) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "hermann1998earlyphase",
+   "url": "https://doi.org/10.1063/1.366639",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hermann1998earlyphase.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hermann1998earlyphase.suspect.pdf",
+     "bytes": 5084557,
+     "sha256": "8394e17787f00bf6edf80bbc94443b7dc1e3dff6cdfae9f571b40e91db9a409d"
+    }
+   ],
+   "bytes": 5084557,
+   "sha256": "8394e17787f00bf6edf80bbc94443b7dc1e3dff6cdfae9f571b40e91db9a409d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "saha1920ionization",
+   "url": "https://doi.org/10.1080/14786441008636148",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/saha1920ionization.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/saha1920ionization.pdf",
+     "bytes": 867452,
+     "sha256": "9fb222fa207dc9de72f095662ec84d5b0a3bb9d7e75f0ae115ae1b18e54c9bbc"
+    }
+   ],
+   "bytes": 867452,
+   "sha256": "9fb222fa207dc9de72f095662ec84d5b0a3bb9d7e75f0ae115ae1b18e54c9bbc",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "irwin1981partition",
+   "url": "https://doi.org/10.1086/190730",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no irwin1981partition.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "barklem2016partition",
+   "url": "https://doi.org/10.1051/0004-6361/201526961",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/barklem2016partition.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/barklem2016partition.pdf",
+     "bytes": 855749,
+     "sha256": "3f727fe1eb16d3f97bca210549375dfa495680bf866be110670f1f110cbcfa56"
+    }
+   ],
+   "bytes": 855749,
+   "sha256": "3f727fe1eb16d3f97bca210549375dfa495680bf866be110670f1f110cbcfa56",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kramers1923bremsstrahlung",
+   "url": "https://doi.org/10.1080/14786442308565244",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kramers1923bremsstrahlung.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kramers1923bremsstrahlung.pdf",
+     "bytes": 1775870,
+     "sha256": "187e11c3f438822355664de0e784d27847fa0b7e9455db479223b572b59e31ae"
+    }
+   ],
+   "bytes": 1775870,
+   "sha256": "187e11c3f438822355664de0e784d27847fa0b7e9455db479223b572b59e31ae",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "karzas1961gaunt",
+   "url": "https://doi.org/10.1086/190063",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no karzas1961gaunt.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "vanhoof2014gaunt",
+   "url": "https://doi.org/10.1093/mnras/stu1438",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vanhoof2014gaunt.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vanhoof2014gaunt.pdf",
+     "bytes": 405167,
+     "sha256": "e23670d779a6cff5c03ffe9be38b124c156559409be2c0a854e599c145a099da"
+    }
+   ],
+   "bytes": 405167,
+   "sha256": "e23670d779a6cff5c03ffe9be38b124c156559409be2c0a854e599c145a099da",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "ralchenko2020nist",
+   "url": "https://doi.org/10.3390/atoms8030056",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ralchenko2020nist.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ralchenko2020nist.suspect.pdf",
+     "bytes": 1756484,
+     "sha256": "0d5093593dce8fda992d7afb2745a0dce3e67435614920895f822affef301dc7"
+    }
+   ],
+   "bytes": 1756484,
+   "sha256": "0d5093593dce8fda992d7afb2745a0dce3e67435614920895f822affef301dc7",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kurucz2011lines",
+   "url": "https://doi.org/10.1139/p10-104",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kurucz2011lines.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kurucz2011lines.pdf",
+     "bytes": 5194010,
+     "sha256": "8654f342452ff066b73385f8af7eae470ffe6f4d354b2a5f6d6b00318c535d5d"
+    }
+   ],
+   "bytes": 5194010,
+   "sha256": "8654f342452ff066b73385f8af7eae470ffe6f4d354b2a5f6d6b00318c535d5d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "fuhr2006fe",
+   "url": "https://doi.org/10.1063/1.2218876",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fuhr2006fe.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fuhr2006fe.pdf",
+     "bytes": 1489075,
+     "sha256": "ae4aa8896bb7aff4c451888d7d098b6cd169cda5d44022178da0fff7f9053b7a"
+    }
+   ],
+   "bytes": 1489075,
+   "sha256": "ae4aa8896bb7aff4c451888d7d098b6cd169cda5d44022178da0fff7f9053b7a",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "obrian1991fe1",
+   "url": "https://doi.org/10.1364/JOSAB.8.001185",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/obrian1991fe1.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/obrian1991fe1.pdf",
+     "bytes": 2532089,
+     "sha256": "94f9887a32b095f345b6d53bfdc7fdb7765574305854a85d934b5cdd2f098739"
+    }
+   ],
+   "bytes": 2532089,
+   "sha256": "94f9887a32b095f345b6d53bfdc7fdb7765574305854a85d934b5cdd2f098739",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "konjevic1976stark",
+   "url": "https://doi.org/10.1063/1.555532",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic1976stark.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic1976stark.pdf",
+     "bytes": 4007611,
+     "sha256": "f6a0c6b151b9d911eceff2cc0718e7878d59d1891ca59038e6aea6d889f70e53"
+    }
+   ],
+   "bytes": 4007611,
+   "sha256": "f6a0c6b151b9d911eceff2cc0718e7878d59d1891ca59038e6aea6d889f70e53",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "konjevic1999nonhydrogenic",
+   "url": "https://doi.org/10.1016/S0370-1573(98)00132-X",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic1999nonhydrogenic.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic1999nonhydrogenic.suspect.pdf",
+     "bytes": 22942,
+     "sha256": "512c7243b2ea1d8b29cd86572bd33ddb209df3a1698cf8a5e8849af1871e0512"
+    }
+   ],
+   "bytes": 22942,
+   "sha256": "512c7243b2ea1d8b29cd86572bd33ddb209df3a1698cf8a5e8849af1871e0512",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 63) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "konjevic2002review",
+   "url": "https://doi.org/10.1063/1.1486456",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic2002review.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/konjevic2002review.pdf",
+     "bytes": 1217480,
+     "sha256": "372495eda3c3bac3341be086cb5d673f1378dc8ce28aa41dcf7ef9cb9f64d1df"
+    }
+   ],
+   "bytes": 1217480,
+   "sha256": "372495eda3c3bac3341be086cb5d673f1378dc8ce28aa41dcf7ef9cb9f64d1df",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "griem1968semiempirical",
+   "url": "https://doi.org/10.1103/PhysRev.165.258",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1968semiempirical.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1968semiempirical.pdf",
+     "bytes": 1101522,
+     "sha256": "85b0cac40ea92834a8c2c23ce50e7384ef54d73c283685e7df68ca203d1c18d1"
+    }
+   ],
+   "bytes": 1101522,
+   "sha256": "85b0cac40ea92834a8c2c23ce50e7384ef54d73c283685e7df68ca203d1c18d1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "gigosos1996hbeta",
+   "url": "https://doi.org/10.1088/0953-4075/29/20/029",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gigosos1996hbeta.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gigosos1996hbeta.pdf",
+     "bytes": 636080,
+     "sha256": "fcff7661319adea6eb5b7f9fdf2b23b9e800116e70f09655c4ef4e29f5e23adc"
+    }
+   ],
+   "bytes": 636080,
+   "sha256": "fcff7661319adea6eb5b7f9fdf2b23b9e800116e70f09655c4ef4e29f5e23adc",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "gigosos2003halpha",
+   "url": "https://doi.org/10.1016/S0584-8547(03)00097-1",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gigosos2003halpha.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gigosos2003halpha.suspect.pdf",
+     "bytes": 37550,
+     "sha256": "c27c65641c6409b6cd2aed1816f715d4b0c07807ba4bc873000bd3d601eca3ba"
+    }
+   ],
+   "bytes": 37550,
+   "sha256": "c27c65641c6409b6cd2aed1816f715d4b0c07807ba4bc873000bd3d601eca3ba",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 16) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "olivero1977voigt",
+   "url": "https://doi.org/10.1016/0022-4073(77)90161-3",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/olivero1977voigt.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/olivero1977voigt.suspect.pdf",
+     "bytes": 49151,
+     "sha256": "cd8865aed524fe2c92920b4faa7efe7c1b680975d22e06fb5a5d0541afb6d569"
+    }
+   ],
+   "bytes": 49151,
+   "sha256": "cd8865aed524fe2c92920b4faa7efe7c1b680975d22e06fb5a5d0541afb6d569",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 4) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "thompson1987voigt",
+   "url": "https://doi.org/10.1107/S0021889887087090",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no thompson1987voigt.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "anderson2000epsf",
+   "url": "https://doi.org/10.1086/316632",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no anderson2000epsf.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "cowan1948selfabsorption",
+   "url": "https://doi.org/10.1103/RevModPhys.20.418",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cowan1948selfabsorption.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cowan1948selfabsorption.pdf",
+     "bytes": 3078916,
+     "sha256": "cc0b44f2b67611868199173c743c60b10b9d75014d62fb0fda7cf82463eaf4bc"
+    }
+   ],
+   "bytes": 3078916,
+   "sha256": "cc0b44f2b67611868199173c743c60b10b9d75014d62fb0fda7cf82463eaf4bc",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "irons1979escape",
+   "url": "https://doi.org/10.1016/0022-4073(79)90102-x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/irons1979escape.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/irons1979escape.suspect.pdf",
+     "bytes": 97701,
+     "sha256": "25e708f315738959a6c60b027919f296ffe9b7eba9fea7d28b99d69ee388ac5d"
+    }
+   ],
+   "bytes": 97701,
+   "sha256": "25e708f315738959a6c60b027919f296ffe9b7eba9fea7d28b99d69ee388ac5d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 20) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "bulajic2002selfabsorption",
+   "url": "https://doi.org/10.1016/S0584-8547(01)00398-6",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bulajic2002selfabsorption.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bulajic2002selfabsorption.suspect.pdf",
+     "bytes": 34614,
+     "sha256": "41a21a90de56cd2f1f274ad5277ae1d121f920dd2f49eb347068567f0d32a9fe"
+    }
+   ],
+   "bytes": 34614,
+   "sha256": "41a21a90de56cd2f1f274ad5277ae1d121f920dd2f49eb347068567f0d32a9fe",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 15) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "elsherbini2005selfabsorption",
+   "url": "https://doi.org/10.1016/j.sab.2005.10.011",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/elsherbini2005selfabsorption.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/elsherbini2005selfabsorption.suspect.pdf",
+     "bytes": 190894,
+     "sha256": "096579f3a47290214946f903e80e2e817ccf2e389967c2217088e6e48160e063"
+    }
+   ],
+   "bytes": 190894,
+   "sha256": "096579f3a47290214946f903e80e2e817ccf2e389967c2217088e6e48160e063",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 7) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "sun2009internalreference",
+   "url": "https://doi.org/10.1016/j.talanta.2009.03.066",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/sun2009internalreference.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/sun2009internalreference.suspect.pdf",
+     "bytes": 1060881,
+     "sha256": "88c1a45a0ef3b75f340a73167432bfcc5507ad520d0dad2b2ff59b2748dd167d"
+    }
+   ],
+   "bytes": 1060881,
+   "sha256": "88c1a45a0ef3b75f340a73167432bfcc5507ad520d0dad2b2ff59b2748dd167d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 8) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "bredice2006manganese",
+   "url": "https://doi.org/10.1016/j.sab.2006.10.015",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bredice2006manganese.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bredice2006manganese.suspect.pdf",
+     "bytes": 364048,
+     "sha256": "aa6c512a1ac31721aa93acf8782b43e53fe2691fe4bb001432e500b68a7d0b04"
+    }
+   ],
+   "bytes": 364048,
+   "sha256": "aa6c512a1ac31721aa93acf8782b43e53fe2691fe4bb001432e500b68a7d0b04",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 10) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "amamou2002selfabsorption",
+   "url": "https://doi.org/10.1016/s0022-4073(02)00040-7",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/amamou2002selfabsorption.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/amamou2002selfabsorption.suspect.pdf",
+     "bytes": 48647,
+     "sha256": "ee5c060a3d6333b6eda40a342d40dccfbf05ebea25e7ff2e4e6c18452373c1a8"
+    }
+   ],
+   "bytes": 48647,
+   "sha256": "ee5c060a3d6333b6eda40a342d40dccfbf05ebea25e7ff2e4e6c18452373c1a8",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 17) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "cristoforetti2013columnar",
+   "url": "https://doi.org/10.1016/j.sab.2012.11.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cristoforetti2013columnar.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cristoforetti2013columnar.suspect.pdf",
+     "bytes": 362118,
+     "sha256": "ded33a9ce59c8cda15193e2f2f623318328fd1fcef3e06d494b34a42b3628bba"
+    }
+   ],
+   "bytes": 362118,
+   "sha256": "ded33a9ce59c8cda15193e2f2f623318328fd1fcef3e06d494b34a42b3628bba",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 9) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "stewart1966lowering",
+   "url": "https://doi.org/10.1086/148714",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no stewart1966lowering.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "ecker1963lowering",
+   "url": "https://doi.org/10.1063/1.1724509",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ecker1963lowering.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ecker1963lowering.pdf",
+     "bytes": 888482,
+     "sha256": "f8922f310e5fd76d26dacf4a3f9ce0c763bc2750e9f62146f7a3e1153164b653"
+    }
+   ],
+   "bytes": 888482,
+   "sha256": "f8922f310e5fd76d26dacf4a3f9ce0c763bc2750e9f62146f7a3e1153164b653",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "ciricosta2012ipd",
+   "url": "https://doi.org/10.1103/PhysRevLett.109.065002",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciricosta2012ipd.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciricosta2012ipd.pdf",
+     "bytes": 1013103,
+     "sha256": "e7628d388e800eb7995e8915292fc19f10344d6a7f1cdb47719e47eda18d9753"
+    }
+   ],
+   "bytes": 1013103,
+   "sha256": "e7628d388e800eb7995e8915292fc19f10344d6a7f1cdb47719e47eda18d9753",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "edlen1966refractive",
+   "url": "https://doi.org/10.1088/0026-1394/2/2/002",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/edlen1966refractive.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/edlen1966refractive.pdf",
+     "bytes": 1374843,
+     "sha256": "de51a94fad896ccd4f7f0c7cbc1c96242f01e41862da7cb9eb7ea5d0212c0b12"
+    }
+   ],
+   "bytes": 1374843,
+   "sha256": "de51a94fad896ccd4f7f0c7cbc1c96242f01e41862da7cb9eb7ea5d0212c0b12",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "ciddor1996refractive",
+   "url": "https://doi.org/10.1364/AO.35.001566",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciddor1996refractive.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciddor1996refractive.pdf",
+     "bytes": 201365,
+     "sha256": "38de2b28ae13d6d47904f1b15acdf1184bd85cf6f400ade20d193d74c1f6eb22"
+    }
+   ],
+   "bytes": 201365,
+   "sha256": "38de2b28ae13d6d47904f1b15acdf1184bd85cf6f400ade20d193d74c1f6eb22",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "birch1994refractive",
+   "url": "https://doi.org/10.1088/0026-1394/31/4/006",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/birch1994refractive.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/birch1994refractive.pdf",
+     "bytes": 302196,
+     "sha256": "19317c4bc349155189254939a3e2304c9101c89c0253cbcd24242a3860c1c194"
+    }
+   ],
+   "bytes": 302196,
+   "sha256": "19317c4bc349155189254939a3e2304c9101c89c0253cbcd24242a3860c1c194",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "janesick2007photontransfer",
+   "url": "https://doi.org/10.1117/3.725073",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/janesick2007photontransfer.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/janesick2007photontransfer.suspect.pdf",
+     "bytes": 636080,
+     "sha256": "4dc02e1b7153815d838332124bea38952d42a046f780c37b343e145fe73aac4d"
+    }
+   ],
+   "bytes": 636080,
+   "sha256": "4dc02e1b7153815d838332124bea38952d42a046f780c37b343e145fe73aac4d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "ciucci1999cflibs",
+   "url": "https://doi.org/10.1366/0003702991947612",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciucci1999cflibs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/ciucci1999cflibs.pdf",
+     "bytes": 227998,
+     "sha256": "02eac47153587b6374247c2698abb26f193579ef7836b04d23307c97cd6eba82"
+    }
+   ],
+   "bytes": 227998,
+   "sha256": "02eac47153587b6374247c2698abb26f193579ef7836b04d23307c97cd6eba82",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "tognoni2010cflibs",
+   "url": "https://doi.org/10.1016/j.sab.2009.11.006",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tognoni2010cflibs.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tognoni2010cflibs.suspect.pdf",
+     "bytes": 270118,
+     "sha256": "7bd618d5ae8567b9bc2c69f2974734646149cdf72a35ce0272c69b6f24b49072"
+    }
+   ],
+   "bytes": 270118,
+   "sha256": "7bd618d5ae8567b9bc2c69f2974734646149cdf72a35ce0272c69b6f24b49072",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 14) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "hahn2012libs",
+   "url": "https://doi.org/10.1366/11-06574",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hahn2012libs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hahn2012libs.pdf",
+     "bytes": 4558902,
+     "sha256": "aea4538e26b48b1d9f01fdcee82000bb6b5d355c15622374c0bd4ec54ae9253a"
+    }
+   ],
+   "bytes": 4558902,
+   "sha256": "aea4538e26b48b1d9f01fdcee82000bb6b5d355c15622374c0bd4ec54ae9253a",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "griem1997principles",
+   "url": "https://doi.org/10.1017/cbo9780511524578",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1997principles.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/griem1997principles.pdf",
+     "bytes": 290874,
+     "sha256": "1c8cbafa241be640d05d53fc46761dff93c21e2766b4572c777b747d598fd9f9"
+    }
+   ],
+   "bytes": 290874,
+   "sha256": "1c8cbafa241be640d05d53fc46761dff93c21e2766b4572c777b747d598fd9f9",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kunze2009plasma",
+   "url": "https://doi.org/10.1007/978-3-642-02233-3",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kunze2009plasma.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kunze2009plasma.pdf",
+     "bytes": 4259095,
+     "sha256": "5032480ebe018975dc9ef2284418a7d771847127489d8d9a53fac65956a74885"
+    }
+   ],
+   "bytes": 4259095,
+   "sha256": "5032480ebe018975dc9ef2284418a7d771847127489d8d9a53fac65956a74885",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "cremers2013handbook",
+   "url": "https://doi.org/10.1002/9781118567371",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no cremers2013handbook.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "hahn2010review1",
+   "url": "https://doi.org/10.1366/000370210793561691",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hahn2010review1.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hahn2010review1.pdf",
+     "bytes": 1195620,
+     "sha256": "f2dba9098d810174d36444c79f3a810161334a8b240a71c801f5911b540afa68"
+    }
+   ],
+   "bytes": 1195620,
+   "sha256": "f2dba9098d810174d36444c79f3a810161334a8b240a71c801f5911b540afa68",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "fortes2013libs",
+   "url": "https://doi.org/10.1021/ac303220r",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fortes2013libs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/fortes2013libs.pdf",
+     "bytes": 6133120,
+     "sha256": "159c2124dc36db82fe7daf4427279e49322616d68aef41590cb63bf906c0357b"
+    }
+   ],
+   "bytes": 6133120,
+   "sha256": "159c2124dc36db82fe7daf4427279e49322616d68aef41590cb63bf906c0357b",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "miziolek2006libs",
+   "url": "https://doi.org/10.1017/CBO9780511541261",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/miziolek2006libs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/miziolek2006libs.pdf",
+     "bytes": 288215,
+     "sha256": "bbf808e70faa133575951b4123ac5291b1118795f723502307c041dd3e2aff1b"
+    }
+   ],
+   "bytes": 288215,
+   "sha256": "bbf808e70faa133575951b4123ac5291b1118795f723502307c041dd3e2aff1b",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "noll2012libs",
+   "url": "https://doi.org/10.1007/978-3-642-20668-9",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/noll2012libs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/noll2012libs.pdf",
+     "bytes": 111189,
+     "sha256": "2b607120734c4f592dbf675ce35022e8856a72473e2a763ddf2b5890cd4ef201"
+    }
+   ],
+   "bytes": 111189,
+   "sha256": "2b607120734c4f592dbf675ce35022e8856a72473e2a763ddf2b5890cd4ef201",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "cremers2009capabilities",
+   "url": "https://doi.org/10.1080/05704920903058755",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cremers2009capabilities.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cremers2009capabilities.pdf",
+     "bytes": 1255129,
+     "sha256": "c222dc71b39514faed3a3ebb7d85ab181e1b0eb01e62cefeb808fee17f176c84"
+    }
+   ],
+   "bytes": 1255129,
+   "sha256": "c222dc71b39514faed3a3ebb7d85ab181e1b0eb01e62cefeb808fee17f176c84",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "russo2013ablation",
+   "url": "https://doi.org/10.1021/ac4005327",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/russo2013ablation.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/russo2013ablation.pdf",
+     "bytes": 11983933,
+     "sha256": "9b1b9d3260a241933d14cf9e46bcde49dd64d3ea0e3df081143d2af00da3b7f1"
+    }
+   ],
+   "bytes": 11983933,
+   "sha256": "9b1b9d3260a241933d14cf9e46bcde49dd64d3ea0e3df081143d2af00da3b7f1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "gaudiuso2010review",
+   "url": "https://doi.org/10.3390/s100807434",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gaudiuso2010review.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gaudiuso2010review.suspect.pdf",
+     "bytes": 1273019,
+     "sha256": "afc508905951dc7a841c1dece7610efc5299584ab64782ebca341c96db29cd49"
+    }
+   ],
+   "bytes": 1273019,
+   "sha256": "afc508905951dc7a841c1dece7610efc5299584ab64782ebca341c96db29cd49",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "praher2010cflibs",
+   "url": "https://doi.org/10.1016/j.sab.2010.03.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/praher2010cflibs.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/praher2010cflibs.suspect.pdf",
+     "bytes": 1064809,
+     "sha256": "da2edf26a66f31bf5912d833330e43f269fe95378077b19e18487efa12452f73"
+    }
+   ],
+   "bytes": 1064809,
+   "sha256": "da2edf26a66f31bf5912d833330e43f269fe95378077b19e18487efa12452f73",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 9) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "gornushkin2010radiative",
+   "url": "https://doi.org/10.1016/j.sab.2010.03.021",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gornushkin2010radiative.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gornushkin2010radiative.suspect.pdf",
+     "bytes": 880053,
+     "sha256": "91931052f89cf2d8e2a1ee65912532a4ad5f36d6cec34a615e8fe4f2537b86ec"
+    }
+   ],
+   "bytes": 880053,
+   "sha256": "91931052f89cf2d8e2a1ee65912532a4ad5f36d6cec34a615e8fe4f2537b86ec",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 15) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "gornushkin2022montecarlo",
+   "url": "https://doi.org/10.3390/s22197149",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gornushkin2022montecarlo.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/gornushkin2022montecarlo.suspect.pdf",
+     "bytes": 1273019,
+     "sha256": "afc508905951dc7a841c1dece7610efc5299584ab64782ebca341c96db29cd49"
+    }
+   ],
+   "bytes": 1273019,
+   "sha256": "afc508905951dc7a841c1dece7610efc5299584ab64782ebca341c96db29cd49",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter); byte-identical to another capture (gaudiuso2010review)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "aragon2014csigma",
+   "url": "https://doi.org/10.1016/j.jqsrt.2014.07.026",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2014csigma.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2014csigma.suspect.pdf",
+     "bytes": 943625,
+     "sha256": "e9414c904a761af3776585aaaff1d1156e48f344250be363d3f85f5132126364"
+    }
+   ],
+   "bytes": 943625,
+   "sha256": "e9414c904a761af3776585aaaff1d1156e48f344250be363d3f85f5132126364",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 13) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "aragon2015generalizedcog",
+   "url": "https://doi.org/10.1016/j.sab.2015.06.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2015generalizedcog.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aragon2015generalizedcog.suspect.pdf",
+     "bytes": 939562,
+     "sha256": "e62227a70774851edce3bb6921b73dac96a67f53303086769b9f632762931560"
+    }
+   ],
+   "bytes": 939562,
+   "sha256": "e62227a70774851edce3bb6921b73dac96a67f53303086769b9f632762931560",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 10) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "cavalcanti2013onepoint",
+   "url": "https://doi.org/10.1016/j.sab.2013.05.016",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cavalcanti2013onepoint.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/cavalcanti2013onepoint.suspect.pdf",
+     "bytes": 706143,
+     "sha256": "202d4dfffe8697156dd12882ec5617a6d27316473c23389e402654887d7cb1f2"
+    }
+   ],
+   "bytes": 706143,
+   "sha256": "202d4dfffe8697156dd12882ec5617a6d27316473c23389e402654887d7cb1f2",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 6) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "aguilera2004spatial",
+   "url": "https://doi.org/10.1016/j.sab.2004.08.003",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aguilera2004spatial.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/aguilera2004spatial.suspect.pdf",
+     "bytes": 612867,
+     "sha256": "633fbd9ba8121a8433fe8f6b360efde5698d51880af341ecf22fc94f0916b4c3"
+    }
+   ],
+   "bytes": 612867,
+   "sha256": "633fbd9ba8121a8433fe8f6b360efde5698d51880af341ecf22fc94f0916b4c3",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 16) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "grifoni2016cfcomparison",
+   "url": "https://doi.org/10.1016/j.sab.2016.08.022",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/grifoni2016cfcomparison.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/grifoni2016cfcomparison.suspect.pdf",
+     "bytes": 542681,
+     "sha256": "76115145435868a0a6c2a1253025762b193a31940a8c6d00ae41f4a3de047098"
+    }
+   ],
+   "bytes": 542681,
+   "sha256": "76115145435868a0a6c2a1253025762b193a31940a8c6d00ae41f4a3de047098",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 7) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "rezaei2020selfabsorption",
+   "url": "https://doi.org/10.1016/j.sab.2020.105878",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/rezaei2020selfabsorption.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/rezaei2020selfabsorption.suspect.pdf",
+     "bytes": 325479,
+     "sha256": "074e8a292eb4ceed692358d011087b43f8aeda9f6dc4454e4dbc0850322b76bf"
+    }
+   ],
+   "bytes": 325479,
+   "sha256": "074e8a292eb4ceed692358d011087b43f8aeda9f6dc4454e4dbc0850322b76bf",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "elsherbini2006halpha",
+   "url": "https://doi.org/10.1016/j.sab.2006.03.014",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/elsherbini2006halpha.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/elsherbini2006halpha.suspect.pdf",
+     "bytes": 307364,
+     "sha256": "374f5064d101a8460acfbb8d5d31c2956c5d71ef682507b7a9e6494870cfe565"
+    }
+   ],
+   "bytes": 307364,
+   "sha256": "374f5064d101a8460acfbb8d5d31c2956c5d71ef682507b7a9e6494870cfe565",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 8) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "clegg2009pls",
+   "url": "https://doi.org/10.1016/j.sab.2008.10.045",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/clegg2009pls.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/clegg2009pls.suspect.pdf",
+     "bytes": 1213549,
+     "sha256": "660ad405bc19e28d6e117762f0a3ae8020b76024d5e637b7f333235aa6a663ea"
+    }
+   ],
+   "bytes": 1213549,
+   "sha256": "660ad405bc19e28d6e117762f0a3ae8020b76024d5e637b7f333235aa6a663ea",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 10) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "clegg2017recalibration",
+   "url": "https://doi.org/10.1016/j.sab.2016.12.003",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/clegg2017recalibration.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/clegg2017recalibration.suspect.pdf",
+     "bytes": 3417717,
+     "sha256": "57017935fc24af9ee9d0fe99647c8989029bec35ba91cf341d4253cce0408d9e"
+    }
+   ],
+   "bytes": 3417717,
+   "sha256": "57017935fc24af9ee9d0fe99647c8989029bec35ba91cf341d4253cce0408d9e",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 22) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "anderson2017submodels",
+   "url": "https://doi.org/10.1016/j.sab.2016.12.002",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/anderson2017submodels.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/anderson2017submodels.suspect.pdf",
+     "bytes": 1012560,
+     "sha256": "f04b0734498eb996814229006577e8b0e5a2a7a99dd0e1fbece5a8bf97469d21"
+    }
+   ],
+   "bytes": 1012560,
+   "sha256": "f04b0734498eb996814229006577e8b0e5a2a7a99dd0e1fbece5a8bf97469d21",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 9) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "dyar2016univariate",
+   "url": "https://doi.org/10.1016/j.sab.2016.07.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2016univariate.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2016univariate.suspect.pdf",
+     "bytes": 1331780,
+     "sha256": "3aceb488c10b6092c93a605bb7e2170fc244efbb1387f6b766aff6cbdd4179ec"
+    }
+   ],
+   "bytes": 1331780,
+   "sha256": "3aceb488c10b6092c93a605bb7e2170fc244efbb1387f6b766aff6cbdd4179ec",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 12) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "wiens2013preflight",
+   "url": "https://doi.org/10.1016/j.sab.2013.02.003",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2013preflight.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2013preflight.pdf",
+     "bytes": 2855795,
+     "sha256": "87fe418ae7fcaa232b7c9a819f134741c1baa833741b0de93459fcf1e5ed988e"
+    }
+   ],
+   "bytes": 2855795,
+   "sha256": "87fe418ae7fcaa232b7c9a819f134741c1baa833741b0de93459fcf1e5ed988e",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "eppler1996matrix",
+   "url": "https://doi.org/10.1366/0003702963905123",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/eppler1996matrix.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/eppler1996matrix.pdf",
+     "bytes": 807999,
+     "sha256": "059cfc88334e923ed41b9240c6fb90275a67ebb1c1df93eee440f0581794bd35"
+    }
+   ],
+   "bytes": 807999,
+   "sha256": "059cfc88334e923ed41b9240c6fb90275a67ebb1c1df93eee440f0581794bd35",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "costa2021calibration",
+   "url": "https://doi.org/10.21577/0103-5053.20200175",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/costa2021calibration.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/costa2021calibration.pdf",
+     "bytes": 1374386,
+     "sha256": "3e25ae7310a7d4dc60a453e12adea7d2a4b20a7c459e0babdf096efb443a8394"
+    }
+   ],
+   "bytes": 1374386,
+   "sha256": "3e25ae7310a7d4dc60a453e12adea7d2a4b20a7c459e0babdf096efb443a8394",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "mermet2008loq",
+   "url": "https://doi.org/10.1016/j.sab.2007.11.029",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/mermet2008loq.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/mermet2008loq.suspect.pdf",
+     "bytes": 1213619,
+     "sha256": "6571fbbe58837e7a5a30ad7d8fcd6749c1b84a3a83cdaea4e1db7686dc51d723"
+    }
+   ],
+   "bytes": 1213619,
+   "sha256": "6571fbbe58837e7a5a30ad7d8fcd6749c1b84a3a83cdaea4e1db7686dc51d723",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 17) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "harmon2013geochem",
+   "url": "https://doi.org/10.1016/j.sab.2013.05.017",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2013geochem.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2013geochem.suspect.pdf",
+     "bytes": 522159,
+     "sha256": "7b8f5c14ab39896537a194d7cb9e43634aaaef8832a3320ab6b6b3e62950507d"
+    }
+   ],
+   "bytes": 522159,
+   "sha256": "7b8f5c14ab39896537a194d7cb9e43634aaaef8832a3320ab6b6b3e62950507d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 16) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "harmon2019mineral",
+   "url": "https://doi.org/10.3390/min9120718",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2019mineral.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2019mineral.pdf",
+     "bytes": 1194157,
+     "sha256": "d9a3364d5f18de0e714466cadaa1e1bd8f12c40c115b9523c59361a3f2401f91"
+    }
+   ],
+   "bytes": 1194157,
+   "sha256": "d9a3364d5f18de0e714466cadaa1e1bd8f12c40c115b9523c59361a3f2401f91",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "harmon2023muscovite",
+   "url": "https://doi.org/10.3390/min13050697",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2023muscovite.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/harmon2023muscovite.suspect.pdf",
+     "bytes": 655580,
+     "sha256": "f22c5a67ded8e7dae660cddee19c0fd40424cad5e7d33307e4042333ba01a4c9"
+    }
+   ],
+   "bytes": 655580,
+   "sha256": "f22c5a67ded8e7dae660cddee19c0fd40424cad5e7d33307e4042333ba01a4c9",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "senesi2014earth",
+   "url": "https://doi.org/10.1016/j.earscirev.2014.09.008",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/senesi2014earth.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/senesi2014earth.suspect.pdf",
+     "bytes": 3856375,
+     "sha256": "2168f1b284d08c96e31cb36d05f8628b98d87f8ae5171722841bbfaaf2bd05c1"
+    }
+   ],
+   "bytes": 3856375,
+   "sha256": "2168f1b284d08c96e31cb36d05f8628b98d87f8ae5171722841bbfaaf2bd05c1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 37) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "sweetapple2015lithium",
+   "url": "https://doi.org/10.2138/am-2015-5165",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no sweetapple2015lithium.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "korbel2024lithium",
+   "url": "https://doi.org/10.1039/d3ja00423f",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/korbel2024lithium.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/korbel2024lithium.pdf",
+     "bytes": 1516767,
+     "sha256": "c556ba8965d8b2e095e1c340044b9dde0d1bc6ff0932c179def50104bc39c86c"
+    }
+   ],
+   "bytes": 1516767,
+   "sha256": "c556ba8965d8b2e095e1c340044b9dde0d1bc6ff0932c179def50104bc39c86c",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "senesi2021handheld",
+   "url": "https://doi.org/10.1016/j.sab.2020.106013",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/senesi2021handheld.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/senesi2021handheld.suspect.pdf",
+     "bytes": 246395,
+     "sha256": "67b90cb86f8ca4f0e8ca0eb243e94c095576868bd70979089e304658cf9c5748"
+    }
+   ],
+   "bytes": 246395,
+   "sha256": "67b90cb86f8ca4f0e8ca0eb243e94c095576868bd70979089e304658cf9c5748",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "connors2016handheld",
+   "url": "https://doi.org/10.1177/0003702816638247",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/connors2016handheld.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/connors2016handheld.pdf",
+     "bytes": 768080,
+     "sha256": "3ef835cbeb1a46a21ad347d14582e6e195c8945e531c9568ba0e4beabf708e5f"
+    }
+   ],
+   "bytes": 768080,
+   "sha256": "3ef835cbeb1a46a21ad347d14582e6e195c8945e531c9568ba0e4beabf708e5f",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "jochum2005georem",
+   "url": "https://doi.org/10.1111/j.1751-908x.2005.tb00904.x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jochum2005georem.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jochum2005georem.pdf",
+     "bytes": 1271703,
+     "sha256": "a737fea93efa0b75929b5f747de9079357cf6592a8c9e6915d6a1d63bdade150"
+    }
+   ],
+   "bytes": 1271703,
+   "sha256": "a737fea93efa0b75929b5f747de9079357cf6592a8c9e6915d6a1d63bdade150",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "jochum2011nist",
+   "url": "https://doi.org/10.1111/j.1751-908x.2011.00120.x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jochum2011nist.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jochum2011nist.pdf",
+     "bytes": 1785874,
+     "sha256": "98bd499991693cf67f992fa2056de9d742a2130ee71e44695b77e8c148c136c5"
+    }
+   ],
+   "bytes": 1785874,
+   "sha256": "98bd499991693cf67f992fa2056de9d742a2130ee71e44695b77e8c148c136c5",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "palasti2022argon",
+   "url": "https://doi.org/10.1016/j.sab.2022.106435",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/palasti2022argon.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/palasti2022argon.pdf",
+     "bytes": 2336670,
+     "sha256": "d25cc28ebf0b8d7ce83b5b4b5a7230bee41cf6b37e4816e8eb6a443e5538be69"
+    }
+   ],
+   "bytes": 2336670,
+   "sha256": "d25cc28ebf0b8d7ce83b5b4b5a7230bee41cf6b37e4816e8eb6a443e5538be69",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "borduchi2022detection",
+   "url": "https://doi.org/10.1016/j.sab.2022.106409",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/borduchi2022detection.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/borduchi2022detection.suspect.pdf",
+     "bytes": 250381,
+     "sha256": "095745f99b42619a16460a4469d121961ef3ec51fd35a2489345a0b1e165e66e"
+    }
+   ],
+   "bytes": 250381,
+   "sha256": "095745f99b42619a16460a4469d121961ef3ec51fd35a2489345a0b1e165e66e",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "li2014spectralresponse",
+   "url": "https://doi.org/10.1039/c3ja50371b",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no li2014spectralresponse.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "palleschi2022selfabsorption",
+   "url": "https://doi.org/10.56530/spectroscopy.xq8876v9",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/palleschi2022selfabsorption.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/palleschi2022selfabsorption.suspect.pdf",
+     "bytes": 1516767,
+     "sha256": "c556ba8965d8b2e095e1c340044b9dde0d1bc6ff0932c179def50104bc39c86c"
+    }
+   ],
+   "bytes": 1516767,
+   "sha256": "c556ba8965d8b2e095e1c340044b9dde0d1bc6ff0932c179def50104bc39c86c",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "byte-identical to another capture (korbel2024lithium)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "saloman2004neon",
+   "url": "https://doi.org/10.1063/1.1797771",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/saloman2004neon.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/saloman2004neon.suspect.pdf",
+     "bytes": 5084557,
+     "sha256": "8394e17787f00bf6edf80bbc94443b7dc1e3dff6cdfae9f571b40e91db9a409d"
+    }
+   ],
+   "bytes": 5084557,
+   "sha256": "8394e17787f00bf6edf80bbc94443b7dc1e3dff6cdfae9f571b40e91db9a409d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter); byte-identical to another capture (hermann1998earlyphase)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "villasboas2023lod",
+   "url": "https://doi.org/10.1016/j.sab.2023.106690",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/villasboas2023lod.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/villasboas2023lod.suspect.pdf",
+     "bytes": 246079,
+     "sha256": "f2239bb4326e10f6d8e22e78bb41c1a97acb9aae3ce9a7a3954e73f859a1c456"
+    }
+   ],
+   "bytes": 246079,
+   "sha256": "f2239bb4326e10f6d8e22e78bb41c1a97acb9aae3ce9a7a3954e73f859a1c456",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "wiens2012chemcam",
+   "url": "https://doi.org/10.1007/s11214-012-9902-4",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2012chemcam.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2012chemcam.pdf",
+     "bytes": 6625771,
+     "sha256": "e83983f45b0cd33b3b3f5237405fd2ea8dae61c3c21171fb544747af44061e3d"
+    }
+   ],
+   "bytes": 6625771,
+   "sha256": "e83983f45b0cd33b3b3f5237405fd2ea8dae61c3c21171fb544747af44061e3d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "maurice2012chemcam",
+   "url": "https://doi.org/10.1007/s11214-012-9912-2",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/maurice2012chemcam.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/maurice2012chemcam.pdf",
+     "bytes": 7270519,
+     "sha256": "930935a2683dfbe5b6e7aa6a3e556db108864e72b80c6bf0ed0d6e9179ebeeb1"
+    }
+   ],
+   "bytes": 7270519,
+   "sha256": "930935a2683dfbe5b6e7aa6a3e556db108864e72b80c6bf0ed0d6e9179ebeeb1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "wiens2021supercam",
+   "url": "https://doi.org/10.1007/s11214-020-00777-5",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2021supercam.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wiens2021supercam.pdf",
+     "bytes": 19372723,
+     "sha256": "5451e82bde6cdb04f0e6f8a1987cb06139328328a674eed594bc6a2e04070fa7"
+    }
+   ],
+   "bytes": 19372723,
+   "sha256": "5451e82bde6cdb04f0e6f8a1987cb06139328328a674eed594bc6a2e04070fa7",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "maurice2021supercam",
+   "url": "https://doi.org/10.1007/s11214-021-00807-w",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/maurice2021supercam.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/maurice2021supercam.pdf",
+     "bytes": 19612177,
+     "sha256": "91d867fb840bb2832b064923c489f627048bd807dd3a3428f79170008d118fe2"
+    }
+   ],
+   "bytes": 19612177,
+   "sha256": "91d867fb840bb2832b064923c489f627048bd807dd3a3428f79170008d118fe2",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "urbinamedina2021branching",
+   "url": "https://doi.org/10.1177/00037028211006764",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/urbinamedina2021branching.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/urbinamedina2021branching.pdf",
+     "bytes": 674660,
+     "sha256": "ca9d031f6d91a1f005ea8d1992a201e9c5e746b5ccba22b21babadbd9ab29c39"
+    }
+   ],
+   "bytes": 674660,
+   "sha256": "ca9d031f6d91a1f005ea8d1992a201e9c5e746b5ccba22b21babadbd9ab29c39",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "herrera2009cflibs",
+   "url": "https://doi.org/10.1039/b820493d",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/herrera2009cflibs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/herrera2009cflibs.pdf",
+     "bytes": 3149272,
+     "sha256": "b65209defe55f8d87ef5179b72abf1ba854ebc2e659c1c6f7ec06fcf9f2a5eb6"
+    }
+   ],
+   "bytes": 3149272,
+   "sha256": "b65209defe55f8d87ef5179b72abf1ba854ebc2e659c1c6f7ec06fcf9f2a5eb6",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "takahashi2017matrix",
+   "url": "https://doi.org/10.1016/j.sab.2017.09.010",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/takahashi2017matrix.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/takahashi2017matrix.pdf",
+     "bytes": 507597,
+     "sha256": "1f74c27b29c7a8e9658f36e6dab2a223e9e883a48f09f003023014e92202e0b0"
+    }
+   ],
+   "bytes": 507597,
+   "sha256": "1f74c27b29c7a8e9658f36e6dab2a223e9e883a48f09f003023014e92202e0b0",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "hao2024mlreview",
+   "url": "https://doi.org/10.1007/s11467-024-1427-2",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hao2024mlreview.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/hao2024mlreview.pdf",
+     "bytes": 6754121,
+     "sha256": "cc5caca0232fd192ffbaaab4bb186f9a1bfc3fbeca1dec8f6ec1f7609287bf31"
+    }
+   ],
+   "bytes": 6754121,
+   "sha256": "cc5caca0232fd192ffbaaab4bb186f9a1bfc3fbeca1dec8f6ec1f7609287bf31",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "dehbozorgi2025mldl",
+   "url": "https://doi.org/10.1002/anse.202500106",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dehbozorgi2025mldl.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dehbozorgi2025mldl.pdf",
+     "bytes": 1935878,
+     "sha256": "2ac90e9d73e755c62786173f13dcf6dfbaf48360617d54ab2b3eec3d24bc320f"
+    }
+   ],
+   "bytes": 1935878,
+   "sha256": "2ac90e9d73e755c62786173f13dcf6dfbaf48360617d54ab2b3eec3d24bc320f",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "zhang2023dlreview",
+   "url": "https://doi.org/10.1007/s10462-023-10590-5",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zhang2023dlreview.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zhang2023dlreview.pdf",
+     "bytes": 2193625,
+     "sha256": "27eae2d676f4a176e47955468dc75ed9d4eee107d6135112e0dc86bb9dd4a548"
+    }
+   ],
+   "bytes": 2193625,
+   "sha256": "27eae2d676f4a176e47955468dc75ed9d4eee107d6135112e0dc86bb9dd4a548",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "huang2023mlsoil",
+   "url": "https://doi.org/10.1109/tps.2022.3231985",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no huang2023mlsoil.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "li2021annreview",
+   "url": "https://doi.org/10.1016/j.sab.2021.106183",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/li2021annreview.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/li2021annreview.suspect.pdf",
+     "bytes": 249351,
+     "sha256": "bc4236625a59d4086a165652b6f863475472e620947fc8343589fb72acca8553"
+    }
+   ],
+   "bytes": 249351,
+   "sha256": "bc4236625a59d4086a165652b6f863475472e620947fc8343589fb72acca8553",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "li2020cnn",
+   "url": "https://doi.org/10.1016/j.sab.2020.105850",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/li2020cnn.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/li2020cnn.suspect.pdf",
+     "bytes": 418393,
+     "sha256": "8edb19c9ecc2e36d2d912cf2a4c805c901a23bc50e62316a38c3790c52f062aa"
+    }
+   ],
+   "bytes": 418393,
+   "sha256": "8edb19c9ecc2e36d2d912cf2a4c805c901a23bc50e62316a38c3790c52f062aa",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "yu2023cnn",
+   "url": "https://doi.org/10.3390/rs15133422",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/yu2023cnn.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/yu2023cnn.suspect.pdf",
+     "bytes": 2469786,
+     "sha256": "813451ad1f752c371de3f8db591229f4fd12e3d57bfec03a3e1c62944e671219"
+    }
+   ],
+   "bytes": 2469786,
+   "sha256": "813451ad1f752c371de3f8db591229f4fd12e3d57bfec03a3e1c62944e671219",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "castorena2021deepcnn",
+   "url": "https://doi.org/10.1016/j.sab.2021.106125",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/castorena2021deepcnn.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/castorena2021deepcnn.suspect.pdf",
+     "bytes": 243872,
+     "sha256": "3a47b2b96cc420c4517fa89009f6a68bca84c15372f17cf6ac762237c6a31816"
+    }
+   ],
+   "bytes": 243872,
+   "sha256": "3a47b2b96cc420c4517fa89009f6a68bca84c15372f17cf6ac762237c6a31816",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "vandeneynde2023dlregression",
+   "url": "https://doi.org/10.1016/j.sab.2023.106634",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vandeneynde2023dlregression.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vandeneynde2023dlregression.suspect.pdf",
+     "bytes": 258784,
+     "sha256": "2d0e478c2551568ecdb6385cd9374da7a8e060aba6dd56479a0371e803ac99ea"
+    }
+   ],
+   "bytes": 258784,
+   "sha256": "2d0e478c2551568ecdb6385cd9374da7a8e060aba6dd56479a0371e803ac99ea",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kepes2022transfer",
+   "url": "https://doi.org/10.1039/d2ja00180b",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kepes2022transfer.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kepes2022transfer.pdf",
+     "bytes": 794909,
+     "sha256": "9f9ce8d6fb281a20f7d4bb3020fc5b3a00dbc45b8770f36fdffbbeaf1f97fea1"
+    }
+   ],
+   "bytes": 794909,
+   "sha256": "9f9ce8d6fb281a20f7d4bb3020fc5b3a00dbc45b8770f36fdffbbeaf1f97fea1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kepes2020benchmark",
+   "url": "https://doi.org/10.1038/s41597-020-0396-8",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kepes2020benchmark.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kepes2020benchmark.pdf",
+     "bytes": 893092,
+     "sha256": "e4ec4508ebae7d40c072ebf1597db16df6900fc7153e69e77b979bbbae903c19"
+    }
+   ],
+   "bytes": 893092,
+   "sha256": "e4ec4508ebae7d40c072ebf1597db16df6900fc7153e69e77b979bbbae903c19",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "lepore2024calsharing",
+   "url": "https://doi.org/10.1016/j.sab.2023.106839",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lepore2024calsharing.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lepore2024calsharing.suspect.pdf",
+     "bytes": 246727,
+     "sha256": "8290e62743ac1d399152549f07ddc27fbad77ace23d58e289d1b3d8067ea6664"
+    }
+   ],
+   "bytes": 246727,
+   "sha256": "8290e62743ac1d399152549f07ddc27fbad77ace23d58e289d1b3d8067ea6664",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "noel2025alias",
+   "url": "https://doi.org/10.1016/j.sab.2025.107255",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/noel2025alias.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/noel2025alias.suspect.pdf",
+     "bytes": 269003,
+     "sha256": "a0544e52db386ca469079bd206ba918f6f5e28dcbb7c452e9a2a035af6d57af9"
+    }
+   ],
+   "bytes": 269003,
+   "sha256": "a0544e52db386ca469079bd206ba918f6f5e28dcbb7c452e9a2a035af6d57af9",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "forni2013ica",
+   "url": "https://doi.org/10.1016/j.sab.2013.05.003",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/forni2013ica.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/forni2013ica.suspect.pdf",
+     "bytes": 1047112,
+     "sha256": "dd3f2d98a1b864b15a604a238ca2bf7de771736b047ee114b0e967743f9b9979"
+    }
+   ],
+   "bytes": 1047112,
+   "sha256": "dd3f2d98a1b864b15a604a238ca2bf7de771736b047ee114b0e967743f9b9979",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 11) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "dyar2012lasso",
+   "url": "https://doi.org/10.1016/j.sab.2012.04.011",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2012lasso.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2012lasso.suspect.pdf",
+     "bytes": 2197066,
+     "sha256": "1fb871a69ad0a9579f417543f93934f99a30140ff2bdac685a7f93e117bf7e02"
+    }
+   ],
+   "bytes": 2197066,
+   "sha256": "1fb871a69ad0a9579f417543f93934f99a30140ff2bdac685a7f93e117bf7e02",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 17) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "dyar2014chemcam",
+   "url": "https://doi.org/10.1017/s1431927614010137",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2014chemcam.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/dyar2014chemcam.pdf",
+     "bytes": 851679,
+     "sha256": "e42e89dd15262bcd15275ce2361f4b0a8599b4d7cb79681e203a7157f7d5fbd5"
+    }
+   ],
+   "bytes": 851679,
+   "sha256": "e42e89dd15262bcd15275ce2361f4b0a8599b4d7cb79681e203a7157f7d5fbd5",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "boucher2015ml",
+   "url": "https://doi.org/10.1016/j.sab.2015.02.003",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/boucher2015ml.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/boucher2015ml.suspect.pdf",
+     "bytes": 954590,
+     "sha256": "c085a4d4a3820f0adb3f87d9a2e636c42497fd0ef85357cb38c0809f79ea1143"
+    }
+   ],
+   "bytes": 954590,
+   "sha256": "c085a4d4a3820f0adb3f87d9a2e636c42497fd0ef85357cb38c0809f79ea1143",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "anderson2022supercam",
+   "url": "https://doi.org/10.1016/j.sab.2021.106347",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/anderson2022supercam.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/anderson2022supercam.suspect.pdf",
+     "bytes": 221170,
+     "sha256": "ce397041bd935d68b5d31fa31d9fab51b18fc90498ddd92707b87718b89ec258"
+    }
+   ],
+   "bytes": 221170,
+   "sha256": "ce397041bd935d68b5d31fa31d9fab51b18fc90498ddd92707b87718b89ec258",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected \u22652) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "yaroshchyk2012pls",
+   "url": "https://doi.org/10.1039/c1ja10164a",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/yaroshchyk2012pls.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/yaroshchyk2012pls.pdf",
+     "bytes": 646001,
+     "sha256": "b13f1e9f94c83fe54a435ad05d4a108d4b45a7824c88d865445d5ad3ecb7acb1"
+    }
+   ],
+   "bytes": 646001,
+   "sha256": "b13f1e9f94c83fe54a435ad05d4a108d4b45a7824c88d865445d5ad3ecb7acb1",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "sirven2006ann",
+   "url": "https://doi.org/10.1007/s00216-006-0322-8",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/sirven2006ann.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/sirven2006ann.pdf",
+     "bytes": 198843,
+     "sha256": "1d2a251e0bcdb9daa54b2715a2edad02fde392666b0ad380c7ed0f56348f2567"
+    }
+   ],
+   "bytes": 198843,
+   "sha256": "1d2a251e0bcdb9daa54b2715a2edad02fde392666b0ad380c7ed0f56348f2567",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "lawson1995nnls",
+   "url": "https://doi.org/10.1137/1.9781611971217",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lawson1995nnls.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lawson1995nnls.pdf",
+     "bytes": 381522,
+     "sha256": "766f7aeae82a895add0988413b490b6b76665f0d155770fb5aab3b189827f3b7"
+    }
+   ],
+   "bytes": 381522,
+   "sha256": "766f7aeae82a895add0988413b490b6b76665f0d155770fb5aab3b189827f3b7",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "bro1997nnls",
+   "url": "https://doi.org/10.1002/(SICI)1099-128X(199709/10)11:5<393::AID-CEM483>3.0.CO;2-L",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bro1997nnls.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/bro1997nnls.pdf",
+     "bytes": 150811,
+     "sha256": "e8f6765fb89b4c7e3a32d39dc1f31a2720d2ec98d4e1922c89f6f28d323c204a"
+    }
+   ],
+   "bytes": 150811,
+   "sha256": "e8f6765fb89b4c7e3a32d39dc1f31a2720d2ec98d4e1922c89f6f28d323c204a",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "golub1973variable",
+   "url": "https://doi.org/10.1137/0710036",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/golub1973variable.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/golub1973variable.pdf",
+     "bytes": 1729896,
+     "sha256": "0ee901497af3b4c27e5c413f527eade25ad8d8f700ec47b1050c01a9fa5e8c19"
+    }
+   ],
+   "bytes": 1729896,
+   "sha256": "0ee901497af3b4c27e5c413f527eade25ad8d8f700ec47b1050c01a9fa5e8c19",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "golub2003variable",
+   "url": "https://doi.org/10.1088/0266-5611/19/2/201",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/golub2003variable.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/golub2003variable.pdf",
+     "bytes": 347039,
+     "sha256": "bf33295a1a5c0ec9b841fddfbfabcc81462b025426bc042e933462cc2b2a097a"
+    }
+   ],
+   "bytes": 347039,
+   "sha256": "bf33295a1a5c0ec9b841fddfbfabcc81462b025426bc042e933462cc2b2a097a",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "jones1998ego",
+   "url": "https://doi.org/10.1023/A:1008306431147",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jones1998ego.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/jones1998ego.pdf",
+     "bytes": 536673,
+     "sha256": "0ffd09ca6b2a249597cb4c47c27b70d097623a8cc38bb81bc3b3c6f434c3ca1c"
+    }
+   ],
+   "bytes": 536673,
+   "sha256": "0ffd09ca6b2a249597cb4c47c27b70d097623a8cc38bb81bc3b3c6f434c3ca1c",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "shahriari2016bayesopt",
+   "url": "https://doi.org/10.1109/JPROC.2015.2494218",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/shahriari2016bayesopt.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/shahriari2016bayesopt.pdf",
+     "bytes": 1441523,
+     "sha256": "7009bba10deba5f4e0aa94992ef0cadfdb53862e09a1954106ce32793bcd44d0"
+    }
+   ],
+   "bytes": 1441523,
+   "sha256": "7009bba10deba5f4e0aa94992ef0cadfdb53862e09a1954106ce32793bcd44d0",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "schwarz1978bic",
+   "url": "https://doi.org/10.1214/aos/1176344136",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/schwarz1978bic.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/schwarz1978bic.suspect.pdf",
+     "bytes": 336130,
+     "sha256": "f9c38022b31af7c44920ebe7d87c0f524fa99a07f5e03fee7597c311df9cfae2"
+    }
+   ],
+   "bytes": 336130,
+   "sha256": "f9c38022b31af7c44920ebe7d87c0f524fa99a07f5e03fee7597c311df9cfae2",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "huber1964robust",
+   "url": "https://doi.org/10.1214/aoms/1177703732",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/huber1964robust.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/huber1964robust.suspect.pdf",
+     "bytes": 2835541,
+     "sha256": "0bd9e67b4910ebd47cb0349f673ca6c25307a4035dbcf0e98eeac567dd150ad4"
+    }
+   ],
+   "bytes": 2835541,
+   "sha256": "0bd9e67b4910ebd47cb0349f673ca6c25307a4035dbcf0e98eeac567dd150ad4",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "tibshirani1996lasso",
+   "url": "https://doi.org/10.1111/j.2517-6161.1996.tb02080.x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tibshirani1996lasso.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tibshirani1996lasso.pdf",
+     "bytes": 1357844,
+     "sha256": "650976d8b4bb82af650aba89b0bceadb6defb5c43ff60ee00bfc28f4f0574da2"
+    }
+   ],
+   "bytes": 1357844,
+   "sha256": "650976d8b4bb82af650aba89b0bceadb6defb5c43ff60ee00bfc28f4f0574da2",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "zou2005elasticnet",
+   "url": "https://doi.org/10.1111/j.1467-9868.2005.00503.x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zou2005elasticnet.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zou2005elasticnet.pdf",
+     "bytes": 364574,
+     "sha256": "87faefa9943c588cde9f0a9166997cd881c207ba0643fce4332859b8c5f5009d"
+    }
+   ],
+   "bytes": 364574,
+   "sha256": "87faefa9943c588cde9f0a9166997cd881c207ba0643fce4332859b8c5f5009d",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "mitchell1988spikeslab",
+   "url": "https://doi.org/10.1080/01621459.1988.10478694",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/mitchell1988spikeslab.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/mitchell1988spikeslab.pdf",
+     "bytes": 1377924,
+     "sha256": "365e00f2558f7fc9847448cf08531e4cb34d2c491a724690c6f12775f130bfa6"
+    }
+   ],
+   "bytes": 1377924,
+   "sha256": "365e00f2558f7fc9847448cf08531e4cb34d2c491a724690c6f12775f130bfa6",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "george1993ssvs",
+   "url": "https://doi.org/10.1080/01621459.1993.10476353",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/george1993ssvs.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/george1993ssvs.pdf",
+     "bytes": 1310703,
+     "sha256": "aa5cd2e4c3f32adb23adeb93fe5f633aece998b20507b274dec8ef61239e0dfc"
+    }
+   ],
+   "bytes": 1310703,
+   "sha256": "aa5cd2e4c3f32adb23adeb93fe5f633aece998b20507b274dec8ef61239e0dfc",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "zhang2010airpls",
+   "url": "https://doi.org/10.1039/b922045c",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zhang2010airpls.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zhang2010airpls.pdf",
+     "bytes": 266223,
+     "sha256": "5928151c43ddf2ba9dba5bbfd01f3732710b095971081da4654a52736503875b"
+    }
+   ],
+   "bytes": 266223,
+   "sha256": "5928151c43ddf2ba9dba5bbfd01f3732710b095971081da4654a52736503875b",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "baek2015arpls",
+   "url": "https://doi.org/10.1039/C4AN01061B",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/baek2015arpls.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/baek2015arpls.pdf",
+     "bytes": 2136009,
+     "sha256": "5009a03be0b81d0bc36ed34ac9eb1b576e1f8e0c12644c500d6c176d73179e34"
+    }
+   ],
+   "bytes": 2136009,
+   "sha256": "5009a03be0b81d0bc36ed34ac9eb1b576e1f8e0c12644c500d6c176d73179e34",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "humlicek1982voigt",
+   "url": "https://doi.org/10.1016/0022-4073(82)90078-4",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/humlicek1982voigt.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/humlicek1982voigt.suspect.pdf",
+     "bytes": 51046,
+     "sha256": "89433951a76c99e092fea736a4228fe78a97bb2c3562c4c8bf7311c2397361f5"
+    }
+   ],
+   "bytes": 51046,
+   "sha256": "89433951a76c99e092fea736a4228fe78a97bb2c3562c4c8bf7311c2397361f5",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 8) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "more1978lm",
+   "url": "https://doi.org/10.1007/BFb0067700",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/more1978lm.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/more1978lm.pdf",
+     "bytes": 712842,
+     "sha256": "3528209260c0ef72d312e622c7b71be51fa69a17abbe9b03db138fe6054868a3"
+    }
+   ],
+   "bytes": 712842,
+   "sha256": "3528209260c0ef72d312e622c7b71be51fa69a17abbe9b03db138fe6054868a3",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "coleman1996trf",
+   "url": "https://doi.org/10.1137/0806023",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/coleman1996trf.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/coleman1996trf.pdf",
+     "bytes": 2734808,
+     "sha256": "f43ccc29dd9fa5f0c924c7aec924006bd2b9c92abfc02ebab9efefbbed5ecaf4"
+    }
+   ],
+   "bytes": 2734808,
+   "sha256": "f43ccc29dd9fa5f0c924c7aec924006bd2b9c92abfc02ebab9efefbbed5ecaf4",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "branch1999trf",
+   "url": "https://doi.org/10.1137/S1064827595289108",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/branch1999trf.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/branch1999trf.pdf",
+     "bytes": 380127,
+     "sha256": "32348c76a6ddb198c18f2507da25539a4407b094d503d1870bfb2d54f8cc30e6"
+    }
+   ],
+   "bytes": 380127,
+   "sha256": "32348c76a6ddb198c18f2507da25539a4407b094d503d1870bfb2d54f8cc30e6",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "storn1997de",
+   "url": "https://doi.org/10.1023/A:1008202821328",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/storn1997de.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/storn1997de.pdf",
+     "bytes": 277884,
+     "sha256": "d8bd6c0f8030790d9d172076b57119bc94fd861bbca79c94ae6b680363239f12"
+    }
+   ],
+   "bytes": 277884,
+   "sha256": "d8bd6c0f8030790d9d172076b57119bc94fd861bbca79c94ae6b680363239f12",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "keys1981cubic",
+   "url": "https://doi.org/10.1109/TASSP.1981.1163711",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "no_pdf",
+   "pdf_path": null,
+   "is_multipart": false,
+   "parts": [],
+   "bytes": null,
+   "sha256": null,
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "no keys1981cubic.pdf on disk",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "efron1979bootstrap",
+   "url": "https://doi.org/10.1214/aos/1176344552",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/efron1979bootstrap.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/efron1979bootstrap.suspect.pdf",
+     "bytes": 2337841,
+     "sha256": "96fc5600d047117aebba6c7415fe3457772d8a3a7bea20785a564f6eae2910ff"
+    }
+   ],
+   "bytes": 2337841,
+   "sha256": "96fc5600d047117aebba6c7415fe3457772d8a3a7bea20785a564f6eae2910ff",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "benjamini1995fdr",
+   "url": "https://doi.org/10.1111/j.2517-6161.1995.tb02031.x",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/benjamini1995fdr.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/benjamini1995fdr.pdf",
+     "bytes": 816530,
+     "sha256": "2ae0e73de9d22770a571959a7c6fdcccbf9905c361748744f5b82a0e999c86a4"
+    }
+   ],
+   "bytes": 816530,
+   "sha256": "2ae0e73de9d22770a571959a7c6fdcccbf9905c361748744f5b82a0e999c86a4",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "wilks1938lrt",
+   "url": "https://doi.org/10.1214/aoms/1177732360",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wilks1938lrt.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wilks1938lrt.suspect.pdf",
+     "bytes": 234966,
+     "sha256": "3f71dffb265d9a52a067db4ccf17dd6447544755eac147c6eee1384fe3c2ebe8"
+    }
+   ],
+   "bytes": 234966,
+   "sha256": "3f71dffb265d9a52a067db4ccf17dd6447544755eac147c6eee1384fe3c2ebe8",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "nocedal2006numopt",
+   "url": "https://doi.org/10.1007/978-0-387-40065-5",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/nocedal2006numopt.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/nocedal2006numopt.pdf",
+     "bytes": 21189532,
+     "sha256": "596827fbf644f51e3c525ec1a1db16a4e001cd53840700d604bb8aa23279554e"
+    }
+   ],
+   "bytes": 21189532,
+   "sha256": "596827fbf644f51e3c525ec1a1db16a4e001cd53840700d604bb8aa23279554e",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "raissi2019pinn",
+   "url": "https://doi.org/10.1016/j.jcp.2018.10.045",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/raissi2019pinn.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/raissi2019pinn.suspect.pdf",
+     "bytes": 6468672,
+     "sha256": "dd67d5735ad25c76ec716b8ae9652ec717d0bb79cc71dddeed598a1866f1445e"
+    }
+   ],
+   "bytes": 6468672,
+   "sha256": "dd67d5735ad25c76ec716b8ae9652ec717d0bb79cc71dddeed598a1866f1445e",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 22) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "pan2010transfer",
+   "url": "https://doi.org/10.1109/TKDE.2009.191",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/pan2010transfer.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/pan2010transfer.pdf",
+     "bytes": 2599940,
+     "sha256": "2fd8b1f991351a6d53eceafcc52ee946de91da496cb1f667982a43e53051f8d8"
+    }
+   ],
+   "bytes": 2599940,
+   "sha256": "2fd8b1f991351a6d53eceafcc52ee946de91da496cb1f667982a43e53051f8d8",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "wold2001pls",
+   "url": "https://doi.org/10.1016/S0169-7439(01)00155-1",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wold2001pls.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/wold2001pls.suspect.pdf",
+     "bytes": 29472,
+     "sha256": "cbcf7c6b1e1527296bf46615c430ef8d2be84c2d65350dbc45c187905fac9653"
+    }
+   ],
+   "bytes": 29472,
+   "sha256": "cbcf7c6b1e1527296bf46615c430ef8d2be84c2d65350dbc45c187905fac9653",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "only 1 page(s) (expected 22) \u2014 likely a preview",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "lee1999nmf",
+   "url": "https://doi.org/10.1038/44565",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lee1999nmf.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lee1999nmf.pdf",
+     "bytes": 546239,
+     "sha256": "8f84260797e41217a770c253190c171599363251c8d40db570bd9bec02589941"
+    }
+   ],
+   "bytes": 546239,
+   "sha256": "8f84260797e41217a770c253190c171599363251c8d40db570bd9bec02589941",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "vaswani2017attention",
+   "url": "https://arxiv.org/abs/1706.03762",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vaswani2017attention.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/vaswani2017attention.suspect.pdf",
+     "bytes": 2215244,
+     "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697"
+    }
+   ],
+   "bytes": 2215244,
+   "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "lee2019settransformer",
+   "url": "https://arxiv.org/abs/1810.00825",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lee2019settransformer.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/lee2019settransformer.suspect.pdf",
+     "bytes": 4954915,
+     "sha256": "36b5dc3056b24a2221aebf1d80dc48a81eed49339cb349386472251eb64de91f"
+    }
+   ],
+   "bytes": 4954915,
+   "sha256": "36b5dc3056b24a2221aebf1d80dc48a81eed49339cb349386472251eb64de91f",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "zaheer2017deepsets",
+   "url": "https://arxiv.org/abs/1703.06114",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zaheer2017deepsets.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/zaheer2017deepsets.suspect.pdf",
+     "bytes": 5354924,
+     "sha256": "b72a01cc43b222ea9e5808e10135c55c63444546b4c9f29cbe8e9abed9f7ea70"
+    }
+   ],
+   "bytes": 5354924,
+   "sha256": "b72a01cc43b222ea9e5808e10135c55c63444546b4c9f29cbe8e9abed9f7ea70",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "he2022mae",
+   "url": "https://arxiv.org/abs/2111.06377",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/he2022mae.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/he2022mae.suspect.pdf",
+     "bytes": 7445748,
+     "sha256": "1b490443925c72a2b7c770f90dd797e248729ae34a57e1abfe9ed36751c4cc5b"
+    }
+   ],
+   "bytes": 7445748,
+   "sha256": "1b490443925c72a2b7c770f90dd797e248729ae34a57e1abfe9ed36751c4cc5b",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "kingma2015adam",
+   "url": "https://arxiv.org/abs/1412.6980",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kingma2015adam.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/kingma2015adam.suspect.pdf",
+     "bytes": 584641,
+     "sha256": "eab9c73ae2ceda884b94830bda99312254bac4806f6c9f045cbab90721ecda31"
+    }
+   ],
+   "bytes": 584641,
+   "sha256": "eab9c73ae2ceda884b94830bda99312254bac4806f6c9f045cbab90721ecda31",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "tobin2017domainrand",
+   "url": "https://arxiv.org/abs/1703.06907",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "suspect",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tobin2017domainrand.suspect.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/tobin2017domainrand.suspect.pdf",
+     "bytes": 4066798,
+     "sha256": "3fc98c5f4cea050686d45858e647e1b704492121fdae80f8fcd5d560c107f11f"
+    }
+   ],
+   "bytes": 4066798,
+   "sha256": "3fc98c5f4cea050686d45858e647e1b704492121fdae80f8fcd5d560c107f11f",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": "neither the DOI nor enough of the title appears in the first pages (likely a wrong document or front matter)",
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  },
+  {
+   "name": "eilers2003smoother",
+   "url": "https://doi.org/10.1021/ac034173t",
+   "publisher_key": "",
+   "strategy": "verify",
+   "status": "captured",
+   "pdf_path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/eilers2003smoother.pdf",
+   "is_multipart": false,
+   "parts": [
+    {
+     "path": "/Users/mwhittaker/Projects/github/alibz/manuscript/lit/downloads/eilers2003smoother.pdf",
+     "bytes": 167613,
+     "sha256": "675a26b2767f00e61d1675532173b7a64e29463b56af694f0cd3b20457e76eec"
+    }
+   ],
+   "bytes": 167613,
+   "sha256": "675a26b2767f00e61d1675532173b7a64e29463b56af694f0cd3b20457e76eec",
+   "attempts": 0,
+   "seconds": 0.0,
+   "error": null,
+   "fulltext_path": null,
+   "fulltext_method": null,
+   "fulltext_chars": 0
+  }
+ ]
+}

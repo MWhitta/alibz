@@ -1,0 +1,29 @@
+\begin{abstract}
+Laser-induced breakdown spectroscopy (LIBS) can in principle quantify elemental
+composition without matrix-matched standards by inverting a physical model of
+the plasma emission, the calibration-free (CF-LIBS) programme. In practice the
+inversion is ill-posed: temperature, electron density, optical depth, detector
+response and line identification are entangled, and small errors in any one
+appear as large, self-consistent errors in composition. This paper sets out the
+theoretical basis, the explicit assumptions, the processing workflow, the
+datasets and the fit metrics that underpin \alibz, an open-source toolkit that
+treats a LIBS spectrum as a non-negative linear combination of forward-modelled
+element--ion templates evaluated at a shared plasma state, and solves the
+inverse problem with physical constraints rather than empirical calibration
+curves. We describe the local-thermodynamic-equilibrium emission model and its
+conventions, the treatment of self-absorption by resolved-profile and
+doublet-ratio inversion, the electron-density anchors, the stage-consistency
+thermometer that fixes temperature where the amplitude data cannot, the
+peak-extraction and refinement pipeline, the whole-pattern weighted
+non-negative solve with its evidence terms and basin guards, and the
+true-negative contest that resolves spectral confounders. We define the
+diagnostics by which a fit is judged, report where the method currently
+succeeds and fails on synthetic and real spectra from a handheld analyser, and
+state the validation gates that remain open: composition invariance between
+argon and air, pure-element standards for the plasma physics, and certified
+reference materials for the composition solve.
+\end{abstract}
+
+\noindent\textbf{Keywords:} laser-induced breakdown spectroscopy; calibration-free
+LIBS; Saha--Boltzmann; self-absorption; non-negative least squares; spectral
+unmixing; handheld LIBS

@@ -1,0 +1,483 @@
+\section{Theory}
+\label{sec:theory}
+
+This section states the physical model that \alibz{} uses to turn a laser-induced
+breakdown spectrum into an estimate of elemental composition, plasma temperature
+$T$, and electron density $\nel$. The development is deliberately explicit about
+one point of discipline that governs the whole code base: the forward model that
+predicts a spectrum and the inverse model that fits one share a single line-intensity
+convention, implemented once and called from both directions \citep{alibz}. Where a
+textbook relation is simplified, replaced by a data-driven anchor, or deliberately
+omitted, we say so here and revisit it as a named assumption in
+Section~\ref{sec:assumptions}.
+
+Throughout, $z$ indexes the ionization stage of an element (\mbox{$z=1$} neutral,
+$z=2$ singly ionized, and so on), $k$ an atomic energy level, and $j$ an individual
+emission line. We write $\lambda_j$ for the air wavelength of line $j$, $g_k$ for the
+statistical weight of level $k$, $E_k$ for its energy above the ground state of its
+stage, and $A_{ki}$ for the Einstein spontaneous-emission coefficient of the
+$k\!\rightarrow\!i$ transition. Atomic databases tabulate the product
+$g_kA_{ki}$, which we abbreviate $gA_j$, so that quantity rather than $A_{ki}$ alone
+appears below. Energies are in electron-volts, wavelengths in nanometers, and $T$
+in kelvin unless stated otherwise.
+
+\subsection{Line emission in local thermodynamic equilibrium}
+\label{sec:theory-lte}
+
+We assume (Assumption~A1) that, within a single ionization stage, the level
+populations follow a Boltzmann distribution at one excitation temperature $T$. The
+number density of emitters in upper level $k$ of stage $z$ is then
+%
+\begin{equation}
+  \label{eq:boltzmann}
+  N_k = N_z\,\frac{g_k}{U_z(T)}\,\exp\!\left(-\frac{E_k}{\kB T}\right),
+\end{equation}
+%
+where $N_z$ is the total number density of the element in stage $z$, $\kB$ is the
+Boltzmann constant, and $U_z(T)$ is the internal partition function of the stage,
+%
+\begin{equation}
+  \label{eq:partition}
+  U_z(T) = \sum_k g_k\,\exp\!\left(-\frac{E_k}{\kB T}\right).
+\end{equation}
+%
+\alibz{} does not read tabulated partition functions. It evaluates
+Equation~\eqref{eq:partition} directly over the union of lower and upper levels that
+appear in the line list it holds for stage $z$ (module \texttt{sahaboltzmann}). This
+couples the partition sum to the completeness of the line list and is a known
+limitation (Assumption~A5); critically evaluated partition tables
+\citep{irwin1981partition,barklem2016partition} are a planned replacement, and the salvaged
+\texttt{dev1} prototype's spline-interpolated $(T,U)$ tables with Griem truncation
+are recorded but not adopted.
+
+For an optically thin, homogeneous source, the energy radiated per unit time and
+solid angle in line $j$ is $I_j = N_k A_{ki}\,hc/\lambda_j$, with $h$ Planck's
+constant and $c$ the speed of light \citep{griem1997principles,kunze2009plasma}; the
+atomic constants are taken from the NIST Atomic Spectra Database \citep{kramida2023asd}.
+Substituting Equation~\eqref{eq:boltzmann} and folding in the fraction $f_z(T,\nel)$
+of the element in stage $z$ (Section~\ref{sec:theory-saha}) gives the quantity that
+\alibz{} actually computes, the \emph{line emissivity} per unit element number
+density:
+%
+\begin{equation}
+  \label{eq:emissivity}
+  \varepsilon_j(T,\nel) =
+    \frac{1}{4\pi}\,\frac{hc}{\lambda_j}\,
+    \frac{gA_j}{U_z(T)}\,
+    \exp\!\left(-\frac{E_{k,j}}{\kB T}\right)\,
+    f_z(T,\nel).
+\end{equation}
+%
+Equation~\eqref{eq:emissivity} is the single intensity convention of the code
+(\texttt{sahaboltzmann.line\_emissivity}). Two features are load-bearing. First, the
+emissivity is in \emph{energy} units: the photon-energy factor $hc/\lambda_j$ is
+present, so a blue line and a red line of equal $gA\exp(-E_k/\kB T)$ do not emit
+equal measured energy. Second, the same function is called by the forward generator
+and by the inverse solver, so the two cannot drift apart. We note this because an
+earlier inverse model omitted the $hc/\lambda$ factor; because the Z300 spans
+roughly \SIrange{190}{950}{\nano\meter}, that omission introduced a measured
+blue-to-red bias of up to $\sim$\num{5}$\times$ in relative line weights, which the
+shared convention removes.
+
+The predicted area of line $j$ for an element at number density $N_\mathrm{el}$,
+as it reaches the detector, is
+%
+\begin{equation}
+  \label{eq:forward-line}
+  Y_j = R(\lambda_j)\,N_\mathrm{el}\,\varepsilon_j(T,\nel),
+\end{equation}
+%
+where $R(\lambda)$ is the instrument's spectral response (Assumption~A6). The
+explicit-stage forward generator adds a positive free--free continuum and nuisance
+emission from entrained air or argon; free--bound (recombination) continuum is not
+modeled (Assumption~A5). Because Equation~\eqref{eq:emissivity} is in energy units,
+$R(\lambda)$ must be an energy response; only its \SI{620}{\nano\meter} gain step is
+currently measured and applied, and the ultraviolet-to-visible relative response is
+uncalibrated (Assumption~A6).
+
+\subsection{Ionization balance and electron density}
+\label{sec:theory-saha}
+
+The stage fractions $f_z$ in Equation~\eqref{eq:emissivity} follow from the Saha
+equation \citep{saha1920ionization,griem1997principles} for successive stages in
+equilibrium,
+%
+\begin{equation}
+  \label{eq:saha}
+  \frac{n_{z+1}}{n_z} =
+    \frac{2}{\nel}\,\frac{U_{z+1}(T)}{U_z(T)}
+    \left(\frac{2\pi m_\mathrm{e}\kB T}{h^2}\right)^{3/2}
+    \exp\!\left(-\frac{\chi_z}{\kB T}\right),
+\end{equation}
+%
+with $m_\mathrm{e}$ the electron mass, $\chi_z$ the ionization energy connecting
+stage $z$ to $z+1$, and the factor $2$ the statistical weight of the free electron.
+\alibz{} evaluates Equation~\eqref{eq:saha} through the thermal de~Broglie wavelength
+$\Lambda = h/\sqrt{2\pi m_\mathrm{e}\kB T}$ (module \texttt{sahaboltzmann}), normalizes
+across the stages present to obtain
+%
+\begin{equation}
+  \label{eq:stage-fraction}
+  f_z(T,\nel) = \frac{n_z}{\sum_{z'} n_{z'}},
+\end{equation}
+%
+and passes $f_z$ into Equation~\eqref{eq:emissivity}. The electron density enters
+only as $\log_{10}(\nel/\si{\per\cubic\centi\meter})$ internally.
+
+Two physical corrections to Equation~\eqref{eq:saha} are standard in the dense-plasma
+literature but are \emph{not} implemented, and we flag them here rather than imply
+their presence. Ionization-potential depression (continuum lowering)
+\citep{ecker1963lowering,stewart1966lowering} would reduce
+each $\chi_z$ by a Debye term $\Delta\chi_z = (z+1)e^2/4\pi\varepsilon_0\lambda_\mathrm{D}$;
+at LIBS conditions ($\nel\approx\SI{e17}{\per\cubic\centi\meter}$,
+$T\approx\SI{8}{\kilo\kelvin}$, Debye length $\lambda_\mathrm{D}\approx\SI{20}{\nano\meter}$)
+this is $\approx\SI{0.07}{\electronvolt}$ per unit charge, which changes the Saha
+factors of the first two stages by roughly \SIrange{10}{25}{\percent}; the code
+lowers no ionization energy. % src: Debye–Hückel estimate, reports/2026-11-03-lit-ingest-theory.md The McWhirter criterion
+$\nel \gtrsim \SI{1.6e12}{}\,\sqrt{T}\,(\Delta E)^3$
+\citep{mcwhirter1965spectral,griem1963validity,fujimoto1990validity}, a necessary lower
+bound on
+$\nel$ for the LTE assumption behind Equations~\eqref{eq:boltzmann}
+and~\eqref{eq:saha} to hold, is likewise not evaluated. Both are recorded as
+salvaged ideas awaiting A/B testing (Assumption~A1); satisfying the McWhirter bound is
+in any case necessary but not sufficient for LTE in a transient LIBS plasma
+\citep{cristoforetti2010lte}.
+
+A decision specific to \alibz{} is that the stages are \emph{not} tied through
+Equation~\eqref{eq:saha} in the inverse solve. The Saha fractions build the design
+columns (Section~\ref{sec:theory-inverse}), but each (element, stage) density is an
+independent non-negative unknown. There are two reasons. Analytically, $\nel$ is
+unidentifiable from line amplitudes alone when the stages are freely tied, because a
+per-stage density absorbs any common scale unless at least two stages of one element
+carry design weight. Physically, the same element co-ablated from different mineral
+phases ionizes differently, so forcing a single Saha ratio would misdescribe a
+heterogeneous target. \alibz{} therefore reports the relative spread of an element's
+independent per-stage estimates,
+%
+\begin{equation}
+  \label{eq:stage-disagreement}
+  D_\mathrm{el} = \frac{\max_z \hat N_z - \min_z \hat N_z}{\sum_z \hat N_z},
+\end{equation}
+%
+as \texttt{stage\_disagreement}: $D_\mathrm{el}\!\approx\!0$ is consistent with a
+single plasma, while $D_\mathrm{el}$ near $1$ flags a wrong plasma state, a non-LTE
+condition, a blend-degenerate split, or phase heterogeneity (Assumption~A11).
+
+Because the amplitude data alone constrain $\nel$ only weakly, \alibz{} measures it,
+where possible, from line \emph{width}. Hydrogen Balmer lines are linear-Stark
+dominated and carry an absolute density scale independent of any width calibration
+\citep{gigosos1996hbeta,konjevic2002review}.
+From the Stark full width at half maximum (FWHM) $\Delta\lambda_{\mathrm H}$ of
+H$\alpha$, using the Gigosos--Gonz\'alez--Carde\~noso tables \citep{gigosos2003halpha},
+\alibz{} sets
+%
+\begin{equation}
+  \label{eq:halpha}
+  \log_{10}\!\frac{\nel}{\si{\per\cubic\centi\meter}}
+    = 17 + \frac{1}{\alpha}\,
+      \log_{10}\!\frac{\Delta\lambda_{\mathrm H}}{\Delta\lambda_\mathrm{ref}},
+\end{equation}
+%
+with $\alpha$ and $\Delta\lambda_\mathrm{ref}$ the fit constants (module
+\texttt{stark}). On real samples this H$\alpha$ anchor returned
+$\log_{10}\nel = 16.95$, $16.76$, and $17.32$ on three of four samples carrying a
+usable H$\alpha$ line.
+
+For non-hydrogenic lines the quadratic (impact) Stark width
+\citep{griem1974broadening,griem1968semiempirical,konjevic1999nonhydrogenic} scales as
+%
+\begin{equation}
+  \label{eq:stark-quad}
+  w_j(\nel) \propto \frac{n_{\mathrm{eff},j}^4}{z_j^2}\,
+    10^{\,\log_{10}\nel - 17},
+  \qquad
+  n_{\mathrm{eff},j}^2 = \frac{z_j^2\,\mathcal{R}_\infty}{\chi_z - E_{k,j}},
+\end{equation}
+%
+where $n_{\mathrm{eff},j}$ is the effective principal quantum number of the upper
+level and $\mathcal{R}_\infty$ the Rydberg energy. This channel is implemented
+(module \texttt{stark}), with a ceiling $n_{\mathrm{eff}}\le 8$ to exclude
+near-threshold Rydberg levels that would otherwise swamp the width objective, a
+single global scale $c_4$ calibrated against a known density, and the instrumental
+width intercept profiled analytically. It is nonetheless \emph{off by default},
+because on this instrument class the predicted widths ($\sim$\SI{0.002}{\nano\meter}
+at $\nel=\SI{e17}{\per\cubic\centi\meter}$) sit an order of magnitude below the
+measured per-peak width scatter (\SIrange{0.03}{0.05}{\nano\meter}), so they are not
+recoverable. In the absence of a usable H$\alpha$ line, \alibz{} adopts a default
+prior $\log_{10}\nel \sim \mathcal{N}(17.0,\,0.5)$, searches inside the $1\sigma$ box,
+and raises the flag \texttt{electron-density-at-bound} when the optimum rails against
+it.
+
+\subsection{Line profiles}
+\label{sec:theory-profiles}
+
+Each line is modeled as a Voigt profile, the convolution of a Gaussian of standard
+deviation $\sigma$ (Doppler and instrumental broadening) with a Lorentzian of
+half-width at half-maximum $\gamma$ (Stark and natural broadening). \alibz{} uses the
+Olivero--Longbothum/Thompson approximation for the Voigt FWHM
+\citep{olivero1977voigt,thompson1987voigt},
+%
+\begin{equation}
+  \label{eq:voigt-fwhm}
+  f_V = 0.5346\,f_L + \sqrt{0.2166\,f_L^2 + f_G^2},
+  \qquad f_L = 2\gamma,\quad f_G = \sqrt{8\ln 2}\,\sigma,
+\end{equation}
+%
+(module \texttt{voigt}), and evaluates the profile itself through the Faddeeva
+function \citep{humlicek1982voigt,virtanen2020scipy}.
+The thermal Doppler width is physically
+$\sigma_\mathrm{D} = (\lambda/c)\sqrt{\kB T/m}$ for an emitter of mass $m$, but the
+forward generator uses a \emph{fixed} width rather than tying $\sigma_\mathrm{D}$ to
+$T$ and $m$ (Assumption~A9); grounding the Gaussian width in that relation would remove
+one free parameter and is a recorded, untested option.
+
+Two instrument-specific facts shape the profile model. The Z300 exports every
+spectrum on a uniform \SI{0.0333}{\nano\meter} (\mbox{$1/30$}~nm) grid, which we have
+shown to be a cubic-spline resample of coarser native pixels (native pitch
+$\approx$ \SIrange{0.096}{0.198}{\nano\meter} across the three segments). Fitting on
+the export grid biases fitted FWHM high by \SIrange{37}{80}{\percent}, biases line
+area low by \SIrange{4}{6}{\percent}, and over-counts the information content roughly
+four- to fivefold, because the spline introduces a lag-1 autocorrelation
+$\rho(1)=0.92$ (falling as $0.76, 0.57, 0.40, 0.28, 0.20$ over lags $2$--$6$) that is
+absent on the native grid, where the recovered noise is white (Assumption~A7).
+\alibz{} therefore recovers and fits on the native grid, and integrates the model
+over each native pixel rather than point-sampling it. The effective
+point-spread function is handled per segment: an empirical PSF \citep{anderson2000epsf}
+in the visible, a
+spline-root location in the ultraviolet, and a point Gaussian in the near-infrared
+(modules \texttt{peak\_location} and \texttt{epsf\_shapes}, with the per-segment
+choice stored in a packaged shape file). A forward-convolved,
+pixel-integrated line-spread function that would let the self-absorption parameters
+of Section~\ref{sec:theory-sa} measure plasma physics rather than absorb instrument
+shape is planned but not built; the interim mitigation is a robust \texttt{soft\_l1}
+loss in the refinement fit.
+
+\subsection{Self-absorption}
+\label{sec:theory-sa}
+
+Strong resonance lines are reabsorbed within the plasma, which flattens their cores
+and understates the emitting population---exactly the population that quantification
+needs. \alibz{} treats self-absorption with a homogeneous-slab escape factor
+\citep{cowan1948selfabsorption,irons1979escape}. The
+integrated optical depth of line $j$ scales with the lower-level population,
+%
+\begin{equation}
+  \label{eq:kappa}
+  \tau_j = s_\tau\,c_s\,\kappa_j,
+  \qquad
+  \kappa_j \propto \lambda_j^2\,gA_j\,
+    \frac{\exp(-E_{i,j}/\kB T)}{U_z(T)}\,f_z(T,\nel),
+\end{equation}
+%
+where $E_{i,j}$ is the \emph{lower}-level energy of the transition, $c_s$ the
+species concentration, and $s_\tau$ a single global scale (module \texttt{absorption}).
+The measured area is compressed by the escape factor
+%
+\begin{equation}
+  \label{eq:escape}
+  f_\mathrm{SA}(\tau) = \frac{1-e^{-\tau}}{\tau},
+\end{equation}
+%
+which tends to $1$ as $\tau\!\rightarrow\!0$ (optically thin) and to $1/\tau$ for
+$\tau\gg1$ (saturated). In the inverse solve the escape factor is applied by a
+damped, Aitken-accelerated fixed point with a divergence guard: solve optically thin,
+form $\tau_j$ from Equation~\eqref{eq:kappa} with $\kappa_j$ normalized to a frozen
+reference line, compress the weights by Equation~\eqref{eq:escape}, and re-solve
+(Section~\ref{sec:theory-inverse}). The pass-2 refinement caps $\tau\le8$; the
+indexer's doublet channel caps $\tau\le50$.
+
+Where two ground-state resonance lines of one species are resolved, their measured
+area ratio inverts directly to an optical depth
+\citep{elsherbini2005selfabsorption,sun2009internalreference,bulajic2002selfabsorption}. Both members share the lower level,
+so their optical depths are locked in the ratio $s_r$ of their absorption strengths.
+With $R_0$ the optically thin emissivity ratio of the strong to the weak member, the
+observed area ratio is
+%
+\begin{equation}
+  \label{eq:doublet}
+  R(\tau) = R_0\,\frac{f_\mathrm{SA}(s_r\,\tau)}{f_\mathrm{SA}(\tau)},
+\end{equation}
+%
+which \alibz{} solves for the weak-member $\tau$ (\texttt{invert\_doublet\_tau})
+and uses to anchor that species' self-absorption (\texttt{\_freeze\_doublet\_taus},
+gated off by default). The compression is real and large: the \mbox{K\,\textsc{i}}
+\SI{766.5}{\nano\meter}/\SI{769.9}{\nano\meter} doublet has a thin ratio of $2.02$
+but a measured ratio of $1.30$ on sample MW2-112, and the Na\,D doublet $2.00$ versus
+a measured $1.51$---a $\sim$\SI{35}{\percent} amplitude compression that no thin
+linear model can absorb.
+
+When a resonance line is resolved well enough to fit its shape, \alibz{} uses a
+cold-absorber model in which the emitted Voigt profile is attenuated by a
+same-shaped, slightly shifted absorber,
+%
+\begin{equation}
+  \label{eq:sa-voigt}
+  I(x) = A\,V(x-\mu)\,
+    \exp\!\left[-\tau_a\,\frac{V(x-\mu-\delta)}{V(0)}\right],
+\end{equation}
+%
+with absorber depth $\tau_a$ and center shift $\delta$ (\texttt{refinement.sa\_voigt}).
+This resolved-profile model is applied only when the transition has a resonance-capable
+lower level ($E_i\le\SI{0.2}{\electronvolt}$). It separates two areas that must not be
+confused: the \emph{observed area}, the integral of the attenuated profile actually
+seen, which is stored in the peak table and is faithful to the data; and the
+\emph{emission area} $A$, the thin-equivalent flux the line would emit with no
+self-absorption, which is what Equation~\eqref{eq:forward-line} relates to
+concentration and which is carried in the decision record. On MW2-112 the
+emission-to-observed ratios ranged from $1.24$ to $7.0$ across fifteen merged lines.
+The verdict is a non-destructive tag; downstream consumers must not re-apply a
+self-absorption correction to a row that already carries \texttt{observed\_area}.
+
+A stimulated-emission (induced-emission) correction to the net absorption,
+%
+\begin{equation}
+  \label{eq:stim}
+  1 - \exp\!\left(-\frac{hc}{\lambda\,\kB T}\right),
+\end{equation}
+%
+is implemented (\texttt{stimulated\_emission\_factor}) and is wavelength-dependent
+($\approx0.99$ in the ultraviolet versus $\approx0.89$ at the
+\mbox{K\,\textsc{i}}~\SI{770}{\nano\meter} line at LIBS temperatures), so it cannot be
+absorbed into the single global scale $s_\tau$. It is nonetheless \emph{off by
+default}: an A/B test on 38 spectra found neutral fit quality (median
+$\Delta r^2 = 0$) but composition swings exceeding \SI{20}{\percent} on $14$ of $38$
+samples, because with only the doublet-anchored channel active the factor re-tilts a
+near-degenerate alkali/self-absorption direction without adding constraint.
+
+\subsection{Temperature from stage consistency}
+\label{sec:theory-thermometer}
+
+The amplitude objective is nearly flat in the plasma state, a fact that forces the
+choice of thermometer. Because each (element, stage) density is a free unknown
+(Section~\ref{sec:theory-saha}), the Saha fractions only \emph{scale} the design
+columns, and a free per-stage density absorbs any scale. The search therefore sees
+$T$ only through within-stage Boltzmann ratios---weak when the observed lines share
+similar upper levels---and sees $\nel$ essentially not at all. Measured on a synthetic
+Ca/Mg scene whose truth is \SI{10}{\kilo\kelvin}, the amplitude cost varies less than
+\SI{1}{\percent} between $5.5$ and \SI{10}{\kilo\kelvin} and leans cold.
+
+\alibz{} instead fixes $T$ by \emph{stage consistency}. At the true $(T,\nel)$ the
+independent per-stage estimates of one element agree, because they measure the same
+nuclei through the Saha fractions built into the columns; at a wrong state they do
+not. For each element with at least two observed stages, \alibz{} takes the element's
+own residual (observations minus every other species' fitted contribution) and fits
+it twice---\emph{free}, one non-negative density per stage, and \emph{tied}, one
+density through the summed stage columns---and charges the difference:
+%
+\begin{equation}
+  \label{eq:tie-cost}
+  C_\mathrm{tie}(T,\nel) =
+    \sum_\mathrm{el}\max\!\bigl(0,\;
+      \chi^2_\mathrm{tied} - \chi^2_\mathrm{free}\bigr),
+\end{equation}
+%
+evaluated in the same squared units as the data misfit against the ungated design
+matrix, with unit weight so the physics is trusted exactly as much as the data. On
+the Ca/Mg synthetic the tie cost is $360$ at the truth node, against
+$3.7\times10^3$ at the nearest point of the Saha degeneracy ridge and $2.6\times10^6$
+at the state the amplitude objective alone preferred. Two-element thermometry leaves
+a residual ridge along which $(T,\log_{10}\nel)$ trade off
+($\SI{7}{\kilo\kelvin}/10^{15} \approx \SI{10}{\kilo\kelvin}/10^{17}
+\approx \SI{17.5}{\kilo\kelvin}/10^{19}$); pairs with strong emissivity contrast
+break it (the Si/K emissivity ratio changes $\sim$\num{2.5}$\times$ per
+\SI{1000}{\kelvin}). A coarse $(T,\log_{10}\nel)$ grid seeds the optimizer by default,
+and the reported composition remains the untied free solve, with $D_\mathrm{el}$ of
+Equation~\eqref{eq:stage-disagreement} exposed as a diagnostic.
+
+\subsection{The whole-pattern inverse problem}
+\label{sec:theory-inverse}
+
+The inverse problem is to recover concentrations and the plasma state from the full
+pattern of fitted line areas, not from a handful of selected lines. Let
+$\mathbf{y}$ be the vector of observed peak areas and let the design matrix
+$\mathbf{A}(T,\nel)$ have one column per (element, stage) candidate, each column the
+stacked emissivities of Equation~\eqref{eq:emissivity} (compressed by the escape
+factor of Equation~\eqref{eq:escape} where self-absorption is active). At fixed
+$(T,\nel)$ the concentrations $\mathbf{c}$ solve a weighted non-negative least-squares
+(WNNLS) problem \citep{lawson1995nnls,bro1997nnls},
+%
+\begin{equation}
+  \label{eq:wnnls}
+  \hat{\mathbf{c}} = \argmin_{\mathbf{c}\ge 0}
+    \sum_j \left(\frac{y_j - [\mathbf{A}\mathbf{c}]_j}{\sigma_{\mathrm{eff},j}}\right)^2,
+\end{equation}
+%
+and an outer Gaussian-process optimizer \citep{jones1998ego} searches over
+$(T,\nel,\sigma,\gamma)$ using the thermometer of Equation~\eqref{eq:tie-cost} (\texttt{peaky\_indexer\_v3}, built on
+\citealp{harris2020numpy} and \citealp{virtanen2020scipy}). Non-negativity is the
+physical statement that no line can have negative emission.
+
+The effective per-peak variance is not the raw fit variance. \alibz{} floors it so
+bright lines cannot claim fictitious precision:
+%
+\begin{equation}
+  \label{eq:sigma-eff}
+  \sigma_{\mathrm{eff},j}^2 =
+    \sigma_{\mathrm{GLS},j}^2
+    + (0.05\,y_j)^2
+    + \sigma_\mathrm{floor}^2
+    + \frac{y_j}{g},
+\end{equation}
+%
+where $\sigma_{\mathrm{GLS},j}$ is the statistical sigma from the peak fit, the
+\SI{5}{\percent} term is a fitting-procedure noise floor, $\sigma_\mathrm{floor}$ an
+additive floor required because the generalized-least-squares sigma collapses on quiet
+regions, and $y_j/g$ a provisional Poisson term (count gain $g=1$). The weighted solve
+is opt-in; without supplied per-peak sigmas the model reduces to the historical
+unweighted solve. On a synthetic Ca/Mg scene (truth $0.60/0.40$) the weighted solve at
+the true state returns $0.611/0.389$, against $0.764/0.236$ unweighted. Because the
+measured noise model is dominated by model inadequacy---the fit explains only
+$\sim$\SI{9}{\percent} of $\chi^2$ on synthetics---absolute $r^2$ is not a reliable
+score, and \alibz{} compares competing basins by $\Delta\chi^2$ and $\Delta$BIC
+\citep{schwarz1978bic} rather than by $r^2$.
+
+Per-element totals are formed by a tied non-negative one-dimensional re-solve of each
+element's stages against its own residual; when the stages have disjoint support this
+reduces exactly to the $\lVert\mathbf{A}_{:,s}\rVert^2$ precision-weighted average of
+the per-stage estimates, which is well defined even when stages blend and avoids the
+arbitrary vertex split that averaging raw NNLS coefficients would inherit.
+
+Three further guards make the solve honest about what it can and cannot claim. First,
+\emph{detectability}: an element enters the composition only if its strongest predicted
+line clears
+%
+\begin{equation}
+  \label{eq:detect}
+  z = \max_j \frac{[\mathbf{A}_{:,\mathrm{el}}\,\hat{\mathbf{c}}]_j}{\sigma_{\mathrm{eff},j}}
+    \ge 3,
+\end{equation}
+%
+the score-test statistic for $c_\mathrm{el}>0$ against the local per-peak area noise
+(\texttt{ELEMENT\_DETECT\_Z\_MIN}). A logistic presence probability and a regularized
+(ridge or spike-and-slab \citep{mitchell1988spikeslab,george1993ssvs}) solve are proposed
+but not built. Second, a
+\emph{basin-collapse guard}: a degenerate single-element basin can score better on raw
+$r^2$ than a plausible mixture (measured: a Bi-only vertex scored $r^2=0.53$ against a
+plausible fit at $0.0$), so \alibz{} rejects a re-solve whose top element fraction
+newly reaches \texttt{COLLAPSE\_TOP\_FRACTION}$=0.9$.
+
+Third, a \emph{confounder contest} addresses near-collinear design columns, where the
+NNLS vertex hands all the flux in a shared window to one of two elements and the
+subsequent pruning makes the alternative unrepresentable---the error then certifies
+itself by dragging the fitted temperature. For each element $E$ with support and each
+rival $E'$, \alibz{} caps the rival by its own true negatives,
+%
+\begin{equation}
+  \label{eq:contest}
+  c_\mathrm{max}(E') =
+    \min_j \frac{y_j + 3\sigma_j}{T_j(E')},
+\end{equation}
+%
+over $E'$'s non-resonance lines only ($E_i>\SI{0.2}{\electronvolt}$, because resonance
+lines self-absorb and would understate the rival), where $T_j(E')$ is the rival's
+template response at peak $j$. A supporting peak of $E$ is \emph{contested} if some
+rival at its cap still covers at least half of it. The scan runs existentially over a
+corpus-plausible grid ($T\in\{6,8,10,12\}$\,kK $\times\;\log_{10}\nel\in\{16.5,17.5\}$)
+against the pre-prune candidate table, never only at the fitted state. An element all
+of whose support is contested is demoted to \texttt{confounded}; resolution credits it
+only its clear flux and reattributes the contested remainder to the rival that can
+globally host it, with the response ratio clamped at $1$ (no mass creation) and bounded
+by the rival's own evidence. On a drill-core sample this moved Mn from
+\SI{53}{\percent} to $0$ and Mg from \SI{8}{\percent} to \SI{31}{\percent}, while
+genuinely independent detections were untouched. The full joint re-solve of a many-way
+confounded group remains future work.

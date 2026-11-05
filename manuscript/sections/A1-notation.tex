@@ -1,0 +1,36 @@
+\section{Notation}
+\label{app:notation}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llp{0.58\linewidth}@{}}
+\toprule
+Symbol & Units & Meaning \\
+\midrule
+$T$ & K & excitation (and, under A1, ionization) temperature of the plasma \\
+$\nel$ & cm$^{-3}$ & electron density; carried internally as $\log_{10}\nel$ \\
+$z$ & -- & ionization stage ($z=1$ neutral) \\
+$N_z$, $f_z$ & cm$^{-3}$, -- & number density of an element in stage $z$ and its fraction, Eq.~\eqref{eq:stage-fraction} \\
+$U_z(T)$ & -- & partition function of stage $z$, Eq.~\eqref{eq:partition} \\
+$g_k$, $E_k$ & --, eV & statistical weight and energy of level $k$; $E_i$ the lower level of a line \\
+$gA_j$ & s$^{-1}$ & $g_kA_{ki}$ of line $j$ (database transition strength) \\
+$\chi_z$ & eV & ionization energy from stage $z$ to $z+1$ \\
+$\lambda_j$ & nm & air wavelength of line $j$ (vacuum below \SI{200}{\nano\meter}) \\
+$\varepsilon_j(T,\nel)$ & eV\,sr$^{-1}$ & line emissivity per emitter, Eq.~\eqref{eq:emissivity} \\
+$R(\lambda)$ & -- & instrument spectral response, Eq.~\eqref{eq:forward-line} \\
+$\sigma$, $\gamma$ & nm & Gaussian standard deviation and Lorentzian half-width of a Voigt profile \\
+$\tau$, $\tau_a$, $\delta$ & --, --, nm & optical depth; cold-absorber depth and shift in Eq.~\eqref{eq:sa-voigt} \\
+$\kappa_j$, $s_\tau$ & -- & per-line absorption factor and global optical-depth scale, Eq.~\eqref{eq:kappa} \\
+$f_\mathrm{SA}(\tau)$ & -- & escape factor $(1-e^{-\tau})/\tau$, Eq.~\eqref{eq:escape} \\
+$R_0$, $s_r$ & -- & optically thin doublet ratio and absorption-strength ratio, Eq.~\eqref{eq:doublet} \\
+$\mathbf{A}(T,\nel)$ & counts & design matrix, one column per (element, stage) template \\
+$\mathbf{y}$, $\mathbf{c}$ & counts, -- & observed peak areas and non-negative concentrations, Eq.~\eqref{eq:wnnls} \\
+$\sigma_{\mathrm{eff},j}$ & counts & effective per-peak area uncertainty, Eq.~\eqref{eq:sigma-eff} \\
+$z_\mathrm{det}$ & -- & detection score of an element's strongest predicted line, Eq.~\eqref{eq:detect} \\
+$D_\mathrm{el}$ & -- & stage disagreement, Eq.~\eqref{eq:stage-disagreement} \\
+$C_\mathrm{tie}$ & counts$^2$ & stage-consistency (thermometer) cost, Eq.~\eqref{eq:tie-cost} \\
+$c_\mathrm{max}(E')$ & -- & true-negative cap on a rival element in the confounder contest, Eq.~\eqref{eq:contest} \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,42 @@
+\section{Conclusions}
+\label{sec:conclusions}
+
+We have set out the theoretical basis, the assumptions, the processing workflow,
+the datasets and the fit metrics behind \alibz, an open-source toolkit for
+calibration-free quantification of laser-induced breakdown spectra by
+whole-pattern forward modelling. The model is a non-negative linear combination
+of Saha--Boltzmann element--ion templates evaluated at a shared plasma state, with
+a single line-intensity convention shared by the forward and inverse directions,
+independent ion stages whose disagreement is reported rather than suppressed, a
+stage-consistency thermometer that fixes the temperature where amplitudes cannot,
+Balmer-line Stark widths or an explicit prior for the electron density, and
+self-absorption handled by resolved-profile fits and doublet-ratio inversion. The
+inverse solve is guarded by a noise-relative detectability gate, a basin-collapse
+guard and a true-negative contest that resolves spectral confounders.
+
+Eleven assumptions are stated with their status. Those that most often fail
+silently in calibration-free LIBS, namely optical thinness, single-plasma stage
+consistency, confounded attribution and wavelength registration, are tested at
+run time; the local-thermodynamic-equilibrium criterion, the absolute spectral
+response, the atomic-data accuracy and the line-spread shape are not yet tested
+and are named as such. On synthetic spectra the method recovers temperature,
+composition and, when anchored, electron density; on real single shots of a
+heterogeneous lithium mudrock the closed-sum quantification was rejected by its
+own pre-registered gate while the relative element profiles validated against
+independent measurements; and on pure-element standards measured with a handheld
+analyser the plasma temperature, the resonance-doublet optical depths and the
+wavelength registration are now characterised on a corrected axis.
+
+A first literature-driven round, scored on a fixed panel with a solve at the known true state as
+well as end to end, exposed and corrected a replication defect in the whole-pattern design matrix
+and adopted tabulated partition functions and the Debye ionization-potential correction as
+defaults; it also showed that a physically correct ingredient can be penalised by a round trip when
+a compensating error is removed, which is why the panel keeps a solve at the known state.
+The open gates are explicit: composition invariance between argon and air,
+pure-element standards for the plasma physics, and certified reference materials
+for the composition solve. The same forward model that underlies the solver is the
+training-data source for a planned synthetic-trained transformer, and the
+diagnostics defined here are intended to score that model on the same footing.
+Every number in this paper carries, in the source of the manuscript, the path of
+the report, test or notebook that produced it, and the repository that produced
+them is public.

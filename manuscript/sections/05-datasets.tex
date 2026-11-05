@@ -1,0 +1,83 @@
+\section{Datasets}
+\label{sec:datasets}
+
+The validation strategy of this work is a ladder of increasing realism and decreasing certainty about ground truth (Section~\ref{sec:results}): synthetic spectra for which every plasma parameter is known by construction; real spectra of a lithium-bearing mudrock and of drill-core samples for which no assay is held in the repository; and pure-element standards measured on a handheld LIBS analyzer, for which the composition is known but the matrix is far from geological. Table~\ref{tab:datasets} lists every dataset used, its role, and what, if anything, constitutes ground truth. Throughout, ``repository'' means the \alibz{} source tree; several datasets are too large to be committed and are identified by a pointer instead.
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Datasets used in this work. ``Role'' is development (used to tune or debug the pipeline), validation (held out from tuning), or calibration (used to estimate instrument properties). Ground truth ``none'' means that no assay or certified composition is available; vendor composition summaries, where they exist, are treated as uncalibrated comparisons only. Paths are relative to the repository root.}
+\label{tab:datasets}
+\begin{tabular}{@{}p{1.05cm}p{2.7cm}p{1.3cm}p{2.3cm}p{1.7cm}p{2.6cm}p{3.2cm}@{}}
+\toprule
+Name & Instrument and grid & $n$ spectra & Target & Role & Ground truth & Repository location \\
+\midrule
+Suite S & \alibz{} explicit-stage generator, native Z300-like grid (per-segment pitch) & 5 named cases, seeded & Ca/Mg binary; Si--Ca--Fe--Mg; Si--Al--K--Na; Fe--Ti--Ca; Ca/Mg in argon ambient & Development; regression gate & By construction: composition, $T$, $\log_{10}\nel$, seed % src: bench/synth_cases.py (CASES), alibz/synthetic.py (render default ChannelGrid.native)
+ & \texttt{bench/\allowbreak synth\_\allowbreak cases.py}; \texttt{tests/\allowbreak test\_\allowbreak roundtrip\_\allowbreak synthetic.py} \\
+NIST-backed benchmark & NIST-line forward model; \SIrange{370}{600}{\nano\metre} at \SI{0.02}{\nano\metre} (defaults) & 3 cases per default run & Random 3--7 element sparse mixtures; $T$ drawn in 7--\SI{13}{\kilo\kelvin}, $\log_{10}\nel$ in 16--17.3 % src: bench/benchmark.py (sample_composition, sample_theta, run_benchmark defaults)
+ & Engine comparison & By construction: $T$, $\nel$, composition & \texttt{bench/\allowbreak benchmark.py}; \texttt{bench/\allowbreak nist\_\allowbreak forward.py} \\
+MW2-112 & Vendor export, 23\,431 points, 180--\SI{961}{\nano\metre}, $1/30$\,\si{\nano\metre} % src: docs/mw2_112/provenance.md (Raw observations)
+ & 929 single-pulse shots, IDs 989--1917 % src: docs/mw2_112/provenance.md
+ & Finely stratified lithium mudrock, \SI{100}{\micro\metre} step profile & Development and production-gate case & None; 927 vendor summaries as uncalibrated comparison % src: docs/mw2_112/analysis_plan.md (Input audit)
+ & \texttt{docs/\allowbreak mw2\_\allowbreak 112/\allowbreak }; raw spectra outside repository \\
+JChristensen & Vendor export, same 23\,431-point grid % src: docs/transformer_plan.md (MW2-112 and JChristensen exports each contain 23,431 rows)
+ & 38 % src: docs/development_guide.md (Measured on JChristensen (38 spectra))
+ & Drill-core samples (MDD series) & Development (confounders, basin collapse) & None in repository & Raw spectra outside repository; default path in \texttt{scripts/\allowbreak fit\_\allowbreak inspector.py} \\
+Remote samples & Vendor export, 23\,431 points % src: data/remote_samples/*.csv (23432 lines each incl. header)
+ & 5 & REE\_01, REE\_44, scan9x9, user\_spec1, argon\_noAr & Native-grid recovery; thermometer behavior & None & \texttt{data/\allowbreak remote\_\allowbreak samples/\allowbreak } (local, not under version control) \\
+Z300 corpus & SciAps Z300 AverageSpectrum exports & 4\,909 surveyed; 435 with strong continuum % src: corrections/detector.json (segment_response_fallback.provenance)
+ & Mixed geological and reference samples & Calibration (620~nm response step, noise statistics) & None & Raw spectra on a lab file server, not in repository; summary in \texttt{corrections/\allowbreak detector.json} \\
+Archive survey & Vendor exports of several grid formats & 8\,213 spectra % src: reports/2026-09-20-alibz-review.md (Moissanite archive runs)
+ & Archive of earlier campaigns & Native-grid recovery statistics & None & \texttt{reports/\allowbreak 2026-09-20-alibz-review.md} \\
+Whole-rock prior & Compilation tables & 1\,022\,092 samples reported % src: docs/whole_rock_prior.md
+ & Global whole-rock geochemistry & Scene prior for synthetic training data & Literature compilation & \texttt{db/\allowbreak whole\_\allowbreak rock\_\allowbreak prior\_\allowbreak v1.npz}; manifest in \texttt{db/\allowbreak } \\
+Fe standard & Z300-0915, native grid, 5\,848 points, 187.8--\SI{950.7}{\nano\metre} % src: cal/reports/2026-09-24-fe-calibration-plasma-analysis.md (Data)
+ & 26 runs, 252 shots % src: cal/reports/2026-09-24-fe-calibration-plasma-analysis.md (Data)
+ & Fe, Aesar 99.98\% % src: cal/README.md (Studies)
+ & Calibration and validation of line physics & Nominal purity & \texttt{cal/\allowbreak reports/\allowbreak }, \texttt{cal/\allowbreak scripts/\allowbreak }; shots on lab server \\
+V standard & Z300-0915, native grid & Run~2: 59 batches in a $5\times4$ delay--period grid, 3 replicates % src: cal/reports/2026-09-24-vanadium-timing-study.md (header)
+ & Pure V metal & Calibration (timing, self-absorption) & Pure element, purity not recorded in repository & \texttt{cal/\allowbreak reports/\allowbreak }, \texttt{cal/\allowbreak data/\allowbreak }; shots on lab server \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Synthetic data}
+
+Two generators provide synthetic ground truth, and they serve different purposes. The first is the explicit-stage generator of \alibz{} itself (module \texttt{alibz.synthetic}), which takes ion-stage abundances directly and applies no Saha balance. Because the inverse model assumes Saha equilibrium, a round trip through it with arbitrary stage abundances would carry model mismatch unrelated to the engine under test. Suite~S (\texttt{bench.synth\_cases}) therefore first converts element fractions into stage fractions through the Saha equation at the scene's $(T,\nel)$ and then renders the scene. Its five frozen cases are a Ca/Mg binary, a four-element silicate-like mixture, an alkali-bearing feldspar-like mixture that exercises the K/Na resonance self-absorption degeneracy, an iron-rich low-temperature mixture, and the binary rendered in an argon ambient. Case names are stable because the scoreboard history is keyed on them; each case is replayable from its composition, $T$, $\log_{10}\nel$, and seed. Rendering scales are matched to SciAps exports (bright lines in the $10^3$--$10^4$ count range, near-zero vendor-subtracted pedestal) % src: bench/synth_cases.py (DEFAULT_EMISSION_SCALE comment)
+.
+
+The second generator, in \texttt{bench.benchmark}, draws random sparse compositions and plasma parameters from the NIST-backed forward model of \texttt{bench.nist\_forward} and is used to score two inverse engines on identical data. It was built for a head-to-head comparison in which one engine is handed the candidate element set and the other must discover elements from the full 92-element database; the scorer therefore reports false positives as well as true-element recovery. The prototype engine that this benchmark compared against has since been removed from the source tree, and case generation in the harness still depends on that prototype, so the harness cannot currently be run as written (Section~\ref{sec:results}).
+
+Synthetic training data for the planned learned model are drawn from a natural-composition scene prior fitted to the global whole-rock compilation of Gard et al.~\cite{gard2019wholerock}. The paper reports 1\,022\,092 samples, whereas the pinned release tables contain 1\,023\,490 sample rows; both counts are recorded in the repository rather than reconciled % src: docs/whole_rock_prior.md
+. The compilation is heterogeneous and dominated by igneous rocks, so the prior encodes plausible, not representative, compositions.
+
+\subsection{Real geological spectra}
+
+MW2-112 is a finely stratified lithium mudrock profiled at a \SI{100}{\micro\metre} step with a laser spot of approximately \SI{50}{\micro\metre} % src: docs/mw2_112/provenance.md; docs/mw2_112/analysis_plan.md (G1)
+. The 929 spectra are consecutive single pulses (IDs 989--1917, with no within-position replicates), exported on the vendor grid of 23\,431 points; the active range is 190--\SI{910}{\nano\metre}. One spectrum (ID 1632) is identically zero and is retained in the inventory as a failed observation rather than as zero abundance, and two acquisition breaks (four and 176 minutes) are recorded % src: docs/mw2_112/analysis_plan.md (Input audit)
+. The vendor composition summaries cover 927 of the 929 spectra and are used only as an uncalibrated comparison. Gate delay, gate width, atmosphere, and pulse energy are not recorded in the exports % src: docs/mw2_112/analysis_plan.md (G1)
+. The principal product of that campaign is therefore a within-element relative profile, not a bulk composition.
+
+The JChristensen set comprises 38 spectra from drill-core samples on the same export grid. It served as the development ground for two of the failure modes in Section~\ref{sec:results} (confounded attribution of Mn and Mg, and single-element basin collapse) because both were first observed there. Neither dataset has an assay in the repository; for both, correctness is judged by internal consistency, by synthetic round trips that reproduce the failure, and by within-element agreement with independent vendor summaries.
+
+The five files in \texttt{data/remote\_samples} (REE\_01, REE\_44, scan9x9, user\_spec1, and argon\_noAr) are retained locally as small test cases of real vendor exports; the directory is excluded from version control (\texttt{.gitignore} rule \texttt{data/}), so they are identified by name and checksum rather than committed % src: .gitignore line 30; manuscript/data/showcase.json (user\_spec1 sha256)
+. They were used to develop native-grid recovery and to compare the pipeline before and after the stage-consistency thermometer; none has a reference composition % src: reports/2026-09-21-stage-consistency-thermometer.md (What remains unverified)
+. A larger corpus of Z300 \texttt{AverageSpectrum} files, of which 4\,909 were surveyed, supplied the empirical VIS-to-NIR throughput step at \SI{620}{\nano\metre} used as a fallback response when a spectrum's own continuum is too weak to measure it (median 3.9, interquartile range 3.0--5.2, from 435 spectra with adequate continuum) % src: corrections/detector.json (segment_response_fallback.provenance)
+. A separate survey of 8\,213 archive spectra characterized the vendor export formats (97.9\% on the standard $1/30$\,\si{\nano\metre} grid) % src: reports/2026-09-20-alibz-review.md (Moissanite archive runs)
+.
+
+\subsection{Pure-element standards on the Z300}
+
+The calibration campaign measured high-purity elemental metals one at a time on a SciAps Z300 (unit Z300-0915) % src: docs/z300_device_notes.md (sec. 1)
+, using the native detector grid with no resampling. The iron study comprises 26 runs and 252 shots on Aesar 99.98\% Fe, acquired with argon pre-flush and gated detection, partly on a single reused site (to follow crater depth) and partly on fresh raster sites % src: cal/reports/2026-09-24-fe-calibration-plasma-analysis.md (Data)
+. The vanadium studies comprise a first replicated delay/period grid and a second $5\times4$ grid with three replicates; the second suffers from a design confound (one raster lap per delay value, so that delay and crater depth are aliased), which is documented and which limits the conclusions that can be drawn from it % src: cal/reports/2026-09-24-vanadium-timing-study.md (design confound)
+. These datasets are the only ones in this work with a known composition measured on the target instrument, but a pure metal is a severe test of line physics (dense line forests, optically thick resonance lines) and a weak test of matrix handling.
+
+All Z300 native spectra used here were re-derived after the discovery that the pixel-to-wavelength map had omitted a fixed offset of 18 detector pixels, which had labeled every line about 1.6--\SI{3.3}{\nano\metre} too blue % src: reports/2026-09-23-native-axis-18px-offset.md
+. Results obtained before the correction (reports dated 2026-09-22 and 2026-09-23) are superseded, and only the corrected-axis analyses are used below.
+
+\subsection{Datasets not yet available}
+
+No certified reference materials have yet been measured, so no result in this work is an accuracy statement against a certified composition. Likewise, the planned argon-versus-air composition-invariance test has so far been exercised only on synthetic scenes (the argon-ambient case of Suite~S); the acquisition of a dedicated argon-rich series on a non-argon-bearing target is recorded as a prerequisite for a multi-line near-infrared registration % src: DECISIONS.md (2026-09-23 Two argon wavelength engines, item d)
+.
