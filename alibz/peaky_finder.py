@@ -16,6 +16,7 @@ from sklearn.preprocessing import PowerTransformer
 from alibz.utils.dataloader import Data
 from alibz.utils.voigt import voigt_width as _voigt_width, multi_voigt as _multi_voigt
 from alibz.utils.native_grid import segment_pitch_array as _segment_pitch_array
+from alibz.utils.peakfit import instrument_sigma_px as _instrument_sigma_px
 
 
 class PeakyFinder():
@@ -42,6 +43,21 @@ class PeakyFinder():
     #: final significance gate: a fitted peak survives if its implied height
     #: exceeds this many local point-noise sigmas
     MIN_HEIGHT_SIGMA = 2.0
+
+    #: Gaussian FWHM / sigma.
+    _FWHM_PER_SIGMA = 2.0 * np.sqrt(2.0 * np.log(2.0))
+
+    #: A detected line cannot be narrower than the instrument LSF.  On the
+    #: native Z300 grid (per-segment pitch ~0.089/0.129/0.179 nm, LSF FWHM
+    #: ~1.4/1.4/1.65 px) a resolution-limited line spans only 1-2 samples, so
+    #: ``peak_parameter_guess`` measures a FWHM near the pitch and the equal
+    #: Gaussian/Lorentzian seed split (``_voigt_seed``) puts BOTH width channels
+    #: below half a pixel.  The export-grid width gates (per-channel
+    #: ``< key_inc/2`` then "both zero -> drop") then silently discard the line.
+    #: On the native grid the retention test is made on the COMBINED Voigt width
+    #: against this fraction of the instrument FWHM instead (see ``fit_spectrum``);
+    #: anything narrower than half the instrument LSF is a sub-resolution spike.
+    NATIVE_MIN_FWHM_FRACTION = 0.5
 
     def __init__(self, data_dir) -> None:
         """Initialize the finder and load data.
@@ -74,6 +90,18 @@ class PeakyFinder():
         use_gpu = getattr(self, '_use_gpu', None)
         return _multi_voigt(x, params, use_gpu=use_gpu)
     
+
+    @classmethod
+    def _instrument_fwhm_px(cls, wavelength):
+        """Instrument LSF FWHM in native pixels at ``wavelength``.
+
+        The per-segment Gaussian sigma (``alibz.utils.peakfit``) is the measured
+        lower-envelope line width; a real emission line cannot be narrower.  The
+        value is in NATIVE pixels, so multiplying by the local pitch gives the
+        physical FWHM in nm, and using it as a ``peak_parameter_guess`` FWHM (in
+        sample units) floors a seed at the instrument resolution on any grid.
+        """
+        return float(_instrument_sigma_px(float(wavelength))) * cls._FWHM_PER_SIGMA
 
     def voigt_width(self, sigma, gamma):
         """Return the approximate FWHM of a Voigt profile.
@@ -1062,9 +1090,37 @@ class PeakyFinder():
 
                     except (RuntimeError, TypeError, ValueError) as e:
                         print(f"An error occurred during initial fitting: {e}")
-        
+
+            elif _pf_native:
+                # Narrow window (<= 5 samples) on a genuine native grid.  The
+                # cumulative-integral sub-peak split above needs several samples
+                # to run, which native resolution-limited lines (FWHM ~1-2 px)
+                # do not provide -- but the detected peak is REAL and must not be
+                # discarded.  The previous code had no else-branch, silently
+                # dropping 85/96/76 % of UV/VIS/NIR native detections including
+                # the strong Fe I VIS lines (reports/2026-11-04-fe-hot-basin-
+                # root-cause.md).  Seed the single peak directly, exactly as the
+                # fast path seeds in-window sub-peaks, flooring the width at the
+                # instrument LSF (a line cannot be narrower; a sub-pixel measured
+                # FWHM is an under-estimate of a resolution-limited line).  On a
+                # uniform / vendor-export grid ``_pf_native`` is False, so this
+                # branch never runs and the export path is byte-identical.
+                key = int(p)
+                if (key not in peak_dictionary
+                        and np.isfinite(full_max) and full_max > 0.0
+                        and np.isfinite(fwhm) and fwhm > 0.0):
+                    fwhm_seed = max(float(fwhm), self._instrument_fwhm_px(float(x[key])))
+                    seed = build_voigt_guess(key, full_max, fwhm_seed)
+                    capk = _cap_at(key) * (self.H_CAP_RELAX
+                                       if any(abs(float(x[key]) - h) < 3.0
+                                              for h in self.H_BALMER_NM)
+                                       else 1.0)
+                    seed[2] = min(seed[2], capk / 2.3548200450309493)
+                    seed[3] = min(seed[3], capk / 2.0)
+                    peak_dictionary[key] = seed
+
         return peak_dictionary
-    
+
 
     def _fwhm_cap(self, x, y, peak_indices, at=None):
         """Width cap for window fits (see FWHM_CAP_FACTOR), in x-units.
@@ -1492,16 +1548,38 @@ class PeakyFinder():
         for key, value in peak_dictionary.items():
             min_height = self.MIN_HEIGHT_SIGMA * float(noise_local[int(np.clip(key, 0, noise_local.size - 1))])
             key_inc = _local_inc(key)
-            if value[2] < key_inc / 2:
-                value[2] = 0
-            if value[2] > 100 * median_fwhm:
-                value[0] = 0
-            if value[3] < key_inc / 2:
-                value[3] = 0
-            if value[3] > 100 * median_fwhm:
-                value[0] = 0
-            if value[2]==value[3]==0:
-                value[0] = 0
+            if not _fs_native:
+                # Uniform / vendor-export grid: unchanged width gates.  Each
+                # width channel below half a pixel is snapped to zero and a peak
+                # whose BOTH channels collapse is dropped.  Byte-identical to the
+                # pre-fix behaviour (``_fs_native`` is False on every uniform or
+                # 1/30 nm export grid).
+                if value[2] < key_inc / 2:
+                    value[2] = 0
+                if value[2] > 100 * median_fwhm:
+                    value[0] = 0
+                if value[3] < key_inc / 2:
+                    value[3] = 0
+                if value[3] > 100 * median_fwhm:
+                    value[0] = 0
+                if value[2]==value[3]==0:
+                    value[0] = 0
+            else:
+                # Native grid: the per-channel half-pixel gate above would zero
+                # BOTH width channels of a resolution-limited line (the equal
+                # Gaussian/Lorentzian seed split puts each channel at ~0.36/0.43
+                # px for a 1.4 px instrument FWHM) and so drop it.  Test the
+                # COMBINED Voigt width against the instrument LSF instead: a real
+                # line's width >= the LSF, and anything narrower than
+                # NATIVE_MIN_FWHM_FRACTION of it is a sub-resolution spike.  The
+                # fitted widths are kept as-is (both channels are needed to carry
+                # a narrow line); the ultra-broad junk cap is unchanged.
+                instr_fwhm_nm = self._instrument_fwhm_px(float(x[int(np.clip(key, 0, x.size - 1))])) * key_inc
+                combined_fwhm = float(self.voigt_width(value[2], value[3]))
+                if value[2] > 100 * median_fwhm or value[3] > 100 * median_fwhm:
+                    value[0] = 0
+                elif combined_fwhm < self.NATIVE_MIN_FWHM_FRACTION * instr_fwhm_nm:
+                    value[0] = 0
             if value[0] > 0 and min_height > 0:
                 peak_value = voigt(0.0, max(value[2], key_inc / 2), max(value[3], key_inc / 2))
                 if value[0] * peak_value < min_height:

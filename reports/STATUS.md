@@ -1,3 +1,99 @@
+# 2026-11-05 11:30: GATE FIXED (export byte-identical, suite 695 green) BUT Fe FLIPS TO A HOT Na BASIN; three-part assumption survey DONE and synthesised; nothing committed
+
+- Gate fix in the working tree: `alibz/peaky_finder.py` (+90/−12), `tests/test_native_gate.py`, fixture `tests/fixtures/z300_fe_native_trimmed.json`, patch `reports/patches/2026-11-05-native-gate.patch`; report `reports/2026-11-05-native-gate-fix.md`; panel `reports/fit-panel/gate-{base,fix}-prod.json` + `2026-11-05-gate-compare-prod.md` (synthetic + real EXACTLY unchanged; fe regressed 8/18 on fe_fraction because the solve now lands in a Na 0.81 / Fe 0.12 basin at 20.9 kK). F5 re-rendered from the new cache; `manuscript/sections/07-results.tex` F5 caption/prose NOT yet re-derived (still describes the Fe II-only solve).
+- Survey synthesis: `reports/2026-11-05-pipeline-assumption-survey.md` (§3 verified findings F*/I*/G*, §3.4 gate outcome + fixed-state re-solves, §5 fix order). Parts: `reports/2026-11-05-survey-{finder,indexer-physics,pipeline-glue}.md`. Headline: one defect class — export-era constants on native data, no regime record, scored by an export-only panel (`ChannelGrid.native()` = 1/30 nm). Independent bugs: Saha fraction read by column position (Pr II/Tb II ≈ 1e-3, Gd I→hydrogen-like chain, H never ionises); 620 nm response = fallback 3.9 on 7/7 showcase runs; contest indexer uses library physics.
+- OPEN (owner): (a) commit/ship the finder fix (recommended: it is correct and export-safe; the Fe regression is a downstream defect the old table masked); (b) choose step 3 of §5 — VIS Fe I Boltzmann T as prior/box, hot-basin plausibility guard, tie-weight rescaling, or T re-optimisation on the final table; (c) native panel tier + regime record before further A/B adoptions (step 0); (d) Saha lookup-by-label + db REE coverage audit (step 4); (e) re-derive the F5 caption after (b). Remote trees moissanite `~/alibz-gate-base`, `~/alibz-gate` still present (delete after owner review; JSONs verified local).
+
+# 2026-11-04 16:44: FE HOT BASIN ROOT CAUSE FOUND — native-grid fit_peaks window gate; VIS Fe I thermometer proposal assessed; no code changed
+
+- Owner asked whether the VIS Fe I thermometer should replace the whole-pattern T when enough VIS lines exist (Fig. F5). Diagnosis in `reports/2026-11-04-fe-hot-basin-root-cause.md`.
+- Root cause of the 20–25 kK Fe II-only solves on native Fe standards: `fit_peaks` seeds a detection only when its window has > 5 samples (alibz/peaky_finder.py:924, no else-branch). On the native Z300 pitch 85/96/76 % (UV/VIS/NIR) of detections have ≤ 5-sample windows → blind-fit table keeps 5 of 108 VIS detections → Fe I's strongest lines missing → `_prefilter_species_by_line_evidence` removes Fe I at any cold init → Fe II-only design → high-E_k Fe II forest basin (92 of 112 "Fe II" points have a flat Boltzmann slope). Exports (0.033 nm pitch) are unaffected (gate bites 0–16 %).
+- Imposing T = 11.5 kK on the current table makes the fit worse (r² 0.35 → 0.09); scratch-patched gate (> 2) restores VIS 5 → 40 peaks in the blind fit (not the full fix: later width/height filters still drop 4 of the 6 strongest Fe I VIS lines).
+- VIS Fe I thermometer precision: 7.7–11.5 kK depending on the robust clip; 365–900 nm set (16 lines, 2.98 eV) 10.6 ± 0.4 kK is the one that meets the campaign criterion. No within-segment response curve exists in the chain (only the 620 nm step, fallback 3.9 on this run).
+- OPEN (owner decision): (1) fix the native-grid window gate + re-run the Fe panel and F5 (specialist brief; expect the stage-tie thermometer to recover its Fe I vote); (2) then implement the line-selected VIS thermometer as a T prior/box in the outer search (gated n ≥ 8, span ≥ 2.4 eV); (3) re-derive the F5 caption/07-results Fe prose after (1).
+
+# 2026-11-04 15:30: MANUSCRIPT FIGURES F1–F5 FROM REAL DATA — stage capture in production (OFF by default), showcase loader, JChristensen current-defaults survey; two findings (Fe hot basin vs Fe I Boltzmann; Mn/Mg contest now 6/38 at 3–10 %); nothing committed
+
+Plan + log: reports/2026-11-04-ms-figures-plan.md. Reports: 2026-11-04-w4-capture-stages.md, 2026-11-04-ms-showcase-data.md, 2026-11-04-w4-manuscript-figures.md. Suite on the capture tree: 691 passed, 10 skipped, 2 xfailed (21 min). `make` clean, 54 pp, five figures. Decisions in DECISIONS.md (2026-11-04 Manuscript figures). Open (owner): review + commit; 07-results "Confounder resolution" and the Fe temperature prose may be updated from the current survey/cache; Corpus_One drive re-attach; Elsevier key restriction; 9 stragglers.
+
+# 2026-11-04 10:40: WAVE 3 CLOSED — nothing adopted; three options kept behind OFF flags; merged tree base-identical; nothing committed
+
+Verdicts (coordinator-verified from reports/fit-panel/w3?-*.json; DECISIONS.md 2026-11-04 wave-3 entry): per-peak +
+per-line-Stark width kernel (`overlap_kernel="peak+stark"`) best at fast settings but MIXED at production (real r²
+0.489→0.509, binary dominant flip repaired; syn 0.170→0.174, Fe 0.563→0.545 on 14/26) → option, not default; outer
+polish (`outer_polish`) REJECT (Powell no-op at maxfev 40; Nelder–Mead lowers the objective 10–60 % yet moves T away
+from truth → objective minimum ≠ true state); two-T thermometer REJECT (δ rails on single-T truth); LTE gap flag NO-OP.
+All three patches applied (reports/patches/2026-11-04-w3{k,p,t}.patch); merged tree scored on moissanite as
+`w3-merged-base` = cpi-s3 on 36/36. Local full suite on the merged tree: 684 passed, 10 skipped, 2 xfailed, 71 subtests (29.5 min; = 668 + 6 + 5 + 5),
+ALIBZ_SKIP_ROUNDTRIP=1. Manuscript 07-results carries the wave-3 paragraph (49 pp). Reports: reports/2026-11-04-w3-{width-kernel,
+outer-polish,thermometer}.md. Remote scratch trees ~/alibz-w3{k,p,t} on moissanite DELETED 12:20 (owner request; all 14 panel JSONs verified against local copies first).
+Open (unchanged): Elsevier key restricted (46 previews), 9 stragglers, per-peak kernel revisit only with a model change
+that moves the objective minimum toward truth. Owner: review + commit.
+
+# 2026-11-04 09:30: WAVE 3 IN FLIGHT — three gated model options being scored on the panel; nothing committed
+
+Option plumbing added to the main tree (all OFF: `overlap_kernel="median"`, `outer_polish=None`/`outer_polish_maxfev=40`,
+`stage_temperature_offset_max_k=0.0`, `lte_gap_flag=False` in PeakyIndexerV3 / AnalysisConfig / analyze_spectrum /
+analyze_directory / CLI --overlap-kernel). Three agents implement in scratch copies (w3k/w3p/w3t under the session
+scratchpad) and score on moissanite trees ~/alibz-w3{k,p,t} (20 workers each), each first proving base-equality with
+reports/fit-panel/cpi-s3.json: A specialist — per-peak / per-line Stark width overlap kernel (the model target from
+reports/2026-11-04-forward-design-parity.md); B worker — Powell/Nelder–Mead polish of the outer state after the GP;
+C worker — two-temperature stage thermometer + McWhirter/Fujimoto LTE flag. Deliverables: reports/patches/2026-11-04-w3?.patch,
+reports/2026-11-04-w3-{width-kernel,outer-polish,thermometer}.md, reports/fit-panel/w3?-*.json. Coordinator then
+applies winning patches, re-runs suite + combined panel, records DECISIONS, updates manuscript. Gotcha: alibz/jobs is 17 GB
+(gitignored) — exclude jobs/ and runs/ when copying the tree; moissanite disk was at 100 % until fixed (51 GB free now).
+
+# 2026-11-04 12:40: A/B round CLOSED — defaults adopted, re-confirmed at fast AND production settings; nothing committed
+
+Adopted (pipeline/CLI defaults): overlap_mode=conserve, partition_source=barklem2016, ipd=debye. Two unflagged
+default changes (stage-coupling rows, Stark weight) found by bisection and gated OFF. Series-3 verdicts
+(reports/2026-11-04-ab-wave2-verdicts.md): syn 0.207→0.156, T err 0.082→0.069, real r² 0.471→0.478, stage
+dis. 0.515→0.500, Fe 0.404→0.546. Suite 668 passed + round-trip 5/5 on the gated tree. Manuscript 49 pp
+updated. Pending: prod2 (n_calls 40) confirmation on moissanite → manuscript numbers. NOT committed.
+Open: per-peak width kernel (model target), Elsevier key restricted (46 previews), 9 stragglers.
+
+# 2026-11-04 06:30: A/B round closed — defaults flipped (overlap_mode=conserve, partition_source=barklem2016,
+# ipd=debye at pipeline/CLI level); suite re-run in progress; nothing committed
+
+Evidence: reports/2026-11-04-ab-wave2-verdicts.md (fast settings) + reports/fit-panel/*-prod.json (n_calls 40):
+synthetic median rel err 0.205→0.147, real r² 0.477→0.486 (4/5), Fe standard 0.398→0.562 (14/26); cost: real
+stage disagreement worse 4/5. DECISIONS.md 2026-11-04 records adoptions and rejections. Open: wn family chain
+(moissanite), off-path drift bisection (worker), per-peak width kernel (model target), Elsevier key restricted
+(46 previews), 9 straggler PDFs. Manuscript 49 pp updated with the round. Owner: review + commit.
+
+# 2026-11-03 23:40: wave-1 A/B scored (nothing adopted); wave-2 = emission-conserving design matrix IN FLIGHT
+
+Verdicts: reports/2026-11-03-ab-wave1-verdicts.md. Root cause of composition bias at the true plasma state:
+design-matrix line replication over peaks (reports/2026-11-03-debug-composition-bias-at-truth.md). Specialist
+implementing `overlap_mode` ("conserve"/"nearest") with oracle-at-truth tests; then series 2 on moissanite
+(conserve × {partition, ipd, sparse, fdr05} + bo/bic variants) and defaults flipped only on measured gains.
+Corpus 89 verified PDFs; Elsevier key restricted (owner). Manuscript draft complete; results/discussion to
+be updated with the A/B round. Nothing committed.
+
+# 2026-11-03 16:30: Phase 2 — literature ingest (3 workers) + fit-quality A/B panel harness (worker) IN FLIGHT
+
+Corpus 139/148 PDFs (manuscript/lit/{downloads,fulltext}); lra fixed (breaker, Elsevier API, quiet mode, moissanite
+remote); manuscript draft complete (47 pp). Now: notes per paper → manuscript/lit/notes/; ranked ideas →
+reports/2026-11-03-lit-ingest-*.md; harness scripts/fit_quality_panel.py + baseline → reports/fit-panel/.
+Next: rank, implement top ideas behind flags, A/B on the panel, adopt winners. Nothing committed.
+
+# 2026-11-03 12:40: manuscript DRAFT COMPLETE under manuscript/ (47 pp, 157-entry bibliography); PDF fetch running
+
+All nine sections + two appendices drafted and coordinator-verified (reports/2026-11-03-manuscript-init.md has
+the verification log and open items). bib/{theory,cflibs,ml,local}.bib Crossref-verified, deduplicated
+(lit/key-aliases.txt). PDF fetch DONE: 75/148 captured with fulltext (6 arXiv via OA pass); 60 skipped on bot challenges (49 Elsevier) → owner re-runs
+manuscript/lit/fetch.sh --pause-on-challenge --challenge-timeout 180 interactively. NOT committed. Open: engine
+benchmark cannot run (bench depends on removed prototype); Ar-vs-air pair not staged; no CRMs measured;
+journal target Applied Spectroscopy to confirm; no figures yet.
+
+# 2026-11-03: manuscript initialised under manuscript/ (LaTeX, arXiv-ready); literature workers running
+
+Coordinator report reports/2026-11-03-manuscript-init.md. Skeleton compiles (main.tex + sections/ + bib/).
+Lit search -> bib/{theory,cflibs,ml}.bib + lit/sources-*.txt (Crossref-verified DOIs); PDF fetch via
+manuscript/lit/fetch.sh (lra, smoke-tested unattended on arXiv). Theory/assumptions drafter running
+(reports/2026-11-03-ms-theory.md). Next: workflow, datasets/metrics/results, intro drafts; fetch run;
+coordinator verification of every number against its report. Nothing committed yet.
+
 # 2026-09-24: everything committed; per-segment peak-location wiring IN PROGRESS
 
 alibz fix/z300-pixel-offset: c55e9a6 (cal/ campaign + corrected re-analyses + epsf; .gitignore !cal/data/),

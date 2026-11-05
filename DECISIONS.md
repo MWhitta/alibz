@@ -162,3 +162,96 @@ this data; (d) an argon-rich registration acquisition (50–100 shots on Al/Cu/
 glass) is the prerequisite for a multi-line NIR registration. Two of the closed
 session's tests were stale against its own code and updated. Evidence:
 `reports/2026-09-23-gas-registration-reconciliation.md`.
+
+## 2026-11-03 — Accuracy target recorded; manuscript initialised
+
+Recorded from the 2026-07-01 planning session so the manuscript can cite a repo
+source: the working definition of done for quantitative CF-LIBS is mass/mole
+fractions within about 20 % relative on MAJOR elements, validated first by
+composition invariance on the paired argon/air series and then on certified
+reference materials (none measured yet). The manuscript lives in `manuscript/`
+(LaTeX; arXiv then *Applied Spectroscopy*); every number in it must cite the
+repo report, test, notebook or commit that produced it, in a LaTeX comment on the
+same line. Literature is found by search workers, Crossref-verified, and fetched
+centrally with the literature-retrieval-agent (`manuscript/lit/fetch.sh`).
+Evidence: `reports/2026-11-03-manuscript-init.md`. No provider switch occurred.
+
+## 2026-11-03 — Literature-driven A/B round: nothing adopted yet; design matrix must conserve emission first
+
+Seven literature ideas were implemented behind default-OFF options (adaptive NN-LASSO, Huber IRLS,
+Barklem–Collet partition tables, Debye ionization-potential depression, BH/BY FDR on the detection
+score, Matérn/early-stop GP settings, effective-n BIC) and scored on a fixed fit-quality panel
+(`scripts/fit_quality_panel.py`: suite S, real sample spectra, Fe-standard run means) on moissanite.
+Verdicts in `reports/2026-11-03-ab-wave1-verdicts.md`: Huber rejected; FDR rejected as implemented;
+sparse neutral; IPD mixed; partition tables improve the Fe standard (0.40 → 0.56) and are physically
+correct but score worse on synthetics because they move the thermometer onto the true state.
+Root cause found there: `_build_observed_overlap_map` replicates each database line over every peak
+within the shift tolerance, so dense-forest elements are under-recovered (oracle areas at exact truth
+→ Ca 0.73 vs 0.60). Decision: build the emission-conserving design matrix (`overlap_mode`) as wave 2,
+re-score every variant on top of it, and only then flip defaults. Evidence:
+`reports/2026-11-03-debug-composition-bias-at-truth.md`, `reports/2026-11-03-debug-partition-roundtrip.md`.
+No provider switch occurred.
+
+## 2026-11-04 — Adopt emission-conserving overlap, Barklem–Collet partition functions and Debye IPD as pipeline defaults
+
+Scored on the fixed fit-quality panel on moissanite against a matching-code baseline (deterministic:
+identical code → identical metrics). Fast settings (reports/2026-11-04-ab-wave2-verdicts.md) and the
+production-settings confirmation (n_calls 40, draws 8; reports/fit-panel/{baseline,conserve-partition-ipd}-
+prod.json): synthetic median relative error 0.205 → 0.147 (better on 4/5 cases), real-spectrum r² 0.477 →
+0.486 (4/5), Fe-standard Fe fraction 0.398 → 0.562 (14/26) with spurious elements 1.08 → 0.92 (6/4); costs:
+real stage disagreement 0.457 → 0.487 (worse on 4/5), synthetic |T error| mixed (+3/−2). Defaults flipped
+at the pipeline/CLI level only (`AnalysisConfig`, `analyze_spectrum`, `analyze_directory`, `alibz-analyze`):
+`overlap_mode="conserve"`, `partition_source="barklem2016"`, `ipd="debye"`; library class defaults
+(`PeakyIndexerV3`, `SahaBoltzmann`, the synthetic generator) stay legacy/line-sum so existing tests and
+round trips keep their meaning.
+Not adopted (evidence in the same reports): Huber IRLS (worse everywhere), adaptive NN-LASSO (neutral),
+BH/BY FDR on detection (collapses the Fe standard), weighted+nearest (exact at the true state, bad
+end-to-end), nearest alone (exact at truth, worse end-to-end on synthetic error), Matérn/early-stop GP and
+effective-n BIC (mixed signs on 5-item panels; deferred). Known caveats: 5/5/26 items, one seed, Fe axis
+is a shifted approximation; `conserve` hallucinates ~1.5 % Dy/Pb/U at the true state on the silicate oracle
+where `nearest` is clean — the panel favours `conserve` end-to-end, so `nearest` waits for the per-peak
+width kernel (reports/2026-11-04-forward-design-parity.md, model target). Off-path numeric drift between
+option plumbings is being bisected (reports/2026-11-04-offpath-drift-bisection.md). No provider switch.
+
+### 2026-11-04 addendum — two unflagged default changes found and gated; adoption re-confirmed
+
+Bisection (reports/2026-11-04-offpath-drift-bisection.md) found two changes that had altered the default
+path without a flag during the A/B round: soft intra-element stage-coupling rows (`INNER_STAGE_COUPLING_
+WEIGHT = 0.15`) and `run(stark_width_weight=0.05)`. Both are now opt-in (`inner_stage_coupling_weight=0.0`,
+`stark_width_weight=0.0`, plumbed through `AnalysisConfig`/`analyze_spectrum`); HEAD-equivalence verified
+(binary 0.1701; series-3 `head` = series-1 baseline). Re-confirmation on the true baseline (fast settings,
+reports/2026-11-04-ab-wave2-verdicts.md, series 3): the adopted defaults improve synthetic median relative
+error 0.207→0.156, |T error| 0.082→0.069, real r² 0.471→0.478 (4/5), stage disagreement 0.515→0.500 (4/5),
+Fe fraction 0.404→0.546 (13/26). Stark coupling and stage-coupling rows stay OFF (mixed). Rule going
+forward: no default-path change without a flag and a panel score. Full fast suite on the gated tree: 668
+passed; round-trip gates 5/5.
+
+### 2026-11-04 — Manuscript figures from real data: showcase selection, stage capture, five figures; two findings
+- **Showcase spectra** (manuscript/data/showcase.json, loader scripts/showcase_data.py, sha256-verified): MW2-112 shot 1000; JChristensen MDD017-24-15 2nd #1, Alaskire MDD27, MDD017-29-2c #1; user_spec1; Fe standard runs idx 17 (fresh, d5 p25) and idx 9 (reused-spot failure). Chosen because each is already named in the manuscript text. The 4 909-file Z300 corpus drive (Corpus_One) is not attached to moissanite; four undocumented Drive campaigns (20250529LIBSAuto 1 462, mapping_01 1 513, NETL, paper_revision 3) were not used — no provenance in the repo.
+- **Stage capture in production** (`analyze_spectrum(capture_stages=True)` → `analysis["stages"]`, 13 keys): OFF by default, proven byte-identical when off (synthetic test + user_spec1 re-run), 691/691 suite. `scripts/fit_inspector.py::capture()` is a drifted copy of the chain and is not used for figures.
+- **Figures F1–F5** (`scripts/manuscript_figures.py`, cache `manuscript/figures/cache/` gitignored, regenerable): overview (user_spec1), stage walkthrough and refinement (MW2-112 1000), confounder contest (MDD017-29-2c #1), two thermometers on the Fe standard. Captions quote the cache JSON (`% src:`); `make` clean, 54 pp.
+- **Finding 1 (Fe standards):** the whole-pattern solve on native Fe data sits at 20–25 kK with nₑ at the H-alpha bound and assigns every Fe peak to Fe II (25/26 panel runs; the figure run 22.6 kK), while the line-selected Fe I VIS Boltzmann fit on the same spectrum gives 11.5 ± 0.4 kK (10 lines, 1.25 eV span, below the campaign's 2.4 eV resolution threshold) and the campaign median is 10.8 kK. F5 presents this as the two-thermometer discrepancy; it is a known failure mode, not a figure artefact.
+- **Finding 2 (JChristensen, current defaults):** a 38-spectrum CLI survey (conserve/barklem2016/debye, n_calls 40, draws 32; products in reports/jchristensen-20261104/) shows the Mn→Mg contest firing on 6/38 with Mn as-fit 0.03–0.10 → 0 resolved and Mn upper-limit on 10; the 2026-07 hot-Mn cases (40–53 %) no longer occur. The 07-results "Confounder resolution" prose still quotes the 2026-07 numbers as history; F4's caption states the current outcome. Median r² 0.78.
+- 05-datasets corrected: `data/remote_samples` is gitignored, not committable (identified by name and checksum).
+- Nothing committed (owner).
+
+### 2026-11-05 — Native-grid finder gate fixed; pipeline assumption survey; adoption decisions pending
+
+- **Applied (uncommitted, owner to review):** `fit_peaks` native-grid seeding gate and the per-channel width filter
+  (alibz/peaky_finder.py; `tests/test_native_gate.py`). Rationale: the `len(x_window) > 5` gate (from the 2025 export-era
+  scripts, packaged 2026-03-20) discarded 85–96 % of native detections; the width filter then zeroed resolution-limited
+  lines. Export behaviour is byte-identical by construction (`is_native` gate; verified on user_spec1/mw2_1000 and the
+  unchanged synthetic + real panels). Evidence: reports/2026-11-05-native-gate-fix.md.
+- **Not adopted as "better" on the Fe panel:** fe_fraction mean 0.563 → 0.287. Recorded as the exposure of a downstream
+  defect, not a regression of the finder: the solve now lands in a hot Na basin (20.9 kK, Na 0.81 from 4 Na I peaks)
+  while the stage-tie minimum and the VIS Fe I Boltzmann T agree at 10.6–11.5 kK (reports/2026-11-05-pipeline-
+  assumption-survey.md §3.4). The Fe panel headline is known to reward the hot basin (§3.3 G1).
+- **Survey verdict (owner question "patchwork of development attempts"):** one defect class — constants and width
+  references fixed on the 0.0333 nm export grid, applied to native data without a regime record, scored by a panel whose
+  synthetic and real items are all exports. Verified findings and a fix order are in the synthesis §3/§5. Rule proposed:
+  no further default adoptions until the panel has a native tier and records the grid regime and git head.
+- **Independent defects recorded (not fixed):** Saha ion fraction read by column position vs stage labels present in the
+  db (Pr II 0.0013, Tb II 0.0008, Gd I 0.72 chained to a hydrogen-like ion, H never ionises; 11 elements with no stage-I
+  lines); 620 nm response never measured (fallback 3.9 on 7/7 showcase runs); confounder-contest indexer built with
+  library physics (line-sum partition, no IPD); `evidence_max_missing_lines=6` absolute cap on peak-table absence.
+- No provider switch (Claude subscription throughout).
